@@ -1,17 +1,13 @@
 import React from "react";
-import { FaBars, FaBell, FaUserCircle } from "react-icons/fa";
+import { FaBell, FaUserCircle } from "react-icons/fa"; // Removed FaBars
 import "./AdminNavbar.css";
 
-const AdminNavbar = ({ onToggleSidebar }) => {
+const AdminNavbar = () => {  // Removed onToggleSidebar prop since it's no longer needed
   return (
     <header className="admin-navbar">
       <div className="navbar-left">
-        <button className="hamburger-btn" onClick={onToggleSidebar}>
-          <FaBars />
-        </button>
         <h2 className="navbar-title-nav">Admin</h2>
       </div>
-
       <div className="navbar-actions">
         <input
           type="text"

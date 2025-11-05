@@ -6,20 +6,26 @@ import Footer from "../components/Footer";
 import "./AdminLayout.css";
 
 const AdminLayout = () => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);  // Assuming false means collapsed (closed)
 
-  const toggleSidebar = () => setIsCollapsed(!isCollapsed);
+  const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
   return (
-    <div className={`admin-layout ${isCollapsed ? "collapsed" : ""}`}>
-      <Sidebar isCollapsed={isCollapsed} />
+    <div className={`admin-layout ${!isSidebarOpen ? 'collapsed' : ''}`}>  
+      <Sidebar isCollapsed={!isSidebarOpen} onToggle={toggleSidebar} />  
+
       <div className="admin-main">
-        <AdminNavbar onToggleSidebar={toggleSidebar} />
+        <AdminNavbar />  
         <div className="admin-content">
           <Outlet />
         </div>
         <Footer />
       </div>
+
+      {/* Optional overlay to close sidebar when clicked */}
+      {isSidebarOpen && (
+        <div className="sidebar-overlay" onClick={toggleSidebar}></div>
+      )}
     </div>
   );
 };

@@ -62,3 +62,68 @@
 .sidebar-link.active {
   color: #00bcd4;
 }
+/* Toggle button in top-right corner */
+.sidebar-toggle-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  transition: background 0.3s ease, transform 0.2s ease;
+  z-index: 10; /* Ensure it's above other elements */
+}
+
+.sidebar-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: scale(1.05);
+}
+
+/* Arrow icon rotation */
+.toggle-icon {
+  transition: transform 0.3s ease;
+}
+
+.toggle-icon.rotated {
+  transform: rotate(180deg); /* Flips to point right when collapsed */
+}
+
+/* Sidebar Footer (for logout button) */
+.sidebar-footer {
+  position: absolute;
+  bottom: 20px;  /* Stick to bottom */
+  left: 0;
+  right: 0;
+  padding: 0 15px; /* Match sidebar padding */
+}
+
+/* Logout Button */
+.sidebar-logout-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  background: none;
+  border: none;
+  color: #ff6b6b;  /* Red color for logout emphasis */
+  font-size: 16px;
+  text-decoration: none;
+  padding: 12px 0;
+  cursor: pointer;
+  transition: color 0.2s ease, background 0.2s ease;
+  border-radius: 6px;
+}
+
+.sidebar-logout-btn:hover {
+  color: #ff5252;  /* Darker red on hover */
+  background: rgba(255, 107, 107, 0.1);  /* Subtle background */
+}
+
+/* Ensure footer doesn't interfere with nav */
+.sidebar-nav {
+  flex: 1;  /* Allow nav to take available space, pushing footer down */
+}
