@@ -1,0 +1,125 @@
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { FaEnvelope, FaLock } from "react-icons/fa";
+import "./LoginCard.css";
+
+export default function LoginCard() {
+  const navigate = useNavigate();
+  const [role, setRole] = useState("admin");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [remember, setRemember] = useState(false);
+
+  // Prefill saved email if "Remember Me" was checked
+  useEffect(() => {
+    const rememberedEmail = localStorage.getItem("rememberedEmail");
+    if (rememberedEmail) {
+      setEmail(rememberedEmail);
+      setRemember(true);
+    }
+  }, []);
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+
+    if (!email || !password) {
+      alert("Please fill in all fields");
+      return;
+    }
+
+    if (remember) {
+      localStorage.setItem("rememberedEmail", email);
+    } else {
+      localStorage.removeItem("rememberedEmail");
+    }
+
+    if (role === "admin") navigate("/admin");
+    else if (role === "teacher") navigate("/teacher");
+    else navigate("/supplier");
+  };
+
+  return (
+    <div className="login-card">
+      <h1 className="login-title">
+        Login - {role.charAt(0).toUpperCase() + role.slice(1)}
+      </h1>
+
+      {/* Role Toggle */}
+      <div className="role-toggle">
+        <button
+          className={role === "admin" ? "active" : ""}
+          onClick={() => setRole("admin")}
+        >
+          Admin
+        </button>
+        <button
+          className={role === "supplier" ? "active" : ""}
+          onClick={() => setRole("supplier")}
+        >
+          Supplier
+        </button>
+        <button
+          className={role === "teacher" ? "active" : ""}
+          onClick={() => setRole("teacher")}
+        >
+          Teacher
+        </button>
+      </div>
+
+      {/* Login Form */}
+      <form onSubmit={handleLogin}>
+        <div className="input-icon">
+          <FaEnvelope />
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+        </div>
+
+        <div className="input-icon">
+          <FaLock />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+        </div>
+
+        <div className="login-options">
+          <label className="remember-me">
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(e) => setRemember(e.target.checked)}
+            />
+            Remember Me
+          </label>
+
+          <button
+            type="button"
+            className="forgot-password"
+            onClick={() => alert("Password reset coming soon!")}
+          >
+            Forgot Password?
+          </button>
+        </div>
+
+        <button type="submit" className="login-btn">
+          Login
+        </button>
+      </form>
+
+      <p className="register-link">
+        Don’t have an account?{" "}
+        <button className="register-btn-login" onClick={() => navigate("/register")}>
+          Register
+        </button>
+      </p>
+    </div>
+  );
+}
