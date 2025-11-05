@@ -1,0 +1,35 @@
+.footer {
+  background-color: #003366; /* dark gray */
+  color: #ffffff;
+  padding: 15px 0;
+  margin-top: 50px;
+  text-align: center;
+  font-family: "Poppins", sans-serif;
+}
+
+.footer-container {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.footer-text {
+  font-size: 0.95rem;
+  margin-bottom: 4px;
+  letter-spacing: 0.5px;
+}
+
+.footer-subtext {
+  color: #959595;
+  font-size: 0.9rem;
+}
+
+.footer-subtext strong {
+  color: #ffffff; /* optional accent color for your team name */
+}
+
+@media (max-width: 768px) {
+  .footer-text,
+  .footer-subtext {
+    font-size: 0.85rem;
+  }
+}

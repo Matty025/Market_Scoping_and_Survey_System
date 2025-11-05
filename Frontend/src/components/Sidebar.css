@@ -1,0 +1,32 @@
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+}
+
+.sidebar-title {
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin-bottom: 20px;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sidebar-link {
+  color: #cbd5e1;
+  text-decoration: none;
+  font-size: 0.95rem;
+  padding: 10px 12px;
+  border-radius: 6px;
+  transition: background 0.3s;
+}
+
+.sidebar-link:hover,
+.sidebar-link.active {
+  background-color: #ffffff;
+  color: #fff;
+}

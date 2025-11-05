@@ -1,0 +1,45 @@
+.admin-layout {
+  display: flex;
+  min-height: 100vh;
+  background-color: #f5f6fa;
+}
+
+.sidebar {
+  width: 240px;
+  background-color: #1e293b; /* dark slate */
+  color: #fff;
+  flex-shrink: 0;
+  height: 100vh;
+  position: fixed; /* fixed sidebar */
+  left: 0;
+  top: 0;
+  bottom: 0;
+  overflow-y: auto;
+}
+
+.admin-main {
+  margin-left: 240px; /* match sidebar width */
+  display: flex;
+  flex-direction: column;
+  width: calc(100% - 240px);
+  min-height: 100vh;
+}
+
+.admin-content {
+  flex: 1;
+  padding: 20px 30px;
+  overflow-y: auto;
+}
+
+.admin-navbar {
+  background-color: #fff;
+  border-bottom: 1px solid #ddd;
+  padding: 10px 20px;
+}
+
+footer {
+  background-color: #1e293b;
+  color: #fff;
+  text-align: center;
+  padding: 10px 0;
+}

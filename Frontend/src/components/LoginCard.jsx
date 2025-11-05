@@ -27,15 +27,20 @@ export default function LoginCard() {
       return;
     }
 
-    if (remember) {
-      localStorage.setItem("rememberedEmail", email);
-    } else {
-      localStorage.removeItem("rememberedEmail");
-    }
+    // ===== ADMIN LOGIN ONLY =====
+    if (email === "admin@gmail.com" && password === "admin" && role === "admin") {
+      if (remember) {
+        localStorage.setItem("rememberedEmail", email);
+      } else {
+        localStorage.removeItem("rememberedEmail");
+      }
 
-    if (role === "admin") navigate("/admin");
-    else if (role === "teacher") navigate("/teacher");
-    else navigate("/supplier");
+      localStorage.setItem("userRole", "admin");
+      alert("✅ Login successful! Redirecting to Admin Dashboard...");
+      navigate("/admin/dashboard"); // ✅ lowercase route
+    } else {
+      alert("❌ Invalid admin credentials. Try again.");
+    }
   };
 
   return (
@@ -54,13 +59,19 @@ export default function LoginCard() {
         </button>
         <button
           className={role === "supplier" ? "active" : ""}
-          onClick={() => setRole("supplier")}
+          onClick={() => {
+            alert("Supplier login not available yet.");
+            setRole("supplier");
+          }}
         >
           Supplier
         </button>
         <button
           className={role === "teacher" ? "active" : ""}
-          onClick={() => setRole("teacher")}
+          onClick={() => {
+            alert("Teacher login not available yet.");
+            setRole("teacher");
+          }}
         >
           Teacher
         </button>
@@ -116,7 +127,10 @@ export default function LoginCard() {
 
       <p className="register-link">
         Don’t have an account?{" "}
-        <button className="register-btn-login" onClick={() => navigate("/register")}>
+        <button
+          className="register-btn-login"
+          onClick={() => navigate("/register")}
+        >
           Register
         </button>
       </p>

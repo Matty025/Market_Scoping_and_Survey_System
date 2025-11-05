@@ -1,0 +1,111 @@
+/* ===== Navbar Container ===== */
+.admin-navbar {
+  background: linear-gradient(90deg, #003366, #004c99);
+  color: #fff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 30px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+  font-family: "Poppins", sans-serif;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+/* ===== Title Section ===== */
+.navbar-title-nav {
+  color: #ffffff;
+  font-size: 1.6rem;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ===== Right Action Section ===== */
+.navbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+/* ===== Search Bar ===== */
+.navbar-search-bar {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #005ea3;
+  background-color: #ffffff;
+  color: #333;
+  font-size: 0.95rem;
+  outline: none;
+  width: 220px;
+  transition: all 0.3s ease;
+}
+
+.navbar-search-bar::placeholder {
+  color: #888;
+}
+
+.navbar-search-bar:focus {
+  border-color: #00b0ff;
+  box-shadow: 0 0 5px rgba(0, 176, 255, 0.5);
+}
+
+/* ===== Icon Buttons (Notification & Profile) ===== */
+.icon-btn {
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  color: #fff;
+  font-size: 1.4rem;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
+}
+
+/* ===== Add subtle hover animations ===== */
+@keyframes pop {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.icon-btn:active {
+  animation: pop 0.3s ease;
+}
+
+/* ===== Responsive Adjustments ===== */
+@media (max-width: 768px) {
+  .admin-navbar {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 10px 20px;
+    gap: 10px;
+  }
+
+  .navbar-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .navbar-search-bar {
+    width: 100%;
+  }
+}
