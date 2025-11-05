@@ -1,11 +1,16 @@
 import React from "react";
-import { FaBell, FaUserCircle } from "react-icons/fa";
+import { FaBars, FaBell, FaUserCircle } from "react-icons/fa";
 import "./AdminNavbar.css";
 
-const AdminNavbar = () => {
+const AdminNavbar = ({ onToggleSidebar }) => {
   return (
     <header className="admin-navbar">
-      <h2 className="navbar-title-nav">Admin</h2>
+      <div className="navbar-left">
+        <button className="hamburger-btn" onClick={onToggleSidebar}>
+          <FaBars />
+        </button>
+        <h2 className="navbar-title-nav">Admin</h2>
+      </div>
 
       <div className="navbar-actions">
         <input
@@ -13,11 +18,9 @@ const AdminNavbar = () => {
           placeholder="Search..."
           className="navbar-search-bar"
         />
-
         <button className="icon-btn" title="Notifications">
           <FaBell />
         </button>
-
         <button className="icon-btn" title="Profile">
           <FaUserCircle />
         </button>

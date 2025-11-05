@@ -1,32 +1,64 @@
+/* Base sidebar */
 .sidebar {
-  display: flex;
-  flex-direction: column;
+  width: 240px;
+  background-color: #1e1e2f;
+  color: white;
+  height: 100vh;
+  position: fixed;
+  top: 0;
+  left: 0;
+  transition: width 0.3s ease;
+  overflow: hidden;
   padding: 20px;
 }
 
-.sidebar-title {
-  font-size: 1.2rem;
-  font-weight: bold;
-  margin-bottom: 20px;
+/* Collapsed sidebar */
+.sidebar.collapsed {
+  width: 50px;
+  padding: 20px 10px;
 }
 
+/* Header (Logo + Title) */
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 15px;
+}
+
+.sidebar-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.3rem;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.sidebar-logo-sdo {
+  width: 150px;
+  height: 150px;
+}
+
+/* Navigation */
 .sidebar-nav {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  margin-top: 40px;
 }
 
 .sidebar-link {
-  color: #cbd5e1;
+  color: white;
   text-decoration: none;
-  font-size: 0.95rem;
-  padding: 10px 12px;
-  border-radius: 6px;
-  transition: background 0.3s;
+  margin: 12px 0;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: 0.2s;
 }
 
 .sidebar-link:hover,
 .sidebar-link.active {
-  background-color: #ffffff;
-  color: #fff;
+  color: #00bcd4;
 }
