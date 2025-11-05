@@ -4,7 +4,7 @@ import "./RegisterPage.css";
 
 export default function RegisterPage() {
   const navigate = useNavigate();
-  const [role, setRole] = useState("supplier");
+  const [role, setRole] = useState("Supplier");
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -42,19 +42,19 @@ export default function RegisterPage() {
 
   return (
     <div className="register-card">
-      <h1 className="register-title">Register as {role}</h1>
+      <h1 className="register-title">{role} Registrations</h1>
 
       {/* Role selection */}
       <div className="role-toggle">
         <button
-          className={role === "supplier" ? "active" : ""}
-          onClick={() => setRole("supplier")}
+          className={role === "Supplier" ? "active" : ""}
+          onClick={() => setRole("Supplier")}
         >
           Supplier
         </button>
         <button
-          className={role === "teacher" ? "active" : ""}
-          onClick={() => setRole("teacher")}
+          className={role === "Teacher" ? "active" : ""}
+          onClick={() => setRole("Teacher")}
         >
           Teacher
         </button>
@@ -66,7 +66,7 @@ export default function RegisterPage() {
             type="text"
             name="name"
             placeholder={
-              role === "supplier" ? "Business Name" : "Full Name"
+              role === "Supplier" ? "Business Name" : "Full Name"
             }
             value={formData.name}
             onChange={handleChange}
@@ -99,7 +99,7 @@ export default function RegisterPage() {
         </div>
 
         {/* Supplier-only section */}
-        {role === "supplier" && (
+        {role === "Supplier" && (
           <div className="document-section">
             <h3>Required Documents</h3>
             <div className="checkboxes">
