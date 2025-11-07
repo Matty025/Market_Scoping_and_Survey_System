@@ -1,0 +1,60 @@
+.reports-container {
+  font-family: Arial, sans-serif;
+  padding: 30px;
+  background-color: #f9fafb;
+  min-height: 100vh;
+}
+
+.reports-container h2 {
+  color: #166534;
+  margin-bottom: 5px;
+}
+
+.reports-container p {
+  color: #4b5563;
+  margin-bottom: 20px;
+}
+
+/* Supplier Cards - Grid layout */
+.supplier-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 20px;
+}
+
+.supplier-card {
+  background-color: white;
+  border-radius: 10px;
+  box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+  padding: 20px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.supplier-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+}
+
+.supplier-card h3 {
+  margin: 0 0 10px 0;
+  color: #065f46;
+}
+
+.supplier-card p {
+  margin: 5px 0;
+  color: #4b5563;
+  line-height: 1.5;
+}
+
+hr {
+  margin: 10px 0;
+  border: 0.5px solid #d1d5db;
+}
+
+.category-range {
+  background-color: #f0fdf4;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin: 6px 0;
+  font-size: 0.9rem;
+}
