@@ -127,3 +127,8 @@
 .sidebar-nav {
   flex: 1;  /* Allow nav to take available space, pushing footer down */
 }
+
+.sidebar-link.active {
+  color: #00bcd4;
+  font-weight: 600;
+}

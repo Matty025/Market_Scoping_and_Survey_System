@@ -2,11 +2,11 @@ import React from "react";
 import { FaBell, FaUserCircle } from "react-icons/fa"; // Removed FaBars
 import "./AdminNavbar.css";
 
-const AdminNavbar = () => {  // Removed onToggleSidebar prop since it's no longer needed
+const AdminNavbar = ({ title = "Admin" }) => {
   return (
     <header className="admin-navbar">
       <div className="navbar-left">
-        <h2 className="navbar-title-nav">Admin</h2>
+        <h2 className="navbar-title-nav">{title}</h2>
       </div>
       <div className="navbar-actions">
         <input

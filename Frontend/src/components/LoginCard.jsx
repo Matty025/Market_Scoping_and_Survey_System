@@ -27,21 +27,37 @@ export default function LoginCard() {
       return;
     }
 
-    // ===== ADMIN LOGIN ONLY =====
+    // ADMIN LOGIN
     if (email === "admin@gmail.com" && password === "admin" && role === "admin") {
-      if (remember) {
-        localStorage.setItem("rememberedEmail", email);
-      } else {
-        localStorage.removeItem("rememberedEmail");
-      }
-
-      localStorage.setItem("userRole", "admin");
+      sessionStorage.setItem("userRole", "admin");
+      window.dispatchEvent(new Event("storage"));
       alert("✅ Login successful! Redirecting to Admin Dashboard...");
-      navigate("/admin/dashboard"); // ✅ lowercase route
-    } else {
-      alert("❌ Invalid admin credentials. Try again.");
+      navigate("/admin/dashboard");
     }
-  };
+
+    // SUPPLIER LOGIN
+    else if (email === "supplier@gmail.com" && password === "supplier" && role === "supplier") {
+      sessionStorage.setItem("userRole", "supplier");
+      window.dispatchEvent(new Event("storage"));
+      alert("✅ Login successful! Redirecting to Supplier Dashboard...");
+      navigate("/supplier/dashboard");
+    }
+
+    // TEACHER LOGIN
+    else if (email === "teacher@gmail.com" && password === "teacher" && role === "teacher") {
+      sessionStorage.setItem("userRole", "teacher");
+      window.dispatchEvent(new Event("storage"));
+      alert("✅ Login successful! Redirecting to Teacher Dashboard...");
+      navigate("/teacher/dashboard");
+    }
+
+
+        // INVALID
+        else {
+          alert("❌ Invalid credentials or role. Try again.");
+        }
+      };
+
 
   return (
     <div className="login-card">
@@ -59,19 +75,13 @@ export default function LoginCard() {
         </button>
         <button
           className={role === "supplier" ? "active" : ""}
-          onClick={() => {
-            alert("Supplier login not available yet.");
-            setRole("supplier");
-          }}
+          onClick={() => setRole("supplier")}
         >
           Supplier
         </button>
         <button
           className={role === "teacher" ? "active" : ""}
-          onClick={() => {
-            alert("Teacher login not available yet.");
-            setRole("teacher");
-          }}
+          onClick={() => setRole("teacher")}
         >
           Teacher
         </button>

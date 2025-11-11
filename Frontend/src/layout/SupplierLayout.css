@@ -1,0 +1,58 @@
+.supplier-layout {
+  display: flex;
+  height: 100vh;
+  background-color: #f5f7fa;
+  font-family: "Poppins", sans-serif;
+}
+
+.supplier-sidebar {
+  width: 220px;
+  background: #007bff;
+  color: white;
+  padding: 1.5rem 1rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border-right: 3px solid #0056b3;
+}
+
+.supplier-title {
+  font-size: 1.4rem;
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.supplier-nav button {
+  background: transparent;
+  color: white;
+  border: none;
+  text-align: left;
+  padding: 0.8rem 1rem;
+  font-size: 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  width: 100%;
+}
+
+.supplier-nav button:hover {
+  background: #0056b3;
+}
+
+.logout-btn {
+  background: #ff4d4d;
+  color: white;
+  border: none;
+  padding: 0.8rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.logout-btn:hover {
+  background: #cc0000;
+}
+
+.supplier-main {
+  flex: 1;
+  padding: 2rem;
+  overflow-y: auto;
+}

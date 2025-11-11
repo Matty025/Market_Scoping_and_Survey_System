@@ -12,12 +12,20 @@ import Market from "./pages/Admin/Market";
 import Reports from "./pages/Admin/Reports";
 import Settings from "./pages/Admin/Settings";
 
-// (Optional placeholders for future roles)
-import SupplierDashboard from "./pages/Supplier/SupplierDashboard";
+// Supplier layout and pages
+import SupplierLayout from "./layout/SupplierLayout";
+import SupplierDashboard from "./pages/Supplier/Dashboard";
+import SupplierMarket from "./pages/Supplier/Market";
+import SupplierProfile from "./pages/Supplier/Profile";
+import SupplierReports from "./pages/Supplier/Reports";
+import SupplierUploadProducts from "./pages/Supplier/UploadProducts";
+
+// Teacher pages
 import TeacherDashboard from "./pages/Teacher/TeacherDashboard";
 
 function App() {
-  const userRole = localStorage.getItem("userRole");
+  const userRole =
+    sessionStorage.getItem("userRole") || localStorage.getItem("userRole");
 
   return (
     <Routes>
@@ -25,15 +33,11 @@ function App() {
       <Route path="/" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
 
-      {/* ===== Admin Layout & Nested Routes ===== */}
+      {/* ===== Admin Layout ===== */}
       <Route
         path="/admin"
         element={
-          userRole === "admin" ? (
-            <AdminLayout />
-          ) : (
-            <Navigate to="/" replace />
-          )
+          userRole === "admin" ? <AdminLayout /> : <Navigate to="/" replace />
         }
       >
         <Route path="dashboard" element={<Dashboard />} />
@@ -43,19 +47,26 @@ function App() {
         <Route path="settings" element={<Settings />} />
       </Route>
 
-      {/* ===== Supplier Layout (optional) ===== */}
+      {/* ===== Supplier Layout ===== */}
       <Route
-        path="/supplier/dashboard"
+        path="/supplier"
         element={
           userRole === "supplier" ? (
-            <SupplierDashboard />
+            <SupplierLayout />
           ) : (
             <Navigate to="/" replace />
           )
         }
-      />
+      >
+        <Route path="dashboard" element={<SupplierDashboard />} />
+        <Route path="market" element={<SupplierMarket />} />
+        <Route path="upload-products" element={<SupplierUploadProducts />} />
+        <Route path="reports" element={<SupplierReports />} />
+        <Route path="profile" element={<SupplierProfile />} />
+      </Route>
 
-      {/* ===== Teacher Layout (optional) ===== */}
+
+      {/* ===== Teacher Routes ===== */}
       <Route
         path="/teacher/dashboard"
         element={
@@ -67,7 +78,7 @@ function App() {
         }
       />
 
-      {/* ===== Fallback ===== */}
+      {/* ===== Catch-All Fallback ===== */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
