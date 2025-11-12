@@ -9,7 +9,7 @@ import "./Sidebar.css";
  * Props:
  *  - isCollapsed: boolean
  *  - onToggle: function
- *  - role: "admin" | "supplier" | "teacher" (default: "admin")
+ *  - role: "admin" | "supplier" | "buyer" (default: "admin")
  */
 const Sidebar = ({ isCollapsed = false, onToggle = () => {}, role = "admin" }) => {
   const navigate = useNavigate();
@@ -34,17 +34,18 @@ const Sidebar = ({ isCollapsed = false, onToggle = () => {}, role = "admin" }) =
           { to: "/supplier/profile", label: "Profile", emoji: "👤" },
         ]
 
-      : role === "teacher"
+      : role === "buyer"
       ? [
-          { to: "/teacher/dashboard", label: "Dashboard", emoji: "📊" },
-          { to: "/teacher/classes", label: "My Classes", emoji: "🏫" },
-          { to: "/teacher/profile", label: "Profile", emoji: "👤" },
+          { to: "/buyer/dashboard", label: "Dashboard", emoji: "📊" },
+          { to: "/buyer/market", label: "Market", emoji: "🛍️" },
+          { to: "/buyer/profile", label: "Profile", emoji: "👤" },
         ]
       : [
           // admin default
           { to: "/admin/dashboard", label: "Dashboard", emoji: "📊" },
           { to: "/admin/manage-accounts", label: "Manage Accounts", emoji: "👥" },
           { to: "/admin/market", label: "Market", emoji: "🛒" },
+          { to: "/admin/market-suppliers", label: "Market Suppliers", emoji: "🏢" },
           { to: "/admin/reports", label: "Reports", emoji: "📑" },
           { to: "/admin/settings", label: "Settings", emoji: "⚙️" },
         ];

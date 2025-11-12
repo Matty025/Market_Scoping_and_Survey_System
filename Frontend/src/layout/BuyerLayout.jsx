@@ -1,24 +1,24 @@
-// src/layout/SupplierLayout.jsx
+
 import React, { useState } from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import AdminNavbar from "../components/AdminNavbar";
 import Footer from "../components/Footer";
-import "./SupplierLayout.css"; // reuse admin layout styles
+import "./BuyerLayout.css"; // Reuse admin layout styles (ensure this file exists or copy from AdminLayout.css)
 
-const SupplierLayout = () => {
+const BuyerLayout = () => {  // <-- Fixed: Component name now matches export
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
   return (
     <div className={`admin-layout ${!isSidebarOpen ? "collapsed" : ""}`}>
-      {/* Sidebar (pass role="supplier" to reuse Sidebar component) */}
-      <Sidebar isCollapsed={!isSidebarOpen} onToggle={toggleSidebar} role="supplier" />
+      {/* Sidebar (pass role="buyer" to customize for buyers) */}
+      <Sidebar isCollapsed={!isSidebarOpen} onToggle={toggleSidebar} role="buyer" />
 
       <div className="admin-main">
-        {/* Reuse AdminNavbar but pass a title */}
-        <AdminNavbar title="Supplier" />
+        {/* Reuse AdminNavbar but pass a buyer-specific title */}
+        <AdminNavbar title="Buyer" />
 
         <div className="admin-content">
           <Outlet />
@@ -33,4 +33,4 @@ const SupplierLayout = () => {
   );
 };
 
-export default SupplierLayout;
+export default BuyerLayout;  // <-- Now matches the component name

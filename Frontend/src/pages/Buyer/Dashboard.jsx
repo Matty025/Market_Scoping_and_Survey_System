@@ -6,7 +6,7 @@ const Dashboard = () => {
   const stats = [
     { label: "Category", value: "Office Supplies" },
     { label: "Total Items", value: 120 },
-    { label: "No. Active Buyers", value: 8 },
+    { label: "No. Active Suppliers", value: 8 },
     { label: "Average Price", value: "₱3,500" },
     { label: "Lowest Price", value: "₱150" },
     { label: "Highest Price", value: "₱50,000" }

@@ -53,10 +53,10 @@ export default function RegisterPage() {
           Supplier
         </button>
         <button
-          className={role === "Teacher" ? "active" : ""}
-          onClick={() => setRole("Teacher")}
+          className={role === "Buyer" ? "active" : ""}
+          onClick={() => setRole("Buyer")}
         >
-          Teacher
+          Buyer
         </button>
       </div>
 

@@ -1,6 +1,6 @@
 import React from "react";
 
-export default function TeacherDashboard() {
+export default function BuyerDashboard() {
   return (
     <div style={{
       height: "100vh",
@@ -12,7 +12,7 @@ export default function TeacherDashboard() {
       fontSize: "2rem",
       fontWeight: "bold"
     }}>
-      Teacher Dashboard
+      Buyer Dashboard
     </div>
   );
 }

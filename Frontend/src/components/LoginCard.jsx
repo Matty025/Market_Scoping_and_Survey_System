@@ -44,11 +44,11 @@ export default function LoginCard() {
     }
 
     // TEACHER LOGIN
-    else if (email === "teacher@gmail.com" && password === "teacher" && role === "teacher") {
-      sessionStorage.setItem("userRole", "teacher");
+    else if (email === "buyer@gmail.com" && password === "buyer" && role === "buyer") {
+      sessionStorage.setItem("userRole", "buyer");
       window.dispatchEvent(new Event("storage"));
-      alert("✅ Login successful! Redirecting to Teacher Dashboard...");
-      navigate("/teacher/dashboard");
+      alert("✅ Login successful! Redirecting to Buyer Dashboard...");
+      navigate("/buyer/dashboard");
     }
 
 
@@ -80,10 +80,10 @@ export default function LoginCard() {
           Supplier
         </button>
         <button
-          className={role === "teacher" ? "active" : ""}
-          onClick={() => setRole("teacher")}
+          className={role === "buyer" ? "active" : ""}
+          onClick={() => setRole("buyer")}
         >
-          Teacher
+          Buyer
         </button>
       </div>
 

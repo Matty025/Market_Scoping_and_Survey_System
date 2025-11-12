@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 
 // Auth pages
 import RegisterPage from "./pages/Auth/RegisterPage";
@@ -11,21 +12,36 @@ import ManageAccounts from "./pages/Admin/ManageAccounts";
 import Market from "./pages/Admin/Market";
 import Reports from "./pages/Admin/Reports";
 import Settings from "./pages/Admin/Settings";
+import MarketSuppliers from "./pages/Admin/MarketSuppliers";
+
 
 // Supplier layout and pages
 import SupplierLayout from "./layout/SupplierLayout";
 import SupplierDashboard from "./pages/Supplier/Dashboard";
 import SupplierMarket from "./pages/Supplier/Market";
+import SupplierUploadProducts from "./pages/Supplier/UploadProducts";
 import SupplierProfile from "./pages/Supplier/Profile";
 import SupplierReports from "./pages/Supplier/Reports";
-import SupplierUploadProducts from "./pages/Supplier/UploadProducts";
 
-// Teacher pages
-import TeacherDashboard from "./pages/Teacher/TeacherDashboard";
+
+// Buyer pages
+import BuyerLayout from "./layout/BuyerLayout";
+import BuyerDashboard from "./pages/Buyer/Dashboard";
+import BuyerMarket from "./pages/Buyer/Market";
 
 function App() {
-  const userRole =
-    sessionStorage.getItem("userRole") || localStorage.getItem("userRole");
+  // 👇 always track live role updates
+  const [userRole, setUserRole] = useState(sessionStorage.getItem("userRole") || "");
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const role = sessionStorage.getItem("userRole") || "";
+      setUserRole(role);
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
 
   return (
     <Routes>
@@ -43,6 +59,7 @@ function App() {
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="manage-accounts" element={<ManageAccounts />} />
         <Route path="market" element={<Market />} />
+        <Route path="market-suppliers" element={<MarketSuppliers />} />
         <Route path="reports" element={<Reports />} />
         <Route path="settings" element={<Settings />} />
       </Route>
@@ -65,18 +82,20 @@ function App() {
         <Route path="profile" element={<SupplierProfile />} />
       </Route>
 
-
-      {/* ===== Teacher Routes ===== */}
+      {/* ===== Buyer Routes ===== */}
       <Route
-        path="/teacher/dashboard"
+        path="/buyer"
         element={
-          userRole === "teacher" ? (
-            <TeacherDashboard />
+          userRole === "buyer" ? (
+            <BuyerLayout />
           ) : (
             <Navigate to="/" replace />
           )
         }
-      />
+        >
+        <Route path="dashboard" element={<BuyerDashboard />} />
+        <Route path="market" element={<BuyerMarket />} />
+      </Route>
 
       {/* ===== Catch-All Fallback ===== */}
       <Route path="*" element={<Navigate to="/" replace />} />

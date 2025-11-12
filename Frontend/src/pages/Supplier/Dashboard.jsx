@@ -6,7 +6,7 @@ const SupplierDashboard = () => {
   const [posts] = useState([
     {
       id: 1,
-      title: "Procurement of Laptops for Teachers",
+      title: "Procurement of Laptops for Buyers",
       date: "2025-11-09",
       description:
         "DepEd is requesting quotations for high-quality laptops for classroom and online learning purposes.",
@@ -32,7 +32,7 @@ const SupplierDashboard = () => {
     {
       id: 101,
       requestTitle: "Laptop Quotation Request",
-      referencePost: "Procurement of Laptops for Teachers",
+      referencePost: "Procurement of Laptops for Buyers",
       dateRequested: "2025-11-10",
       status: "Pending",
     },

@@ -8,7 +8,8 @@
 .left-section {
   flex: 1;
   background: url("https://notices.philgeps.gov.ph/assets/images/car1.png")
-    no-repeat 98% center;
+    no-repeat center center;
+  background-size: 210%; /* Enlarges the image by 30% to crop out rounded corners */
   position: relative;
   display: flex;
   flex-direction: column;
@@ -53,7 +54,7 @@
   width: 100%;
   max-width: 350px;
   text-align: center;
-    background: white;
+  background: white;
   border-top: 5px solid #3b82f6;
   box-shadow: 0 5px 20px rgba(0,0,0,0.1);
 }
@@ -130,6 +131,7 @@
 
   .left-section {
     height: 40vh;
+    background-position: center center; /* Ensure image is centered on mobile */
   }
 
   .right-section {
@@ -139,5 +141,19 @@
   .login-card {
     width: 90%;
     padding: 25px;
+  }
+}
+
+/* Tablet Responsive (768px to 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .left-section {
+    background-position: 80% center; /* Slightly adjust position for tablets */
+  }
+}
+
+/* Large Screen Responsive (1025px and above) */
+@media (min-width: 1025px) {
+  .left-section {
+    background-position: 90% center; /* Keep original position for large screens */
   }
 }
