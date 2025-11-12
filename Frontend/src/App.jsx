@@ -10,6 +10,7 @@ import AdminLayout from "./layout/AdminLayout";
 import Dashboard from "./pages/Admin/Dashboard";
 import ManageAccounts from "./pages/Admin/ManageAccounts";
 import Market from "./pages/Admin/Market";
+import MarketSuppliers from "./pages/Admin/MarketSuppliers";
 import Reports from "./pages/Admin/Reports";
 import Settings from "./pages/Admin/Settings";
 
