@@ -1,110 +1,205 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import "./Market.css";
 
 const Market = () => {
-  const categories = [
-    "Office Supplies",
-    "IT Equipment",
-    "Furniture",
-    "Laboratory",
-    "Sports",
-    "Vehicles",
-    "Printing"
-  ];
+    const categoryGroups = {
+    GOODS: [
+      "Office Supplies & Devices",
+      "IT Equipment & Peripherals",
+      "Educational & Instructional Materials",
+      "Furniture & Fixtures",
+      "Sports & Physical Education Equipment",
+      "Laboratory Equipment & Supplies",
+      "Electrical & Electronic Supplies",
+      "Cleaning & Janitorial Supplies",
+      "Medical & First Aid Supplies",
+      "Vehicles, Tools & Machinery",
+      "Printing & Reproduction Services",
+      "Uniforms, Apparel & Fabrics",
+      "Food & Catering Supplies",
+      "General Support Services"
+    ],
+    INFRASTRUCTURE_PROJECTS: [
+      "School Building Construction",
+      "School Building Rehabilitation",
+      "Water Supply & Sanitation Systems",
+      "Electrical & Power Systems",
+      "Site Development & Landscaping",
+      "Roofing and Painting Works",
+      "Minor Repairs & Maintenance Work"
+    ],
+    CONSULTING_SERVICES: [
+      "Architectural & Engineering Design",
+      "Feasibility & Project Studies",
+      "Construction Supervision",
+      "ICT System Development",
+      "Research & Evaluation Studies"
+    ],
+
+
+
+
+
+  };
 
   const marketItems = [
-    // Office Supplies
-    { company: "ABC Supplies", category: "Office Supplies", product: "Laptop", updated: "Nov 01, 2025", unit: "pcs", price: 50000 },
-    { company: "Office Depot", category: "Office Supplies", product: "Notebook", updated: "Nov 02, 2025", unit: "pcs", price: 150 },
-    { company: "Stationery Co.", category: "Office Supplies", product: "Pen Set", updated: "Nov 03, 2025", unit: "set", price: 300 },
-    { company: "Desk World", category: "Office Supplies", product: "Desk Organizer", updated: "Nov 04, 2025", unit: "pcs", price: 750 },
-    { company: "Paper Hub", category: "Office Supplies", product: "A4 Paper", updated: "Nov 05, 2025", unit: "ream", price: 450 },
-    { company: "OfficeKing", category: "Office Supplies", product: "Stapler", updated: "Nov 06, 2025", unit: "pcs", price: 200 },
-
-    // IT Equipment
-    { company: "Tech Solutions", category: "IT Equipment", product: "Printer", updated: "Nov 02, 2025", unit: "pcs", price: 12000 },
-    { company: "CompuWorld", category: "IT Equipment", product: "Router", updated: "Nov 03, 2025", unit: "pcs", price: 3500 },
-    { company: "NetGear", category: "IT Equipment", product: "Switch", updated: "Nov 04, 2025", unit: "pcs", price: 4500 },
-    { company: "Laptop Pro", category: "IT Equipment", product: "Desktop PC", updated: "Nov 05, 2025", unit: "pcs", price: 60000 },
-    { company: "Tech Solutions", category: "IT Equipment", product: "Monitor", updated: "Nov 06, 2025", unit: "pcs", price: 8000 },
-    { company: "Printer World", category: "IT Equipment", product: "Scanner", updated: "Nov 07, 2025", unit: "pcs", price: 7500 },
-
-    // Furniture
-    { company: "Furniture World", category: "Furniture", product: "Desk Chair", updated: "Nov 03, 2025", unit: "pcs", price: 4500 },
-    { company: "Home Office", category: "Furniture", product: "Office Desk", updated: "Nov 04, 2025", unit: "pcs", price: 9500 },
-    { company: "Chair Co.", category: "Furniture", product: "Conference Chair", updated: "Nov 05, 2025", unit: "pcs", price: 3500 },
-    { company: "FurniPro", category: "Furniture", product: "Bookshelf", updated: "Nov 06, 2025", unit: "pcs", price: 6000 },
-    { company: "Desk World", category: "Furniture", product: "Filing Cabinet", updated: "Nov 07, 2025", unit: "pcs", price: 4000 },
-    { company: "OfficeKing", category: "Furniture", product: "Reception Sofa", updated: "Nov 08, 2025", unit: "pcs", price: 12000 },
-
-    // Laboratory
-    { company: "Lab Equip Co.", category: "Laboratory", product: "Microscope", updated: "Nov 05, 2025", unit: "pcs", price: 15000 },
-    { company: "Science Hub", category: "Laboratory", product: "Test Tubes", updated: "Nov 06, 2025", unit: "box", price: 800 },
-    { company: "Chem Supplies", category: "Laboratory", product: "Beakers", updated: "Nov 07, 2025", unit: "set", price: 1200 },
-    { company: "LabTech", category: "Laboratory", product: "Bunsen Burner", updated: "Nov 08, 2025", unit: "pcs", price: 3500 },
-    { company: "Science Hub", category: "Laboratory", product: "Petri Dishes", updated: "Nov 09, 2025", unit: "pack", price: 500 },
-    { company: "Lab Equip Co.", category: "Laboratory", product: "Centrifuge", updated: "Nov 10, 2025", unit: "pcs", price: 25000 },
-
-    // Sports
-    { company: "Sporty Ltd.", category: "Sports", product: "Basketball", updated: "Nov 04, 2025", unit: "pcs", price: 1200 },
-    { company: "Active Gear", category: "Sports", product: "Soccer Ball", updated: "Nov 05, 2025", unit: "pcs", price: 1000 },
-    { company: "ProSports", category: "Sports", product: "Tennis Racket", updated: "Nov 06, 2025", unit: "pcs", price: 2500 },
-    { company: "Fit Equip", category: "Sports", product: "Yoga Mat", updated: "Nov 07, 2025", unit: "pcs", price: 800 },
-    { company: "Sporty Ltd.", category: "Sports", product: "Volleyball", updated: "Nov 08, 2025", unit: "pcs", price: 1100 },
-    { company: "Active Gear", category: "Sports", product: "Running Shoes", updated: "Nov 09, 2025", unit: "pair", price: 3000 },
-
-    // Vehicles
-    { company: "AutoMax", category: "Vehicles", product: "Sedan Car", updated: "Nov 05, 2025", unit: "pcs", price: 800000 },
-    { company: "MotoWorld", category: "Vehicles", product: "Motorbike", updated: "Nov 06, 2025", unit: "pcs", price: 120000 },
-    { company: "Truck Hub", category: "Vehicles", product: "Delivery Truck", updated: "Nov 07, 2025", unit: "pcs", price: 1500000 },
-    { company: "AutoMax", category: "Vehicles", product: "Van", updated: "Nov 08, 2025", unit: "pcs", price: 600000 },
-    { company: "MotoWorld", category: "Vehicles", product: "Scooter", updated: "Nov 09, 2025", unit: "pcs", price: 85000 },
-    { company: "Truck Hub", category: "Vehicles", product: "Pickup Truck", updated: "Nov 10, 2025", unit: "pcs", price: 900000 },
-
-    // Printing
-    { company: "PrintWorks", category: "Printing", product: "Flyers", updated: "Nov 05, 2025", unit: "pack", price: 500 },
-    { company: "PrintPro", category: "Printing", product: "Brochures", updated: "Nov 06, 2025", unit: "pack", price: 800 },
-    { company: "PrintWorks", category: "Printing", product: "Business Cards", updated: "Nov 07, 2025", unit: "set", price: 300 },
-    { company: "PrintMaster", category: "Printing", product: "Posters", updated: "Nov 08, 2025", unit: "pcs", price: 150 },
-    { company: "PrintPro", category: "Printing", product: "Labels", updated: "Nov 09, 2025", unit: "pack", price: 400 },
-    { company: "PrintMaster", category: "Printing", product: "Calendars", updated: "Nov 10, 2025", unit: "pcs", price: 700 }
+    { company: "ABC Supplies", category: "Office Supplies & Devices", product: "Laptop", updated: "Nov 01, 2025", unit: "pcs", price: 50000, stock: 15 },
+    { company: "Tech Solutions", category: "IT Equipment & Peripherals", product: "Printer", updated: "Nov 02, 2025", unit: "pcs", price: 12000, stock: 10 },
+    { company: "Furniture World", category: "Furniture & Fixtures", product: "Office Desk", updated: "Nov 03, 2025", unit: "pcs", price: 9500, stock: 5 },
+    { company: "Lab Equip Co.", category: "Laboratory Equipment & Supplies", product: "Microscope", updated: "Nov 05, 2025", unit: "pcs", price: 15000, stock: 3 },
+    { company: "Sporty Ltd.", category: "Sports & Physical Education Equipment", product: "Basketball", updated: "Nov 04, 2025", unit: "pcs", price: 1200, stock: 20 },
   ];
 
-  const [selectedCategory, setSelectedCategory] = useState(categories[0]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [selectedSupplier, setSelectedSupplier] = useState("All");
+  const [dateFilter, setDateFilter] = useState("");
+  const [modalItem, setModalItem] = useState(null);
+  const [bookmarks, setBookmarks] = useState([]);
+  const [showBookmarks, setShowBookmarks] = useState(false);
 
-  const filteredItems = marketItems.filter(item => item.category === selectedCategory);
+  const suppliers = useMemo(() => ["All", ...new Set(marketItems.map((item) => item.company))], [marketItems]);
+
+  const filteredItems = useMemo(() => {
+    const source = showBookmarks ? bookmarks : marketItems;
+    return source.filter((item) => {
+      const matchesSearch =
+        item.product.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.company.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCategory = selectedCategory === "All" || item.category === selectedCategory;
+      const matchesSupplier = selectedSupplier === "All" || item.company === selectedSupplier;
+      const matchesDate = !dateFilter || item.updated === dateFilter;
+      return matchesSearch && matchesCategory && matchesSupplier && matchesDate;
+    });
+  }, [searchQuery, selectedCategory, selectedSupplier, dateFilter, marketItems, bookmarks, showBookmarks]);
+
+  const toggleBookmark = (item) => {
+    if (bookmarks.find((b) => b.product === item.product && b.company === item.company)) {
+      setBookmarks((prev) => prev.filter((b) => b.product !== item.product));
+    } else {
+      setBookmarks((prev) => [...prev, item]);
+    }
+  };
 
   return (
     <div className="market-container">
-      <h2>🛒 Market</h2>
-      <p>Manage procurement and survey items here.</p>
+      <div className="market-header">
+        <h2>🛒 Market</h2>
+        <button
+          className={`bookmark-view-btn ${showBookmarks ? "active" : ""}`}
+          onClick={() => setShowBookmarks(!showBookmarks)}
+        >
+          ⭐ {showBookmarks ? "View All Items" : "View Bookmarked"}
+        </button>
+      </div>
+      <p>Browse and survey available products from suppliers.</p>
 
-      {/* Category Tags */}
-      <div className="market-tags">
-        {categories.map((cat, index) => (
-          <span
-            key={index}
-            className={`market-tag ${selectedCategory === cat ? "active" : ""}`}
-            onClick={() => setSelectedCategory(cat)}
-          >
-            {cat}
-          </span>
-        ))}
+      {/* Filters */}
+      <div className="market-filter-bar">
+        <input
+          type="text"
+          placeholder="Search by product or supplier..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="market-search-input"
+        />
+        <select
+          value={selectedCategory}
+          onChange={(e) => setSelectedCategory(e.target.value)}
+          className="market-category-select"
+        >
+          <option value="All">All Categories</option>
+          {Object.entries(categoryGroups).map(([group, categories]) => (
+            <optgroup key={group} label={group.replace(/_/g, " ")}>
+              {categories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+        <select
+          value={selectedSupplier}
+          onChange={(e) => setSelectedSupplier(e.target.value)}
+          className="market-supplier-select"
+        >
+          {suppliers.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
+        <input
+          type="date"
+          value={dateFilter}
+          onChange={(e) => setDateFilter(e.target.value)}
+          className="market-date-input"
+        />
       </div>
 
-      {/* Market Feed */}
-      <div className="market-feed">
-        {filteredItems.length === 0 && <p>No items in this category.</p>}
-        {filteredItems.map((item, index) => (
-          <div key={index} className="market-card">
-            <h4>{item.company}</h4>
-            <p><strong>Product:</strong> {item.product}</p>
-            <p><strong>Updated:</strong> {item.updated}</p>
-            <p><strong>Unit:</strong> {item.unit}</p>
-            <p><strong>Price:</strong> ₱{item.price.toLocaleString()}</p>
+      {/* Product Grid */}
+      <div className="market-grid">
+        {filteredItems.length === 0 ? (
+          <p className="no-items">No items found.</p>
+        ) : (
+          filteredItems.map((item, index) => (
+            <div key={index} className="market-card" onClick={() => setModalItem(item)}>
+              <h4>{item.product}</h4>
+              <p>
+                <strong>Supplier:</strong> {item.company}
+              </p>
+              <p>
+                <strong>₱{item.price.toLocaleString()}</strong>
+              </p>
+              <button
+                className={`bookmark-btn ${
+                  bookmarks.find((b) => b.product === item.product) ? "active" : ""
+                }`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleBookmark(item);
+                }}
+              >
+                ⭐ {bookmarks.find((b) => b.product === item.product) ? "Bookmarked" : "Bookmark"}
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Modal for Item Details */}
+      {modalItem && (
+        <div className="market-modal" onClick={() => setModalItem(null)}>
+          <div className="market-modal-content" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close-btn" onClick={() => setModalItem(null)}>
+              ✖
+            </button>
+            <h2>{modalItem.product}</h2>
+            <p>
+              <strong>Supplier:</strong> {modalItem.company}
+            </p>
+            <p>
+              <strong>Category:</strong> {modalItem.category}
+            </p>
+            <p>
+              <strong>Updated:</strong> {modalItem.updated}
+            </p>
+            <p>
+              <strong>Unit:</strong> {modalItem.unit}
+            </p>
+            <p>
+              <strong>Price:</strong> ₱{modalItem.price.toLocaleString()}
+            </p>
+            <p>
+              <strong>Stock:</strong> {modalItem.stock}
+            </p>
+            <button className="bookmark-btn modal-bookmark" onClick={() => toggleBookmark(modalItem)}>
+              ⭐ Add to Bookmark
+            </button>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
     </div>
   );
 };

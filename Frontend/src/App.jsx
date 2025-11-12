@@ -1,6 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { useState, useEffect } from "react";
 
 // Auth pages
 import RegisterPage from "./pages/Auth/RegisterPage";
@@ -11,27 +10,23 @@ import AdminLayout from "./layout/AdminLayout";
 import Dashboard from "./pages/Admin/Dashboard";
 import ManageAccounts from "./pages/Admin/ManageAccounts";
 import Market from "./pages/Admin/Market";
+import MarketSuppliers from "./pages/Admin/MarketSuppliers";
 import Reports from "./pages/Admin/Reports";
 import Settings from "./pages/Admin/Settings";
-import MarketSuppliers from "./pages/Admin/MarketSuppliers";
-
 
 // Supplier layout and pages
 import SupplierLayout from "./layout/SupplierLayout";
 import SupplierDashboard from "./pages/Supplier/Dashboard";
 import SupplierMarket from "./pages/Supplier/Market";
-import SupplierUploadProducts from "./pages/Supplier/UploadProducts";
 import SupplierProfile from "./pages/Supplier/Profile";
 import SupplierReports from "./pages/Supplier/Reports";
+import SupplierUploadProducts from "./pages/Supplier/UploadProducts";
 
-
-// Buyer pages
 import BuyerLayout from "./layout/BuyerLayout";
 import BuyerDashboard from "./pages/Buyer/Dashboard";
 import BuyerMarket from "./pages/Buyer/Market";
 
 function App() {
-
   // 👇 always track live role updates
   const [userRole, setUserRole] = useState(sessionStorage.getItem("userRole") || "");
 
@@ -84,7 +79,7 @@ function App() {
         <Route path="profile" element={<SupplierProfile />} />
       </Route>
 
-      {/* ===== Buyer Routes ===== */}
+{/* ===== Buyer Routes ===== */}
       <Route
         path="/buyer"
         element={
@@ -98,6 +93,7 @@ function App() {
         <Route path="dashboard" element={<BuyerDashboard />} />
         <Route path="market" element={<BuyerMarket />} />
       </Route>
+
 
       {/* ===== Catch-All Fallback ===== */}
       <Route path="*" element={<Navigate to="/" replace />} />
