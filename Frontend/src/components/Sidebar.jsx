@@ -1,62 +1,88 @@
 import React from "react";
-import { NavLink, useNavigate } from "react-router-dom";  // Added useNavigate for programmatic redirect
-import { FaChevronLeft, FaSignOutAlt } from "react-icons/fa";  // Added FaSignOutAlt for logout icon
+import { NavLink, useNavigate } from "react-router-dom";
+import { FaChevronLeft, FaSignOutAlt } from "react-icons/fa";
 import logo from "../assets/Logo.png";
 import "./Sidebar.css";
 
-const Sidebar = ({ isCollapsed, onToggle }) => {
-  const navigate = useNavigate();  // Hook for navigation
+/**
+ * Sidebar component
+ * Props:
+ *  - isCollapsed: boolean
+ *  - onToggle: function
+ *  - role: "admin" | "supplier" | "teacher" (default: "admin")
+ */
+const Sidebar = ({ isCollapsed = false, onToggle = () => {}, role = "admin" }) => {
+  const navigate = useNavigate();
 
-  // Logout handler: Clear auth data and redirect
   const handleLogout = () => {
-    // Example: Clear auth token (adjust based on your auth setup)
-    localStorage.removeItem('authToken');  // Or sessionStorage, or call an API
-    // Optional: Add confirmation dialog
-    if (window.confirm('Are you sure you want to logout?')) {
-      navigate('/Auth/loginpage');  // Redirect to login
+    if (window.confirm("Are you sure you want to logout?")) {
+      sessionStorage.removeItem("userRole");
+      window.dispatchEvent(new Event("storage")); // ✅ notify App.jsx
+      navigate("/");
     }
   };
 
+
+
+  const navLinks =
+    role === "supplier"
+      ? [
+          { to: "/supplier/dashboard", label: "Dashboard", emoji: "📊" },
+          { to: "/supplier/market", label: "Market Research", emoji: "🛍️" },
+          { to: "/supplier/upload-products", label: "Upload Products", emoji: "📤" },
+          { to: "/supplier/reports", label: "Reports", emoji: "📈" },
+          { to: "/supplier/profile", label: "Profile", emoji: "👤" },
+        ]
+
+      : role === "teacher"
+      ? [
+          { to: "/teacher/dashboard", label: "Dashboard", emoji: "📊" },
+          { to: "/teacher/classes", label: "My Classes", emoji: "🏫" },
+          { to: "/teacher/profile", label: "Profile", emoji: "👤" },
+        ]
+      : [
+          // admin default
+          { to: "/admin/dashboard", label: "Dashboard", emoji: "📊" },
+          { to: "/admin/manage-accounts", label: "Manage Accounts", emoji: "👥" },
+          { to: "/admin/market", label: "Market", emoji: "🛒" },
+          { to: "/admin/reports", label: "Reports", emoji: "📑" },
+          { to: "/admin/settings", label: "Settings", emoji: "⚙️" },
+        ];
+
   return (
     <aside className={`sidebar ${isCollapsed ? "collapsed" : ""}`}>
-      {/* Toggle button in top-right corner */}
-      <button className="sidebar-toggle-btn" onClick={onToggle} title={isCollapsed ? "Open Sidebar" : "Close Sidebar"}>
+      <button
+        className="sidebar-toggle-btn"
+        onClick={onToggle}
+        title={isCollapsed ? "Open Sidebar" : "Close Sidebar"}
+        aria-label="Toggle sidebar"
+      >
         <FaChevronLeft className={`toggle-icon ${isCollapsed ? "rotated" : ""}`} />
       </button>
 
       <div className="sidebar-header">
-        {/* Show logo + title only when sidebar is expanded */}
         {!isCollapsed && (
           <h2 className="sidebar-title">
-            <img
-              src={logo}
-              alt="Logo"
-              className="sidebar-logo-sdo"
-            />
+            <img src={logo} alt="Logo" className="sidebar-logo-sdo" />
           </h2>
         )}
       </div>
 
-      {/* Navigation Links */}
       <nav className="sidebar-nav">
-        <NavLink to="/admin/dashboard" className="sidebar-link">
-          📊 {!isCollapsed && "Dashboard"}
-        </NavLink>
-        <NavLink to="/admin/manage-accounts" className="sidebar-link">
-          👥 {!isCollapsed && "Manage Accounts"}
-        </NavLink>
-        <NavLink to="/admin/market" className="sidebar-link">
-          🛒 {!isCollapsed && "Market"}
-        </NavLink>
-        <NavLink to="/admin/reports" className="sidebar-link">
-          📑 {!isCollapsed && "Reports"}
-        </NavLink>
-        <NavLink to="/admin/settings" className="sidebar-link">
-          ⚙️ {!isCollapsed && "Settings"}
-        </NavLink>
+        {navLinks.map((link) => (
+          <NavLink
+            key={link.to}
+            to={link.to}
+            className={({ isActive }) =>
+              `sidebar-link ${isActive ? "active" : ""}`
+            }
+          >
+            <span aria-hidden>{link.emoji}</span>
+            {!isCollapsed && <span style={{ marginLeft: 8 }}>{link.label}</span>}
+          </NavLink>
+        ))}
       </nav>
 
-      {/* Logout Button at the bottom */}
       <div className="sidebar-footer">
         <button className="sidebar-logout-btn" onClick={handleLogout} title="Logout">
           <FaSignOutAlt />

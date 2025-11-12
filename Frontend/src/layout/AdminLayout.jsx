@@ -12,7 +12,7 @@ const AdminLayout = () => {
 
   return (
     <div className={`admin-layout ${!isSidebarOpen ? 'collapsed' : ''}`}>  
-      <Sidebar isCollapsed={!isSidebarOpen} onToggle={toggleSidebar} />  
+      <Sidebar isCollapsed={!isSidebarOpen} onToggle={toggleSidebar} role="admin" />  
 
       <div className="admin-main">
         <AdminNavbar />  
