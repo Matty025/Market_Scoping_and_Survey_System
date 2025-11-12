@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 
 // Auth pages
 import RegisterPage from "./pages/Auth/RegisterPage";
@@ -24,8 +25,18 @@ import SupplierUploadProducts from "./pages/Supplier/UploadProducts";
 import TeacherDashboard from "./pages/Teacher/TeacherDashboard";
 
 function App() {
-  const userRole =
-    sessionStorage.getItem("userRole") || localStorage.getItem("userRole");
+  // 👇 always track live role updates
+  const [userRole, setUserRole] = useState(sessionStorage.getItem("userRole") || "");
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const role = sessionStorage.getItem("userRole") || "";
+      setUserRole(role);
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
 
   return (
     <Routes>
@@ -64,7 +75,6 @@ function App() {
         <Route path="reports" element={<SupplierReports />} />
         <Route path="profile" element={<SupplierProfile />} />
       </Route>
-
 
       {/* ===== Teacher Routes ===== */}
       <Route
