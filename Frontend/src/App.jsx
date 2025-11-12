@@ -60,6 +60,7 @@ function App() {
         <Route path="market" element={<Market />} />
         <Route path="reports" element={<Reports />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="market-suppliers" element={<MarketSuppliers />} />
       </Route>
 
       {/* ===== Supplier Layout ===== */}
