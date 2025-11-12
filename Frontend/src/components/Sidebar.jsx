@@ -28,7 +28,7 @@ const Sidebar = ({ isCollapsed = false, onToggle = () => {}, role = "admin" }) =
     role === "supplier"
       ? [
           { to: "/supplier/dashboard", label: "Dashboard", emoji: "📊" },
-          { to: "/supplier/market", label: "Market Research", emoji: "🛍️" },
+          { to: "/supplier/market", label: "Market", emoji: "🛍️" },
           { to: "/supplier/upload-products", label: "Upload Products", emoji: "📤" },
           { to: "/supplier/reports", label: "Reports", emoji: "📈" },
           { to: "/supplier/profile", label: "Profile", emoji: "👤" },
@@ -38,6 +38,7 @@ const Sidebar = ({ isCollapsed = false, onToggle = () => {}, role = "admin" }) =
       ? [
           { to: "/buyer/dashboard", label: "Dashboard", emoji: "📊" },
           { to: "/buyer/market", label: "Market", emoji: "🛍️" },
+          { to: "/buyer/market-suppliers", label: "Market Suppliers", emoji: "🏢" },
           { to: "/buyer/profile", label: "Profile", emoji: "👤" },
         ]
       : [

@@ -1,6 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { useState, useEffect } from "react";
 
 // Auth pages
 import RegisterPage from "./pages/Auth/RegisterPage";
@@ -13,25 +12,22 @@ import ManageAccounts from "./pages/Admin/ManageAccounts";
 import Market from "./pages/Admin/Market";
 import Reports from "./pages/Admin/Reports";
 import Settings from "./pages/Admin/Settings";
-import MarketSuppliers from "./pages/Admin/MarketSuppliers";
-
 
 // Supplier layout and pages
 import SupplierLayout from "./layout/SupplierLayout";
 import SupplierDashboard from "./pages/Supplier/Dashboard";
 import SupplierMarket from "./pages/Supplier/Market";
-import SupplierUploadProducts from "./pages/Supplier/UploadProducts";
 import SupplierProfile from "./pages/Supplier/Profile";
 import SupplierReports from "./pages/Supplier/Reports";
+import SupplierUploadProducts from "./pages/Supplier/UploadProducts";
 
-
-// Buyer pages
+// Buyer layout and pages
 import BuyerLayout from "./layout/BuyerLayout";
 import BuyerDashboard from "./pages/Buyer/Dashboard";
 import BuyerMarket from "./pages/Buyer/Market";
+import BuyerMarketSuppliers from "./pages/Buyer/MarketSuppliers";
 
 function App() {
-
   // 👇 always track live role updates
   const [userRole, setUserRole] = useState(sessionStorage.getItem("userRole") || "");
 
@@ -61,7 +57,6 @@ function App() {
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="manage-accounts" element={<ManageAccounts />} />
         <Route path="market" element={<Market />} />
-        <Route path="market-suppliers" element={<MarketSuppliers />} />
         <Route path="reports" element={<Reports />} />
         <Route path="settings" element={<Settings />} />
       </Route>
@@ -85,19 +80,21 @@ function App() {
       </Route>
 
       {/* ===== Buyer Routes ===== */}
-      <Route
-        path="/buyer"
-        element={
-          userRole === "buyer" ? (
-            <BuyerLayout />
-          ) : (
-            <Navigate to="/" replace />
-          )
-        }
-        >
-        <Route path="dashboard" element={<BuyerDashboard />} />
-        <Route path="market" element={<BuyerMarket />} />
-      </Route>
+            <Route
+              path="/buyer"
+              element={
+                userRole === "buyer" ? (
+                  <BuyerLayout />
+                ) : (
+                  <Navigate to="/" replace />
+                )
+              }
+              >
+              <Route path="dashboard" element={<BuyerDashboard />} />
+              <Route path="market" element={<BuyerMarket />} />
+              <Route path="market-suppliers" element={<BuyerMarketSuppliers />} />
+            </Route>
+
 
       {/* ===== Catch-All Fallback ===== */}
       <Route path="*" element={<Navigate to="/" replace />} />

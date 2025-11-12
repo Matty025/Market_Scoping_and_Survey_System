@@ -23,11 +23,12 @@
 
 /* ===== Admin Posts Section ===== */
 .posts-container {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 20px;
-  margin-bottom: 40px; /* Add clear separation before quotation section */
+  display: flex;
+  flex-direction: column; /* stack vertically */
+  gap: 20px; /* space between posts */
+  margin-bottom: 40px;
 }
+
 
 .post-card {
   background: #ffffff;
@@ -37,6 +38,8 @@
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   cursor: pointer;
   border-left: 6px solid #22c55e;
+  width: 100%;
+  max-width: 100%;
 }
 
 .post-card:hover {

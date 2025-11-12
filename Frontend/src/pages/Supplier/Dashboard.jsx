@@ -24,7 +24,8 @@ const SupplierDashboard = () => {
       date: "2025-11-05",
       description:
         "Seeking suppliers for the printing and binding of educational modules for the upcoming school year.",
-    },
+    }
+    
   ]);
 
   // 💬 Sample quotation requests (specific to supplier)
