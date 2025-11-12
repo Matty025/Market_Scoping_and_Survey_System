@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 
 // Auth pages
 import RegisterPage from "./pages/Auth/RegisterPage";
@@ -30,6 +31,18 @@ import BuyerDashboard from "./pages/Buyer/Dashboard";
 import BuyerMarket from "./pages/Buyer/Market";
 
 function App() {
+  // 👇 always track live role updates
+  const [userRole, setUserRole] = useState(sessionStorage.getItem("userRole") || "");
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const role = sessionStorage.getItem("userRole") || "";
+      setUserRole(role);
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
   // 👇 always track live role updates
   const [userRole, setUserRole] = useState(sessionStorage.getItem("userRole") || "");
 

@@ -1,123 +1,267 @@
+/* ===== General Dashboard Container ===== */
 .dashboard-container {
-  font-family: Arial, sans-serif;
-  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;        /* fill viewport */
   background-color: #f9fafb;
-  min-height: 100vh;
+  font-family: 'Inter', sans-serif;
+  box-sizing: border-box;
+  padding: 24px;            /* consistent padding */
 }
 
-/* Header */
+/* ===== Header Section ===== */
 .dashboard-header h2 {
-  color: #166534;
-  margin-bottom: 5px;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 6px;
 }
 
 .dashboard-header p {
-  color: #4b5563;
-  margin-bottom: 20px;
+  font-size: 0.95rem;
+  color: #6b7280;
+  margin-bottom: 16px;
+  line-height: 1.4;
 }
 
-/* Search */
-.search-container {
+.header-controls {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 10px;
-  margin-bottom: 20px;
+  margin-top: 10px;
 }
 
-.search-bar {
-  flex: 1;
-  padding: 8px 12px;
-  border-radius: 6px;
+.category-dropdown {
+  padding: 6px 12px;
   border: 1px solid #d1d5db;
-  outline: none;
-}
-
-.search-btn {
-  background-color: #22c55e;
-  color: white;
-  border: none;
   border-radius: 6px;
-  padding: 8px 16px;
+  outline: none;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.category-dropdown:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.clear-btn, .post-btn {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: none;
   cursor: pointer;
-  font-weight: bold;
+  font-weight: 600;
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
 }
 
-/* Stat Cards */
-.stats-container {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 15px;
-  margin-bottom: 30px;
+.clear-btn {
+  background-color: #ef4444;
+  color: #ffffff;
 }
 
-.stat-card {
-  background-color: #dcfce7;
-  padding: 15px 20px;
-  border-radius: 10px;
-  text-align: center;
-  color: #166534;
-  font-weight: bold;
-  box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+.clear-btn:hover {
+  background-color: #dc2626;
 }
 
-/* Announcements */
-.announcements-container {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+.post-btn {
+  background-color: #2563eb;
+  color: #ffffff;
 }
 
-.announcement-card {
-  background-color: white;
-  border-radius: 10px;
-  box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+.post-btn:hover {
+  background-color: #1d4ed8;
+}
+
+/* ===== Dashboard Card ===== */
+.dashboard-card {
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
   padding: 20px;
+  margin-bottom: 20px;
+  transition: all 0.25s ease;
 }
 
-.announcement-header {
+.dashboard-card:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+
+.card-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #065f46;
+  margin-bottom: 12px;
+}
+
+/* ===== Suppliers Card ===== */
+.suppliers-card ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.suppliers-card li {
+  padding: 8px 0;
+  border-bottom: 1px solid #e5e7eb;
+  color: #374151;
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  transition: background 0.2s ease;
+}
+
+.suppliers-card li:hover {
+  background-color: #f3f4f6;
+}
+
+.suppliers-card li:last-child {
+  border-bottom: none;
+}
+
+/* ===== Announcements Section ===== */
+.announcements-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 12px;
 }
 
-.announcement-card h4 {
-  margin: 0 0 10px 0;
-  color: #065f46;
+.announcements-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
 }
 
-.announcement-card p {
-  margin: 5px 0;
-  color: #4b5563;
+.announcement-card {
+  background-color: #ffffff;
+  border-radius: 10px;
+  padding: 16px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  transition: all 0.2s ease;
+  font-size: 0.88rem;
 }
 
-.announcement-link {
-  display: inline-block;
-  margin-top: 10px;
-  color: #3b82f6;
-  text-decoration: none;
-  font-weight: bold;
+.announcement-card:hover {
+  box-shadow: 0 4px 10px rgba(0,0,0,0.12);
 }
 
-.announcement-link:hover {
-  text-decoration: underline;
+.announcement-header h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111827;
 }
 
-/* Badge styles */
-.badge {
-  padding: 3px 10px;
+.announcement-header .badge {
+  background-color: #3b82f6;
+  color: #ffffff;
+  padding: 2px 6px;
+  border-radius: 5px;
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+/* ===== Collapsible Section ===== */
+.collapsible-section {
+  margin-bottom: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.collapsible-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: background 0.2s ease;
+  background-color: #f3f4f6;
+}
+
+.collapsible-header:hover {
+  background-color: #e5e7eb;
+}
+
+.collapsible-content {
+  padding: 14px;
+  font-size: 0.88rem;
+  animation: expandCollapse 0.25s ease;
+}
+
+@keyframes expandCollapse {
+  from { opacity: 0; transform: translateY(-3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.see-more-btn {
+  background: transparent;
+  border: none;
+  color: #2563eb;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+  margin-top: 6px;
+  transition: color 0.2s ease;
+}
+
+.see-more-btn:hover {
+  color: #1d4ed8;
+}
+
+/* ===== Modal ===== */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.35);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal {
+  background-color: #ffffff;
   border-radius: 12px;
-  font-size: 0.8rem;
-  font-weight: bold;
-  color: white;
+  width: 90%;
+  max-width: 480px;
+  position: relative;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+  animation: modalShow 0.3s ease;
 }
 
-.badge.active {
-  background-color: #22c55e;
+.modal-close-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: transparent;
+  border: none;
+  font-size: 1.15rem;
+  cursor: pointer;
+  color: #6b7280;
 }
 
-.badge.pending {
-  background-color: #f97316;
+.modal-close-btn:hover {
+  color: #111827;
 }
 
-.badge.expired {
-  background-color: #ef4444;
+@keyframes modalShow {
+  from { transform: translateY(-15px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* ===== Fill Height for Admin / Dashboard ===== */
+.admin-main,
+.admin-content,
+.dashboard-container {
+  flex: 1;
+  min-height: 100vh; /* ensures full height on any viewport */
 }

@@ -1,0 +1,56 @@
+/* ===== Stats Container - compact horizontal scroll ===== */
+.stats-container {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 5px 0;
+  margin-bottom: 20px;
+  -webkit-overflow-scrolling: touch; /* smooth scroll on mobile */
+}
+
+/* Hide scrollbar for Webkit */
+.stats-container::-webkit-scrollbar {
+  display: none;
+}
+
+/* ===== Individual Stat Card - compact ===== */
+.stat-card {
+  background-color: #ffffff;
+  border-radius: 8px;
+  padding: 8px 12px;
+  text-align: center;
+  min-width: 100px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+  flex-shrink: 0; /* prevents shrinking in flex container */
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.12);
+}
+
+/* ===== Stat Label ===== */
+.stat-card h4 {
+  margin: 0 0 4px 0;
+  font-size: 0.7rem; /* compact */
+  color: #6b7280;
+  text-transform: uppercase;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+/* ===== Stat Value ===== */
+.stat-card p {
+  margin: 0;
+  font-size: 1rem; /* readable */
+  font-weight: 700;
+  color: #111827;
+  line-height: 1.2;
+}
+
+/* Numeric highlight */
+.stat-value.numeric {
+  color: #2563eb;
+}
