@@ -167,3 +167,8 @@
 .register-link .register-btn-login:hover {
   color: #3b82f6;
 }
+@media (max-width: 400px),(max-height:400px){
+  .login-card{
+    padding: 0px;
+ }
+}

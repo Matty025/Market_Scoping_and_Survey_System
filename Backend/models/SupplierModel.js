@@ -6,7 +6,6 @@ const SupplierModel = {
     CompanyName,
     Address,
     ContactNumber,
-    SDOLocation,
     HasPhilgeps = false,
     HasSECRegistration = false,
     HasBusinessPermit = false,
@@ -14,14 +13,13 @@ const SupplierModel = {
   ) => {
     const result = await pool.query(
       `INSERT INTO "Suppliers"
-        ("CompanyName","Address","ContactNumber","SDOLocation","HasPhilgeps","HasSECRegistration","HasBusinessPermit","HasTaxClearance")
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+        ("CompanyName","Address","ContactNumber","HasPhilgeps","HasSECRegistration","HasBusinessPermit","HasTaxClearance")
+       VALUES ($1,$2,$3,$4,$5,$6,$7)
        RETURNING *`,
       [
         CompanyName,
         Address,
         ContactNumber,
-        SDOLocation,
         HasPhilgeps,
         HasSECRegistration,
         HasBusinessPermit,

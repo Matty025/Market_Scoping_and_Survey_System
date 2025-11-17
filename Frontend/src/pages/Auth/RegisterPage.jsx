@@ -1,139 +1,178 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import "./RegisterPage.css";
+import Toast from "../../components/Toast";
+
+// Unified Register Page for Supplier and Buyer
+// - Posts to /auth/register with role in the body
+// - Uses env-based API URL (VITE_API_URL)
+// - Validates fields and prevents double submit
+
+const initialFormData = {
+  fullName: "",
+  email: "",
+  password: "",
+  confirmPassword: "",
+  // Supplier-only fields
+  companyName: "",
+  address: "",
+  contactNumber: "",
+    hasPhilgeps: false,
+  hasSecRegistration: false,
+  hasBusinessPermit: false,
+  hasTaxClearance: false,
+};
 
 export default function RegisterPage() {
   const navigate = useNavigate();
-  const [role, setRole] = useState("Supplier");
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
-    address: "",
-    contactNumber: "",
-    sdoLocation: "",
-    hasPhilgeps: false,
-    hasSECRegistration: false,
-    hasBusinessPermit: false,
-    hasTaxClearance: false,
-  });
+  const [role, setRole] = useState("supplier"); // 'supplier' | 'buyer'
+  const [formData, setFormData] = useState(initialFormData);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
+  const [toast, setToast] = useState({ visible: false, type: "info", message: "" });
+
+  const showToast = (type, message, duration = 3000) => {
+    setToast({ visible: true, type, message, duration });
+  };
+  const hideToast = () => setToast({ visible: false, type: "info", message: "" });
+
+  const API_BASE = useMemo(() => {
+    return import.meta.env.VITE_API_URL || "http://localhost:3001";
+  }, []);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData({
-      ...formData,
+    setFormData((prev) => ({
+      ...prev,
       [name]: type === "checkbox" ? checked : value,
-    });
+    }));
+  };
+
+  const validate = () => {
+    const email = formData.email.trim();
+    const password = formData.password;
+    const confirmPassword = formData.confirmPassword;
+
+    if (!formData.fullName.trim()) return "Full name is required.";
+    if (!email) return "Email is required.";
+    // Basic email format check
+    const emailOk = /.+@.+\..+/.test(email);
+    if (!emailOk) return "Enter a valid email address.";
+
+    if (!password) return "Password is required.";
+    if (password.length < 6) return "Password must be at least 6 characters.";
+    if (password !== confirmPassword) return "Passwords do not match.";
+
+    if (role === "supplier") {
+      if (!formData.companyName.trim()) return "Company name is required for suppliers.";
+      if (!formData.address.trim()) return "Address is required for suppliers.";
+      if (!formData.contactNumber.trim()) return "Contact number is required for suppliers.";
+          }
+
+    return "";
+  };
+
+  const resetForm = () => {
+    setFormData(initialFormData);
   };
 
   const handleRegister = async (e) => {
     e.preventDefault();
-    const {
-      name,
-      email,
-      password,
-      confirmPassword,
-      address,
-      contactNumber,
-      sdoLocation,
-      hasPhilgeps,
-      hasSECRegistration,
-      hasBusinessPermit,
-      hasTaxClearance,
-    } = formData;
+    setErrorMsg("");
+    setSuccessMsg("");
 
-    if (!name || !email || !password || !confirmPassword) {
-      alert("Please fill in all required fields.");
+    const validationError = validate();
+    if (validationError) {
+      setErrorMsg(validationError);
+      showToast("error", validationError);
       return;
     }
 
-    if (password !== confirmPassword) {
-      alert("Passwords do not match.");
-      return;
-    }
+    setIsSubmitting(true);
 
     try {
-      let apiUrl = "";
-      let payload = {};
+      const payloadBase = {
+        role: role.toLowerCase(),
+        fullName: formData.fullName.trim(),
+        email: formData.email.trim(),
+        password: formData.password,
+      };
 
-      if (role === "Supplier") {
-        apiUrl = "http://localhost:3001/suppliers/register"; // ensure route matches backend
+      let payload = payloadBase;
+
+      if (role === "supplier") {
         payload = {
-          FullName: name,
-          Email: email,
-          Password: password,
-          CompanyName: name,
-          Address: address,
-          ContactNumber: contactNumber,
-          SDOLocation: sdoLocation,
-          HasPhilgeps: hasPhilgeps,
-          HasSECRegistration: hasSECRegistration,
-          HasBusinessPermit: hasBusinessPermit,
-          HasTaxClearance: hasTaxClearance,
-        };
-      } else if (role === "Buyer") {
-        apiUrl = "http://localhost:3001/buyer/register"; // add buyer route backend
-        payload = {
-          FullName: name,
-          Email: email,
-          Password: password,
+          ...payloadBase,
+          companyName: formData.companyName.trim(),
+          address: formData.address.trim(),
+          contactNumber: formData.contactNumber.trim(),
+                    hasPhilgeps: !!formData.hasPhilgeps,
+          hasSecRegistration: !!formData.hasSecRegistration,
+          hasBusinessPermit: !!formData.hasBusinessPermit,
+          hasTaxClearance: !!formData.hasTaxClearance,
         };
       }
 
-      console.log("Submitting registration:", payload);
-      const res = await axios.post(apiUrl, payload);
-      console.log("Response:", res.data);
+      const url = `${API_BASE}/auth/register`;
+      const res = await axios.post(url, payload);
 
-      alert(res.data.message || `${role} registration successful!`);
+      const message = res.data?.message || `${role === "supplier" ? "Supplier" : "Buyer"} registered successfully.`;
+      setSuccessMsg(message);
+      showToast("success", message);
 
-      // Reset form after successful registration
-      setFormData({
-        name: "",
-        email: "",
-        password: "",
-        confirmPassword: "",
-        address: "",
-        contactNumber: "",
-        sdoLocation: "",
-        hasPhilgeps: false,
-        hasSECRegistration: false,
-        hasBusinessPermit: false,
-        hasTaxClearance: false,
-      });
-
-      navigate("/"); // back to login
+      // Optional: direct to login after short delay
+      resetForm();
+      setTimeout(() => navigate("/"), 800);
     } catch (err) {
-      console.error("Registration error:", err);
-      alert(err.response?.data?.error || "Registration failed. Try again.");
+      let msg =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.response?.data?.msg ||
+        "Registration failed. Please try again.";
+      if (err?.response?.status === 409) {
+        msg = "Email already in use. Try logging in or use another email.";
+      }
+      setErrorMsg(msg);
+      showToast("error", msg);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
     <div className="register-card">
-      <h1 className="register-title">{role} Registration</h1>
+      <Toast type={toast.type} message={toast.message} visible={toast.visible} onClose={hideToast} />
+      <h1 className="register-title">{role === "supplier" ? "Supplier" : "Buyer"} Registration</h1>
 
       {/* Role toggle */}
       <div className="role-toggle">
-        {["Supplier", "Buyer"].map((r) => (
+        {[
+          { key: "supplier", label: "Supplier" },
+          { key: "buyer", label: "Buyer" },
+        ].map((r) => (
           <button
-            key={r}
-            className={role === r ? "active" : ""}
-            onClick={() => setRole(r)}
+            key={r.key}
+            className={role === r.key ? "active" : ""}
+            onClick={() => setRole(r.key)}
+            type="button"
           >
-            {r}
+            {r.label}
           </button>
         ))}
       </div>
+
+      {errorMsg && <p className="error-message">{errorMsg}</p>}
+      {successMsg && <p className="success-message">{successMsg}</p>}
 
       <form onSubmit={handleRegister}>
         <div className="input-group">
           <input
             type="text"
-            name="name"
-            placeholder={role === "Supplier" ? "Business Name" : "Full Name"}
-            value={formData.name}
+            name="fullName"
+            placeholder={role === "supplier" ? "Contact Person Full Name" : "Full Name"}
+            value={formData.fullName}
             onChange={handleChange}
             required
           />
@@ -161,8 +200,17 @@ export default function RegisterPage() {
             onChange={handleChange}
             required
           />
-          {role === "Supplier" && (
+
+          {role === "supplier" && (
             <>
+              <input
+                type="text"
+                name="companyName"
+                placeholder="Company Name"
+                value={formData.companyName}
+                onChange={handleChange}
+                required
+              />
               <input
                 type="text"
                 name="address"
@@ -179,20 +227,11 @@ export default function RegisterPage() {
                 onChange={handleChange}
                 required
               />
-              <input
-                type="text"
-                name="sdoLocation"
-                placeholder="Branch Location"
-                value={formData.sdoLocation}
-                onChange={handleChange}
-                required
-              />
-            </>
+                          </>
           )}
         </div>
 
-        {/* Supplier documents */}
-        {role === "Supplier" && (
+        {role === "supplier" && (
           <div className="document-section">
             <h3>Required Documents / Registrations</h3>
             <div className="checkboxes">
@@ -208,8 +247,8 @@ export default function RegisterPage() {
               <label>
                 <input
                   type="checkbox"
-                  name="hasSECRegistration"
-                  checked={formData.hasSECRegistration}
+                  name="hasSecRegistration"
+                  checked={formData.hasSecRegistration}
                   onChange={handleChange}
                 />
                 SEC Registration
@@ -234,19 +273,18 @@ export default function RegisterPage() {
               </label>
             </div>
             <p className="note">
-              *Physical copies of these documents must be verified by DepEd.
+              Physical copies of these documents must be sent to DepEd@gmail.com for verification.
             </p>
           </div>
         )}
 
-        <button type="submit" className="register-btn">
-          Register
+        <button type="submit" className="register-btn" disabled={isSubmitting}>
+          {isSubmitting ? "Registering..." : "Register"}
         </button>
       </form>
 
       <p className="login-link">
-        Already have an account?{" "}
-        <button onClick={() => navigate("/")}>Login</button>
+        Already have an account? <button type="button" onClick={() => navigate("/")}>Login</button>
       </p>
     </div>
   );

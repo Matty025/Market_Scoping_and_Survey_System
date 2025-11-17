@@ -4,22 +4,23 @@ import axios from "axios";
 import { FaEnvelope, FaLock } from "react-icons/fa";
 import { useAuth } from "./AuthContext"; // Import context
 import "./LoginCard.css";
+import Toast from "./Toast";
 
 export default function LoginCard() {
   const navigate = useNavigate();
   const { login } = useAuth(); // Use context
-  const [role, setRole] = useState("admin"); // Frontend toggle default (visual only)
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
-  const [roleTransition, setRoleTransition] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [toast, setToast] = useState({ visible: false, type: "info", message: "" });
+  const showToast = (type, message, duration = 3000) => setToast({ visible: true, type, message, duration });
+  const hideToast = () => setToast({ visible: false, type: "info", message: "" });
 
   // Prefill remembered email and reset fields on mount
   useEffect(() => {
     console.log("[LoginCard] Mounted. Resetting fields.");
-    setRole("admin");
     setEmail("");
     setPassword("");
     setErrorMsg("");
@@ -31,35 +32,22 @@ export default function LoginCard() {
     }
   }, []);
 
-  // Handle frontend role toggle (visual only; doesn't affect login)
-  const handleRoleChange = (newRole) => {
-    console.log(`[LoginCard] Role toggle clicked. Current role: ${role}, New role: ${newRole}`);
-    if (newRole === role) return;
-    setRoleTransition(true);
-    setTimeout(() => {
-      setRole(newRole);
-      setRoleTransition(false);
-      console.log("[LoginCard] Role changed to:", newRole);
-    }, 200);
-  };
-
   // Login request
   const handleLogin = async (e) => {
     e.preventDefault();
     setErrorMsg("");
     setIsLoggingIn(true);
-    console.log("[LoginCard] Attempting login with:", email, "Role selected:", role);
+    console.log("[LoginCard] Attempting login with:", email);
 
     try {
-      const payload = { email, password };
-      // Optional: If you want the toggle to send selected role to backend, uncomment:
-      // payload.role = role;
+      const payload = { email: email.trim(), password };
 
       const res = await axios.post("http://localhost:3001/auth/login", payload);
       const { token, user } = res.data;
       const userRoleLower = user.role.toLowerCase();
 
       console.log("[LoginCard] Login successful. Backend role:", userRoleLower);
+      showToast("success", "Login successful.");
 
       // Save remembered email if checked
       if (remember) localStorage.setItem("rememberedEmail", email);
@@ -68,11 +56,21 @@ export default function LoginCard() {
       // Update global auth context (triggers instant re-render/navigation)
       login({ token, user });
 
-      // Navigation is now handled by App's routes via context
-      console.log("[LoginCard] Auth context updated. Navigation will happen automatically.");
+      // Explicitly navigate to the dashboard based on backend role
+      if (userRoleLower === "admin") navigate("/admin/dashboard");
+      else if (userRoleLower === "supplier") navigate("/supplier/dashboard");
+      else if (userRoleLower === "buyer") navigate("/buyer/dashboard");
+      else {
+        setErrorMsg("❌ Unknown role.");
+        return;
+      }
+
+      console.log("[LoginCard] Navigation triggered to:", `/${userRoleLower}/dashboard`);
     } catch (err) {
       console.error("[LoginCard] Login error:", err.response?.data || err);
-      setErrorMsg(err.response?.data?.message || "Server error. Try again.");
+      const msg = err.response?.data?.message || "Invalid email or password.";
+      setErrorMsg(msg);
+      showToast("error", msg);
     } finally {
       setIsLoggingIn(false);
     }
@@ -82,31 +80,17 @@ export default function LoginCard() {
   const handleLogout = () => {
     if (window.confirm("Are you sure you want to logout?")) {
       console.log("[LoginCard] Logging out. Clearing auth context.");
-      login({ token: "", user: { role: "", fullName: "", userID: "" } }); // Or use logout from context
+      login({ token: "", user: { role: "", fullName: "", userID: "" } });
       navigate("/");
     }
   };
 
   return (
     <div className="login-card">
-      <h1 className="login-title">
-        Login – {role.charAt(0).toUpperCase() + role.slice(1)}
-      </h1>
+      <Toast type={toast.type} message={toast.message} visible={toast.visible} onClose={hideToast} />
+      <h1 className="login-title">Login</h1> {/* Simplified title */}
 
       {errorMsg && <p className="error-message">{errorMsg}</p>}
-
-      {/* Role Toggle (Visual Only) */}
-      <div className={`role-toggle ${roleTransition ? "transitioning" : ""}`}>
-        {["admin", "supplier", "buyer"].map((r) => (
-          <button
-            key={r}
-            className={role === r ? "active" : ""}
-            onClick={() => handleRoleChange(r)}
-          >
-            {r.charAt(0).toUpperCase() + r.slice(1)}
-          </button>
-        ))}
-      </div>
 
       {/* Login Form */}
       <form onSubmit={handleLogin}>
@@ -143,8 +127,6 @@ export default function LoginCard() {
           </label>
         </div>
 
-        
-
         <button type="submit" className="login-btn" disabled={isLoggingIn}>
           {isLoggingIn ? "Logging in..." : "Login"}
         </button>
@@ -155,6 +137,13 @@ export default function LoginCard() {
         <button onClick={() => navigate("/register")}>Register</button>
       </p>
 
+      {/* Debug Logout Button */}
+      <button
+        style={{ marginTop: "10px", fontSize: "0.8rem" }}
+        onClick={handleLogout}
+      >
+        Logout (Debug)
+      </button>
     </div>
   );
 }

@@ -1,0 +1,277 @@
+/* Global Responsive Styles
+   - Fluid typography
+   - Containers and grids
+   - Forms and buttons
+   - Utility spacing
+   Targets: mobile-first, then >=640px, >=768px, >=1024px, >=1280px, >=1536px
+*/
+
+:root {
+  /* Fluid type scale */
+  --fs-0: clamp(0.75rem, 0.72rem + 0.3vw, 0.875rem);
+  --fs-1: clamp(0.875rem, 0.84rem + 0.4vw, 1rem);
+  --fs-2: clamp(1rem, 0.95rem + 0.5vw, 1.125rem);
+  --fs-3: clamp(1.125rem, 1.05rem + 0.6vw, 1.25rem);
+  --fs-4: clamp(1.25rem, 1.15rem + 0.8vw, 1.5rem);
+  --fs-5: clamp(1.5rem, 1.35rem + 1.2vw, 2rem);
+  --fs-6: clamp(2rem, 1.5rem + 2vw, 3rem);
+
+  /* Layout */
+  --max-w-xs: 480px;
+  --max-w-sm: 640px;
+  --max-w-md: 768px;
+  --max-w-lg: 1024px;
+  --max-w-xl: 1280px;
+  --max-w-2xl: 1536px;
+
+  /* Spacing */
+  --sp-0: 4px;
+  --sp-1: 8px;
+  --sp-2: 12px;
+  --sp-3: 16px;
+  --sp-4: 20px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --sp-8: 40px;
+  --sp-10: 48px;
+
+  /* Theme references (kept; app colors unchanged) */
+  --bg: #0b1020;
+  --card: #111827;
+  --muted: #6b7280;        /* gray-500 */
+  --text: #000000;         /* gray-200 */
+  --text-strong: #111827;  /* gray-900 for inputs */
+  --primary: #2563eb;
+  --primary-contrast: #ffffff;
+  --border: rgba(0,0,0,0.12);
+  --ring: rgba(37,99,235,0.35);
+  /* Input palette */
+  --input-bg: #ffffff;     /* white inputs */
+  --input-text: #111827;   /* dark text */
+  --input-border: #d1d5db; /* gray-300 */
+  --input-border-focus: #3b82f6; /* blue-500 */
+  --placeholder: #9ca3af; /* gray-400 */
+}
+
+/* Base */
+html { -webkit-text-size-adjust: 100%; }
+body {
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  background: var(--bg);
+  color: var(--text);
+  font-size: var(--fs-1);
+  line-height: 1.5;
+  padding-top: env(safe-area-inset-top); /* notch safe area */
+}
+
+/* Containers */
+.container {
+  margin-inline: auto;
+  padding-inline: var(--sp-3);
+  width: 100%;
+}
+.container-xs { max-width: var(--max-w-xs); }
+.container-sm { max-width: var(--max-w-sm); }
+.container-md { max-width: var(--max-w-md); }
+.container-lg { max-width: var(--max-w-lg); }
+.container-xl { max-width: var(--max-w-xl); }
+.container-2xl { max-width: var(--max-w-2xl); }
+
+/* Cards */
+.card {
+  background: var(--card);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: var(--sp-5);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.25);
+}
+
+/* Grids */
+.grid { display: grid; gap: var(--sp-4); }
+.grid-1 { grid-template-columns: 1fr; }
+.grid-2 { grid-template-columns: 1fr; }
+.grid-3 { grid-template-columns: 1fr; }
+.grid-4 { grid-template-columns: 1fr; }
+@media (min-width: 640px) { .grid-2 { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 768px) { .grid-3 { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 1024px){ .grid-4 { grid-template-columns: repeat(4, 1fr); } }
+
+/* Forms: All text fields white background, dark text, gray placeholders */
+.input,
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="search"],
+input[type="tel"],
+input[type="url"],
+textarea,
+select {
+  width: 100%;
+  appearance: none;
+  background: var(--input-bg);
+  color: var(--input-text);
+  border: 1px solid var(--input-border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  outline: none;
+  transition: box-shadow 120ms ease, border-color 120ms ease, background-color 120ms ease;
+}
+.input::placeholder,
+input::placeholder,
+textarea::placeholder { color: var(--placeholder); opacity: 1; }
+
+.input:focus,
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--input-border-focus);
+  box-shadow: 0 0 0 4px var(--ring);
+}
+
+/* Normalize disabled/read-only fields (still white background) */
+input[disabled], textarea[disabled], select[disabled],
+input[readonly], textarea[readonly], select[readonly] {
+  background: #f9fafb; /* gray-50 */
+  color: #6b7280;      /* gray-500 */
+}
+
+/* Buttons (no color changes) */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 18px;
+  border-radius: 10px;
+  border: 1px solid rgba(0,0,0,0.12);
+  cursor: pointer;
+  font-weight: 600;
+  transition: transform 120ms ease, background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.btn:active { transform: translateY(1px) scale(0.99); }
+
+.btn-primary { background: var(--primary); color: var(--primary-contrast); border-color: rgba(37,99,235,0.6); }
+.btn-primary:hover { filter: brightness(1.05); }
+
+.btn-ghost { background: transparent; color: var(--text); }
+.btn-ghost:hover { background: rgba(255,255,255,0.06); }
+
+/* Headings scale */
+h1 { font-size: var(--fs-5); line-height: 1.1; }
+h2 { font-size: var(--fs-4); line-height: 1.15; }
+h3 { font-size: var(--fs-3); line-height: 1.2; }
+
+/* Sections */
+.section { padding-block: var(--sp-6); }
+@media (min-width: 1024px) {
+  .section { padding-block: var(--sp-8); }
+}
+
+/* Responsive utilities */
+.hide-sm { display: none; }
+@media (min-width: 640px) { .hide-sm { display: initial; } }
+
+.only-sm { display: initial; }
+@media (min-width: 640px) { .only-sm { display: none; } }
+
+.stack-2 > * + * { margin-top: var(--sp-2); }
+.stack-3 > * + * { margin-top: var(--sp-3); }
+.stack-4 > * + * { margin-top: var(--sp-4); }
+
+/* Responsive auth card suggestion */
+.auth-wrap {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  padding: var(--sp-4);
+}
+.auth-card { width: 100%; max-width: 420px; }
+@media (min-width: 640px) { .auth-card { max-width: 520px; } }
+@media (min-width: 1024px){ .auth-card { max-width: 640px; } }
+
+/* Large displays: enhance spacing and max-width */
+@media (min-width: 1536px) {
+  .container, .container-lg, .container-xl, .container-2xl { max-width: 1680px; }
+  h1 { font-size: clamp(2rem, 1.2rem + 1.6vw, 3.2rem); }
+}
+
+/* =========================================================
+   App-specific responsive overrides (layout only, no color changes)
+   ========================================================= */
+
+/* Auth cards: compact on mobile; comfy caps on larger screens */
+/* iPhone SE and very small screens (≤375px): extra-compact auth cards */
+@media (max-width: 375px) {
+  .login-card { max-width: 300px !important;padding: 22px 16px !important; border-radius: 12px !important; }
+  .login-title { font-size: 20px !important; margin-bottom: 14px !important; }
+  .input-icon { padding: 9px 10px !important; margin-bottom: 12px !important; }
+  .login-options { margin-bottom: 12px !important; font-size: 12px !important; }
+  .login-btn { padding: 10px !important; font-size: 15px !important; }
+  .register-link { margin-top: 12px !important; font-size: 12px !important; }
+
+  .register-card { padding: 20px 16px !important; border-radius: 12px !important; max-width: 320px !important; }
+  .register-title { font-size: 20px !important; margin-bottom: 14px !important; }
+  .input-group input { padding: 9px 10px !important; margin-bottom: 10px !important; }
+  .document-section h3 { font-size: 15px !important; }
+  .register-btn { padding: 10px !important; font-size: 15px !important; }
+}
+@media (max-width: 480px) {
+  .login-card { padding: 28px 20px !important; border-radius: 14px !important; max-width: 320px !important; }
+  .login-title { font-size: 22px !important; margin-bottom: 18px !important; }
+  .input-icon { padding: 10px 12px !important; margin-bottom: 14px !important; }
+  .login-options { margin-bottom: 16px !important; font-size: 13px !important; }
+  .login-btn { padding: 12px !important; font-size: 16px !important; }
+  .register-link { margin-top: 14px !important; font-size: 13px !important; }
+
+  .register-card { padding: 24px 18px !important; border-radius: 14px !important; max-width: 340px !important; }
+  .register-title { font-size: 22px !important; margin-bottom: 16px !important; }
+  .input-group input { padding: 10px 12px !important; margin-bottom: 12px !important; }
+  .role-toggle { gap: 8px !important; margin-bottom: 16px !important; }
+  .document-section h3 { font-size: 16px !important; }
+  .register-btn { padding: 12px !important; font-size: 16px !important; }
+}
+
+@media (min-width: 481px) and (max-width: 640px) {
+  .login-card { padding: 36px 28px !important; max-width: 360px !important; }
+  .register-card { padding: 32px 24px !important; max-width: 380px !important; }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  .login-card { max-width: 420px !important; }
+  .register-card { max-width: 560px !important; }
+}
+
+@media (min-width: 1280px) {
+  .login-card { max-width: 420px !important; }
+  .register-card { max-width: 640px !important; }
+}
+
+/* Center auth pages without changing existing backgrounds */
+.auth-wrap { display: grid; place-items: center; min-height: 100dvh; padding: var(--sp-4); }
+.auth-card { width: 100%; }
+
+/* Sidebar: keep icons visible on small screens when collapsed (consistent 50px) */
+@media (max-width: 767px) {
+  .sidebar { width: 200px !important; height: 100vh; }
+  .sidebar.collapsed { width: 50px !important; height: 100vh; padding: 20px 10px !important; }
+  .sidebar-logo-sdo { width: 36px !important; height: 36px !important; }
+}
+/* Ensure icon placeholder remains visible; hide text when collapsed */
+.sidebar-link span[aria-hidden] { min-width: 20px; text-align: center; }
+.sidebar.collapsed .sidebar-link span + span { display: none; }
+
+/* Search bars: prevent overflow and stack on small screens */
+.search-container, .market-filter-bar, .market-suppliers-search { display: flex; gap: 10px; flex-wrap: wrap; }
+.search-bar, .market-search-input, .market-category-select, .market-supplier-select, .market-date-input, .market-suppliers-search input, .search-input {
+  min-width: 0; flex: 1 1 200px; width: auto;
+}
+@media (max-width: 768px) {
+  .search-container, .market-filter-bar { flex-direction: column; align-items: stretch; }
+  .search-bar, .market-search-input, .market-category-select, .market-supplier-select, .market-date-input, .market-suppliers-search input, .search-input { width: 100% !important; }
+}
+
+/* Admin navbar search input text visibility (white background) */
+.admin-navbar .navbar-actions .navbar-search-bar { color: var(--text-strong) !important; background: #ffffff !important; }
+.admin-navbar .navbar-actions .navbar-search-bar::placeholder { color: var(--placeholder) !important; }
+.admin-navbar .navbar-actions .navbar-search-bar:focus { color: #ffffff !important; }
