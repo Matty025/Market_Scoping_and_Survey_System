@@ -1,90 +1,111 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 import { FaEnvelope, FaLock } from "react-icons/fa";
+import { useAuth } from "./AuthContext"; // Import context
 import "./LoginCard.css";
 
 export default function LoginCard() {
   const navigate = useNavigate();
-  const [role, setRole] = useState("admin");
+  const { login } = useAuth(); // Use context
+  const [role, setRole] = useState("admin"); // Frontend toggle default (visual only)
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [roleTransition, setRoleTransition] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  // Prefill saved email if "Remember Me" was checked
+  // Prefill remembered email and reset fields on mount
   useEffect(() => {
+    console.log("[LoginCard] Mounted. Resetting fields.");
+    setRole("admin");
+    setEmail("");
+    setPassword("");
+    setErrorMsg("");
     const rememberedEmail = localStorage.getItem("rememberedEmail");
     if (rememberedEmail) {
       setEmail(rememberedEmail);
       setRemember(true);
+      console.log("[LoginCard] Prefilled remembered email:", rememberedEmail);
     }
   }, []);
 
-  const handleLogin = (e) => {
+  // Handle frontend role toggle (visual only; doesn't affect login)
+  const handleRoleChange = (newRole) => {
+    console.log(`[LoginCard] Role toggle clicked. Current role: ${role}, New role: ${newRole}`);
+    if (newRole === role) return;
+    setRoleTransition(true);
+    setTimeout(() => {
+      setRole(newRole);
+      setRoleTransition(false);
+      console.log("[LoginCard] Role changed to:", newRole);
+    }, 200);
+  };
+
+  // Login request
+  const handleLogin = async (e) => {
     e.preventDefault();
+    setErrorMsg("");
+    setIsLoggingIn(true);
+    console.log("[LoginCard] Attempting login with:", email, "Role selected:", role);
 
-    if (!email || !password) {
-      alert("Please fill in all fields");
-      return;
+    try {
+      const payload = { email, password };
+      // Optional: If you want the toggle to send selected role to backend, uncomment:
+      // payload.role = role;
+
+      const res = await axios.post("http://localhost:3001/auth/login", payload);
+      const { token, user } = res.data;
+      const userRoleLower = user.role.toLowerCase();
+
+      console.log("[LoginCard] Login successful. Backend role:", userRoleLower);
+
+      // Save remembered email if checked
+      if (remember) localStorage.setItem("rememberedEmail", email);
+      else localStorage.removeItem("rememberedEmail");
+
+      // Update global auth context (triggers instant re-render/navigation)
+      login({ token, user });
+
+      // Navigation is now handled by App's routes via context
+      console.log("[LoginCard] Auth context updated. Navigation will happen automatically.");
+    } catch (err) {
+      console.error("[LoginCard] Login error:", err.response?.data || err);
+      setErrorMsg(err.response?.data?.message || "Server error. Try again.");
+    } finally {
+      setIsLoggingIn(false);
     }
+  };
 
-    // ADMIN LOGIN
-    if (email === "admin@gmail.com" && password === "admin" && role === "admin") {
-      sessionStorage.setItem("userRole", "admin");
-      window.dispatchEvent(new Event("storage"));
-      alert("✅ Login successful! Redirecting to Admin Dashboard...");
-      navigate("/admin/dashboard");
+  // Debug logout (clears context and navigates)
+  const handleLogout = () => {
+    if (window.confirm("Are you sure you want to logout?")) {
+      console.log("[LoginCard] Logging out. Clearing auth context.");
+      login({ token: "", user: { role: "", fullName: "", userID: "" } }); // Or use logout from context
+      navigate("/");
     }
-
-    // SUPPLIER LOGIN
-    else if (email === "supplier@gmail.com" && password === "supplier" && role === "supplier") {
-      sessionStorage.setItem("userRole", "supplier");
-      window.dispatchEvent(new Event("storage"));
-      alert("✅ Login successful! Redirecting to Supplier Dashboard...");
-      navigate("/supplier/dashboard");
-    }
-
-    // TEACHER LOGIN
-    else if (email === "buyer@gmail.com" && password === "buyer" && role === "buyer") {
-      sessionStorage.setItem("userRole", "buyer");
-      window.dispatchEvent(new Event("storage"));
-      alert("✅ Login successful! Redirecting to Buyer Dashboard...");
-      navigate("/buyer/dashboard");
-    }
-
-
-        // INVALID
-        else {
-          alert("❌ Invalid credentials or role. Try again.");
-        }
-      };
-
+  };
 
   return (
     <div className="login-card">
       <h1 className="login-title">
-        Login - {role.charAt(0).toUpperCase() + role.slice(1)}
+        Login – {role.charAt(0).toUpperCase() + role.slice(1)}
       </h1>
 
-      {/* Role Toggle */}
-      <div className="role-toggle">
-        <button
-          className={role === "admin" ? "active" : ""}
-          onClick={() => setRole("admin")}
-        >
-          Admin
-        </button>
-        <button
-          className={role === "supplier" ? "active" : ""}
-          onClick={() => setRole("supplier")}
-        >
-          Supplier
-        </button>
-        <button
-          className={role === "buyer" ? "active" : ""}
-          onClick={() => setRole("buyer")}
-        >
-          Buyer
-        </button>
+      {errorMsg && <p className="error-message">{errorMsg}</p>}
+
+      {/* Role Toggle (Visual Only) */}
+      <div className={`role-toggle ${roleTransition ? "transitioning" : ""}`}>
+        {["admin", "supplier", "buyer"].map((r) => (
+          <button
+            key={r}
+            className={role === r ? "active" : ""}
+            onClick={() => handleRoleChange(r)}
+          >
+            {r.charAt(0).toUpperCase() + r.slice(1)}
+          </button>
+        ))}
       </div>
 
       {/* Login Form */}
@@ -120,30 +141,20 @@ export default function LoginCard() {
             />
             Remember Me
           </label>
-
-          <button
-            type="button"
-            className="forgot-password"
-            onClick={() => alert("Password reset coming soon!")}
-          >
-            Forgot Password?
-          </button>
         </div>
 
-        <button type="submit" className="login-btn">
-          Login
+        
+
+        <button type="submit" className="login-btn" disabled={isLoggingIn}>
+          {isLoggingIn ? "Logging in..." : "Login"}
         </button>
       </form>
 
       <p className="register-link">
         Don’t have an account?{" "}
-        <button
-          className="register-btn-login"
-          onClick={() => navigate("/register")}
-        >
-          Register
-        </button>
+        <button onClick={() => navigate("/register")}>Register</button>
       </p>
+
     </div>
   );
 }

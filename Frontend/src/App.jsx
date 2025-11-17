@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import { useState, useEffect } from "react";
-
+import { AuthProvider,useAuth } from "./components/AuthContext";
+import ProtectedRoute from "./components/ProtectedRoute";
 // Auth pages
 import RegisterPage from "./pages/Auth/RegisterPage";
 import LoginPage from "./pages/Auth/LoginPage";
@@ -28,50 +28,40 @@ import BuyerDashboard from "./pages/Buyer/Dashboard";
 import BuyerMarket from "./pages/Buyer/Market";
 import BuyerMarketSuppliers from "./pages/Buyer/MarketSuppliers";
 
-function App() {
-  // 👇 always track live role updates
-  const [userRole, setUserRole] = useState(sessionStorage.getItem("userRole") || "");
-
-  useEffect(() => {
-    const handleStorageChange = () => {
-      const role = sessionStorage.getItem("userRole") || "";
-      setUserRole(role);
-    };
-
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
-  }, []);
+// AppContent component to use context inside provider
+function AppContent() {
+  const { userRole, logout } = useAuth();
 
   return (
     <Routes>
-      {/* ===== Auth Routes ===== */}
-      <Route path="/" element={<LoginPage />} />
+      {/* Auth Routes */}
+      <Route path="/" element={userRole ? <Navigate to={`/${userRole}/dashboard`} replace /> : <LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
 
-      {/* ===== Admin Layout ===== */}
+      {/* Admin Routes */}
       <Route
-        path="/admin"
+        path="/admin/*"
         element={
-          userRole === "admin" ? <AdminLayout /> : <Navigate to="/" replace />
+          <ProtectedRoute requiredRole="admin">
+            <AdminLayout onLogout={logout} />
+          </ProtectedRoute>
         }
       >
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="manage-accounts" element={<ManageAccounts />} />
         <Route path="market" element={<Market />} />
+        <Route path="market-suppliers" element={<MarketSuppliers />} />
         <Route path="reports" element={<Reports />} />
         <Route path="settings" element={<Settings />} />
-        <Route path="market-suppliers" element={<MarketSuppliers />} />
       </Route>
 
-      {/* ===== Supplier Layout ===== */}
+      {/* Supplier Routes */}
       <Route
-        path="/supplier"
+        path="/supplier/*"
         element={
-          userRole === "supplier" ? (
-            <SupplierLayout />
-          ) : (
-            <Navigate to="/" replace />
-          )
+          <ProtectedRoute requiredRole="supplier">
+            <SupplierLayout onLogout={logout} />
+          </ProtectedRoute>
         }
       >
         <Route path="dashboard" element={<SupplierDashboard />} />
@@ -81,26 +71,31 @@ function App() {
         <Route path="profile" element={<SupplierProfile />} />
       </Route>
 
-      {/* ===== Buyer Routes ===== */}
-            <Route
-              path="/buyer"
-              element={
-                userRole === "buyer" ? (
-                  <BuyerLayout />
-                ) : (
-                  <Navigate to="/" replace />
-                )
-              }
-              >
-              <Route path="dashboard" element={<BuyerDashboard />} />
-              <Route path="market" element={<BuyerMarket />} />
-              <Route path="market-suppliers" element={<BuyerMarketSuppliers />} />
-            </Route>
+      {/* Buyer Routes */}
+      <Route
+        path="/buyer/*"
+        element={
+          <ProtectedRoute requiredRole="buyer">
+            <BuyerLayout onLogout={logout} />
+          </ProtectedRoute>
+        }
+      >
+        <Route path="dashboard" element={<BuyerDashboard />} />
+        <Route path="market" element={<BuyerMarket />} />
+        <Route path="market-suppliers" element={<BuyerMarketSuppliers />} />
+      </Route>
 
-
-      {/* ===== Catch-All Fallback ===== */}
+      {/* Catch-All */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 

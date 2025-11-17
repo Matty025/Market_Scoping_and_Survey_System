@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 import "./RegisterPage.css";
 
 export default function RegisterPage() {
@@ -10,8 +11,13 @@ export default function RegisterPage() {
     email: "",
     password: "",
     confirmPassword: "",
-    businessPermit: false,
-    birCertificate: false,
+    address: "",
+    contactNumber: "",
+    sdoLocation: "",
+    hasPhilgeps: false,
+    hasSECRegistration: false,
+    hasBusinessPermit: false,
+    hasTaxClearance: false,
   });
 
   const handleChange = (e) => {
@@ -22,42 +28,103 @@ export default function RegisterPage() {
     });
   };
 
-  const handleRegister = (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
-    const { name, email, password, confirmPassword } = formData;
+    const {
+      name,
+      email,
+      password,
+      confirmPassword,
+      address,
+      contactNumber,
+      sdoLocation,
+      hasPhilgeps,
+      hasSECRegistration,
+      hasBusinessPermit,
+      hasTaxClearance,
+    } = formData;
 
     if (!name || !email || !password || !confirmPassword) {
-      alert("Please fill in all fields");
+      alert("Please fill in all required fields.");
       return;
     }
 
     if (password !== confirmPassword) {
-      alert("Passwords do not match");
+      alert("Passwords do not match.");
       return;
     }
 
-    alert(`${role} registration successful!`);
-    navigate("/"); // Back to login
+    try {
+      let apiUrl = "";
+      let payload = {};
+
+      if (role === "Supplier") {
+        apiUrl = "http://localhost:3001/suppliers/register"; // ensure route matches backend
+        payload = {
+          FullName: name,
+          Email: email,
+          Password: password,
+          CompanyName: name,
+          Address: address,
+          ContactNumber: contactNumber,
+          SDOLocation: sdoLocation,
+          HasPhilgeps: hasPhilgeps,
+          HasSECRegistration: hasSECRegistration,
+          HasBusinessPermit: hasBusinessPermit,
+          HasTaxClearance: hasTaxClearance,
+        };
+      } else if (role === "Buyer") {
+        apiUrl = "http://localhost:3001/buyer/register"; // add buyer route backend
+        payload = {
+          FullName: name,
+          Email: email,
+          Password: password,
+        };
+      }
+
+      console.log("Submitting registration:", payload);
+      const res = await axios.post(apiUrl, payload);
+      console.log("Response:", res.data);
+
+      alert(res.data.message || `${role} registration successful!`);
+
+      // Reset form after successful registration
+      setFormData({
+        name: "",
+        email: "",
+        password: "",
+        confirmPassword: "",
+        address: "",
+        contactNumber: "",
+        sdoLocation: "",
+        hasPhilgeps: false,
+        hasSECRegistration: false,
+        hasBusinessPermit: false,
+        hasTaxClearance: false,
+      });
+
+      navigate("/"); // back to login
+    } catch (err) {
+      console.error("Registration error:", err);
+      alert(err.response?.data?.error || "Registration failed. Try again.");
+    }
   };
 
   return (
     <div className="register-card">
-      <h1 className="register-title">{role} Registrations</h1>
+      <h1 className="register-title">{role} Registration</h1>
 
-      {/* Role selection */}
+      {/* Role toggle */}
       <div className="role-toggle">
-        <button
-          className={role === "Supplier" ? "active" : ""}
-          onClick={() => setRole("Supplier")}
-        >
-          Supplier
-        </button>
-        <button
-          className={role === "Buyer" ? "active" : ""}
-          onClick={() => setRole("Buyer")}
-        >
-          Buyer
-        </button>
+        {["Supplier", "Buyer"].map((r) => (
+          <button
+            key={r}
+            className={role === r ? "active" : ""}
+            onClick={() => setRole(r)}
+          >
+            {r}
+          </button>
+        ))}
       </div>
 
       <form onSubmit={handleRegister}>
@@ -65,9 +132,7 @@ export default function RegisterPage() {
           <input
             type="text"
             name="name"
-            placeholder={
-              role === "Supplier" ? "Business Name" : "Full Name"
-            }
+            placeholder={role === "Supplier" ? "Business Name" : "Full Name"}
             value={formData.name}
             onChange={handleChange}
             required
@@ -96,18 +161,64 @@ export default function RegisterPage() {
             onChange={handleChange}
             required
           />
+          {role === "Supplier" && (
+            <>
+              <input
+                type="text"
+                name="address"
+                placeholder="Address"
+                value={formData.address}
+                onChange={handleChange}
+                required
+              />
+              <input
+                type="text"
+                name="contactNumber"
+                placeholder="Contact Number"
+                value={formData.contactNumber}
+                onChange={handleChange}
+                required
+              />
+              <input
+                type="text"
+                name="sdoLocation"
+                placeholder="Branch Location"
+                value={formData.sdoLocation}
+                onChange={handleChange}
+                required
+              />
+            </>
+          )}
         </div>
 
-        {/* Supplier-only section */}
+        {/* Supplier documents */}
         {role === "Supplier" && (
           <div className="document-section">
-            <h3>Required Documents</h3>
+            <h3>Required Documents / Registrations</h3>
             <div className="checkboxes">
               <label>
                 <input
                   type="checkbox"
-                  name="businessPermit"
-                  checked={formData.businessPermit}
+                  name="hasPhilgeps"
+                  checked={formData.hasPhilgeps}
+                  onChange={handleChange}
+                />
+                PhilGEPS Registration
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  name="hasSECRegistration"
+                  checked={formData.hasSECRegistration}
+                  onChange={handleChange}
+                />
+                SEC Registration
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  name="hasBusinessPermit"
+                  checked={formData.hasBusinessPermit}
                   onChange={handleChange}
                 />
                 Business Permit
@@ -115,11 +226,11 @@ export default function RegisterPage() {
               <label>
                 <input
                   type="checkbox"
-                  name="birCertificate"
-                  checked={formData.birCertificate}
+                  name="hasTaxClearance"
+                  checked={formData.hasTaxClearance}
                   onChange={handleChange}
                 />
-                BIR Certificate
+                Tax Clearance
               </label>
             </div>
             <p className="note">

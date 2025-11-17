@@ -14,13 +14,23 @@ import "./Sidebar.css";
 const Sidebar = ({ isCollapsed = false, onToggle = () => {}, role = "admin" }) => {
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    if (window.confirm("Are you sure you want to logout?")) {
-      sessionStorage.removeItem("userRole");
-      window.dispatchEvent(new Event("storage")); // ✅ notify App.jsx
-      navigate("/");
-    }
-  };
+const handleLogout = () => {
+  if (window.confirm("Are you sure you want to logout?")) {
+    // Clear all relevant session storage
+    sessionStorage.removeItem("userRole");
+    sessionStorage.removeItem("token");
+    sessionStorage.removeItem("fullName");
+    sessionStorage.removeItem("userID");
+
+    // Optionally clear remembered email
+    // localStorage.removeItem("rememberedEmail");
+
+    // Notify app that storage changed
+    window.dispatchEvent(new Event("storage"));
+
+    navigate("/"); // Go to login
+  }
+};
 
 
 

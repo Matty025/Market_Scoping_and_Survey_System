@@ -114,7 +114,7 @@
 
 /* Text-only clickable links */
 .forgot-password,
-.register-btn-login {
+.register-link button {
   background: none;
   border: none;
   color: #475569;
@@ -127,7 +127,7 @@
 }
 
 .forgot-password:hover,
-.register-btn-login:hover {
+.register-link button:hover {
   color: #3b82f6;
   text-decoration: underline;
 }
