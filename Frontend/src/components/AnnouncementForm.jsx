@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import "./AnnouncementForm.css";
+import axios from "axios";
+import { useAuth } from "./AuthContext";
 
-const AnnouncementForm = ({ onSubmit, onCancel, supplierOptions = [] }) => {
+const AnnouncementForm = ({ onSubmit, onCancel }) => {
   const [form, setForm] = useState({
-    title: "",
     description: "",
     categories: [],
     suppliers: [],
@@ -11,29 +12,12 @@ const AnnouncementForm = ({ onSubmit, onCancel, supplierOptions = [] }) => {
     posted: "",
     end: "",
     file: null,
+    title: "",
   });
 
-  const categoryOptions = [
-    "All",
-    "ICT Equipment",
-    "Office Supplies",
-    "Furniture",
-    "Printing Services",
-    "Stationery",
-    "Electronics",
-    "Cleaning Supplies",
-  ];
-
-  // Sample suppliers placeholder
-  const supplierOptionsDefault = [
-    "All",
-    "ABC Trading",
-    "SM Supplies",
-    "XYZ Traders",
-    "Global Tech",
-    "Sample Supplier 1",
-    "Sample Supplier 2",
-  ];
+  const { token } = useAuth();
+  const [categoryOptions, setCategoryOptions] = useState([]);
+  const [supplierOptions, setSupplierOptions] = useState([]);
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [supplierDropdownOpen, setSupplierDropdownOpen] = useState(false);
@@ -59,24 +43,50 @@ const AnnouncementForm = ({ onSubmit, onCancel, supplierOptions = [] }) => {
     };
   }, []);
 
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      if (!token) return;
+      try {
+        // Fetch Categories
+        const catResponse = await axios.get("http://localhost:3001/api/admin/categories", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const formattedCategories = catResponse.data.map(cat => ({ value: cat.CategoryID, label: cat.CategoryName }));
+        setCategoryOptions([{ value: "all", label: "All Categories" }, ...formattedCategories]);
+
+        // Fetch Suppliers
+        const supResponse = await axios.get("http://localhost:3001/api/admin/suppliers", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const formattedSuppliers = supResponse.data.map((supplier) => ({
+          value: supplier.SupplierID,
+          label: supplier.CompanyName,
+        }));
+        setSupplierOptions([{ value: "all", label: "All Suppliers" }, ...formattedSuppliers]);
+      } catch (error) {
+        console.error("Failed to fetch initial form data:", error);
+      }
+    };
+    fetchInitialData();
+  }, [token]);
   const toggleDropdown = () => setDropdownOpen(!dropdownOpen);
   const toggleSupplierDropdown = () => setSupplierDropdownOpen(!supplierDropdownOpen);
 
   const handleCategoryChange = (cat, isChecked) => {
-    if (cat === "All") {
-      setForm({ ...form, categories: isChecked ? ["All"] : [] });
+    if (cat.value === "all") {
+      setForm({ ...form, categories: isChecked ? categoryOptions.map(c => c.value) : [] });
     } else {
-      const filtered = form.categories.filter((c) => c !== "All");
-      setForm({ ...form, categories: isChecked ? [...filtered, cat] : filtered.filter((c) => c !== cat) });
+      const filtered = form.categories.filter((c) => c !== "all");
+      setForm({ ...form, categories: isChecked ? [...filtered, cat.value] : filtered.filter((c) => c !== cat.value) });
     }
   };
 
   const handleSupplierChange = (sup, isChecked) => {
-    if (sup === "All") {
-      setForm({ ...form, suppliers: isChecked ? ["All"] : [] });
+    if (sup.value === "all") {
+      setForm({ ...form, suppliers: isChecked ? supplierOptions.map(s => s.value) : [] });
     } else {
-      const filtered = form.suppliers.filter((s) => s !== "All");
-      setForm({ ...form, suppliers: isChecked ? [...filtered, sup] : filtered.filter((s) => s !== sup) });
+      const filtered = form.suppliers.filter((s) => s !== "all");
+      setForm({ ...form, suppliers: isChecked ? [...filtered, sup.value] : filtered.filter((s) => s !== sup.value)});
     }
   };
 
@@ -106,9 +116,6 @@ const AnnouncementForm = ({ onSubmit, onCancel, supplierOptions = [] }) => {
     onSubmit(form);
   };
 
-  // Use default suppliers if none passed
-  const supplierList = supplierOptions.length > 0 ? supplierOptions : supplierOptionsDefault;
-
   return (
     <form className="announcement-form" onSubmit={handleSubmit}>
       <h3>📝Procurement Announcement</h3>
@@ -120,6 +127,16 @@ const AnnouncementForm = ({ onSubmit, onCancel, supplierOptions = [] }) => {
       <textarea name="description" value={form.description} onChange={handleChange} placeholder="Enter description" rows="3" required />
 
       <label>Send Announcement To</label>
+      <label>Category</label>
+      <select name="categoryId" value={form.categoryId} onChange={handleChange} required>
+        <option value="" disabled>Select a category</option>
+        {/* We filter out the "All Categories" option here as it's not a real category */}
+        {categoryOptions.filter(c => c.value !== 'all').map(cat => (
+          <option key={cat.value} value={cat.value}>{cat.label}</option>
+        ))}
+      </select>
+
+      <label>Send To</label>
       <div className="send-type-options">
         <label>
           <input type="radio" value="category" checked={form.sendType === "category"} onChange={handleSendTypeChange} />
@@ -132,7 +149,8 @@ const AnnouncementForm = ({ onSubmit, onCancel, supplierOptions = [] }) => {
       </div>
 
       {/* Category Selection */}
-      {form.sendType === "category" && (
+      {/* This section is now replaced by the single-select dropdown above */}
+      {/* {form.sendType === "category" && (
         <>
           <div className="dropdown-container" ref={dropdownRef}>
             <div className="dropdown-selected" onClick={toggleDropdown}>
@@ -142,24 +160,24 @@ const AnnouncementForm = ({ onSubmit, onCancel, supplierOptions = [] }) => {
             {dropdownOpen && (
               <div className="dropdown-menu">
                 {categoryOptions.map((cat) => (
-                  <label key={cat} className="dropdown-item">
-                    <input type="checkbox" checked={form.categories.includes(cat)} onChange={(e) => handleCategoryChange(cat, e.target.checked)} />
-                    <span className="category-label">{cat}</span>
+                  <label key={cat.value} className="dropdown-item">
+                    <input type="checkbox" checked={form.categories.includes(cat.value)} onChange={(e) => handleCategoryChange(cat, e.target.checked)} />
+                    <span className="category-label">{cat.label}</span>
                   </label>
                 ))}
               </div>
             )}
           </div>
           <div className="selected-categories">
-            {form.categories.map((cat) => (
-              <span key={cat} className="category-badge">
-                {cat}
-                {cat !== "All" && <button type="button" className="remove-cat-btn" onClick={() => handleRemoveCategory(cat)}>×</button>}
+            {form.categories.filter(c => c !== 'all').map((catId) => (
+              <span key={catId} className="category-badge">
+                {categoryOptions.find(opt => opt.value === catId)?.label || 'Unknown'}
+                <button type="button" className="remove-cat-btn" onClick={() => handleRemoveCategory(catId)}>×</button>
               </span>
             ))}
           </div>
         </>
-      )}
+      )} */}
 
       {/* Supplier Selection */}
       {form.sendType === "supplier" && (
@@ -171,24 +189,24 @@ const AnnouncementForm = ({ onSubmit, onCancel, supplierOptions = [] }) => {
             </div>
             {supplierDropdownOpen && (
               <div className="dropdown-menu">
-                {supplierList.map((sup) => (
-                  <label key={sup} className="dropdown-item">
+                {supplierOptions.map((sup) => (
+                  <label key={sup.value} className="dropdown-item">
                     <input
                       type="checkbox"
-                      checked={form.suppliers.includes(sup)}
+                      checked={form.suppliers.includes(sup.value)}
                       onChange={(e) => handleSupplierChange(sup, e.target.checked)}
                     />
-                    <span className="category-label">{sup}</span>
+                    <span className="category-label">{sup.label}</span>
                   </label>
                 ))}
               </div>
             )}
           </div>
           <div className="selected-categories">
-            {form.suppliers.map((sup) => (
-              <span key={sup} className="category-badge">
-                {sup}
-                {sup !== "All" && <button type="button" className="remove-cat-btn" onClick={() => handleRemoveSupplier(sup)}>×</button>}
+            {form.suppliers.filter(s => s !== 'all').map((supId) => (
+              <span key={supId} className="category-badge">
+                {supplierOptions.find(opt => opt.value === supId)?.label || 'Unknown'}
+                <button type="button" className="remove-cat-btn" onClick={() => handleRemoveSupplier(supId)}>×</button>
               </span>
             ))}
           </div>
@@ -206,8 +224,8 @@ const AnnouncementForm = ({ onSubmit, onCancel, supplierOptions = [] }) => {
         </div>
       </div>
 
-      <label>Upload Quotation File (Excel/CSV)</label>
-      <input type="file" accept=".xlsx,.xls,.csv" onChange={handleFileChange} />
+      <label>Upload Procurement Document (PDF)</label>
+      <input type="file" accept="application/pdf,.pdf" onChange={handleFileChange} required />
 
       <div className="form-actions">
         <button type="submit" className="save-btn">Post</button>

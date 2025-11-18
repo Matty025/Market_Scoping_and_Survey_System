@@ -1,132 +1,127 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import { useAuth } from "../../components/AuthContext";
+import FileCardModal from "../../components/FileCardModal.jsx";
 import "./Dashboard.css";
 
 const SupplierDashboard = () => {
-  // 🗂 Sample admin posts (from Admin)
-  const [posts] = useState([
-    {
-      id: 1,
-      title: "Procurement of Laptops for Buyers",
-      date: "2025-11-09",
-      description:
-        "DepEd is requesting quotations for high-quality laptops for classroom and online learning purposes.",
-    },
-    {
-      id: 2,
-      title: "Supply of Classroom Furniture",
-      date: "2025-11-07",
-      description:
-        "Looking for qualified suppliers to provide durable classroom chairs and tables for public schools.",
-    },
-    {
-      id: 3,
-      title: "Printing of Learning Materials",
-      date: "2025-11-05",
-      description:
-        "Seeking suppliers for the printing and binding of educational modules for the upcoming school year.",
+  const { token } = useAuth();
+  const [assignedFiles, setAssignedFiles] = useState([]);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const handleOpenModal = (file) => {
+    setSelectedFile(file);
+  };
+
+  // Fetch assigned files from the backend
+  useEffect(() => {
+    const fetchAssignedFiles = async () => {
+      try {
+        const response = await axios.get("http://localhost:3001/api/supplier-files", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        // Assuming the backend returns data that matches the structure of your tables
+        setAssignedFiles(response.data);
+      } catch (err) {
+        setError("Failed to fetch assigned files. Please try again later.");
+        console.error("Fetch error:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (token) {
+      fetchAssignedFiles();
     }
-    
-  ]);
+  }, [token]);
 
-  // 💬 Sample quotation requests (specific to supplier)
-  const [quotationRequests] = useState([
-    {
-      id: 101,
-      requestTitle: "Laptop Quotation Request",
-      referencePost: "Procurement of Laptops for Buyers",
-      dateRequested: "2025-11-10",
-      status: "Pending",
-    },
-    {
-      id: 102,
-      requestTitle: "Classroom Chairs Quotation Request",
-      referencePost: "Supply of Classroom Furniture",
-      dateRequested: "2025-11-08",
-      status: "Approved",
-    },
-    {
-      id: 103,
-      requestTitle: "Printing Quotation Request",
-      referencePost: "Printing of Learning Materials",
-      dateRequested: "2025-11-06",
-      status: "Declined",
-    },
-  ]);
+  const handleCloseModal = () => {
+    setSelectedFile(null);
+  };
 
-  // Sort posts chronologically (latest first)
-  const sortedPosts = [...posts].sort(
-    (a, b) => new Date(b.date) - new Date(a.date)
-  );
+  const handleSubmitResponse = async (file, uploadFile) => {
+    // When you integrate with your database, this is where you'll send the data.
+    const formData = new FormData();
+    formData.append("supplierFileId", file.SupplierFileID); // From SupplierFiles table
+    formData.append("responseFile", uploadFile); // The PDF file from the supplier
+
+    console.log("Submitting response for:", file.Title);
+    console.log("File to be uploaded:", uploadFile.name);
+
+    try {
+      // This endpoint should create a record in your "SupplierResponses" table
+      const response = await axios.post("http://localhost:3001/api/supplier-responses", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      // Only update the UI after a successful response from the backend
+      alert(`✅ Quotation submitted successfully for "${file.Title}"!`);
+      handleCloseModal();
+      // To see the status change, you could either refetch the list or update the state directly
+      setAssignedFiles(assignedFiles.map(f => f.SupplierFileID === file.SupplierFileID ? {...f, Status: 'Answered'} : f));
+    } catch (error) {
+      console.error("Failed to submit quotation:", error);
+      alert("❌ There was an error submitting your quotation. Please try again.");
+    }
+  };
 
   return (
     <div className="supplier-dashboard">
-      {/* ===== ADMIN POSTS ===== */}
       <header className="supplier-header">
-        <h2>📋 Posted Market Research Projects</h2>
-        <p>These are the latest procurement opportunities posted by Admin.</p>
+        <h2>📄 Assigned Procurement Files</h2>
+        <p>Click a card to view details and respond.</p>
       </header>
 
+      {isLoading && <p>Loading files...</p>}
+      {error && <p className="error-message">{error}</p>}
+
       <div className="posts-container">
-        {sortedPosts.map((post) => (
+        {!isLoading && !error && assignedFiles.length === 0 && (
+          <p>No procurement files have been assigned to you yet.</p>
+        )}
+        {assignedFiles.map((file) => (
           <div
-            key={post.id}
+            key={file.SupplierFileID}
             className="post-card"
-            onClick={() => console.log(`Clicked post ID: ${post.id}`)}
+            onClick={() => handleOpenModal(file)}
           >
-            <h3 className="post-title">{post.title}</h3>
+            {/* 
+              NOTE: Your backend should JOIN SupplierFiles with ProcurementFiles 
+              to get Title, Description, etc.
+              Example structure for 'file' object:
+              { SupplierFileID: 1, Status: 'Pending', Title: 'Procurement of Laptops', ... }
+            */}
+            <h3 className="post-title">{file.Title}</h3>
             <p className="post-date">
               📅{" "}
-              {new Date(post.date).toLocaleDateString("en-US", {
+              {new Date(file.dateSent).toLocaleDateString("en-US", {
                 year: "numeric",
                 month: "long",
                 day: "numeric",
               })}
             </p>
-            <p className="post-description">{post.description}</p>
+            <p className="post-description">
+              {file.Description.substring(0, 80)}...
+            </p>
+            <span className={`status-badge ${file.Status.toLowerCase()}`}>
+              {file.Status}
+            </span>
           </div>
         ))}
       </div>
 
-      <hr style={{ margin: "40px 0", border: "1px solid #e5e7eb" }} />
-
-      {/* ===== QUOTATION REQUESTS ===== */}
-      <section className="quotation-section">
-        <h2>📑 Quotation Requests</h2>
-        <p>These are your recent quotation requests submitted to the admin.</p>
-
-        <div className="quotation-table-container">
-          <table className="quotation-table">
-            <thead>
-              <tr>
-                <th>Request Title</th>
-                <th>Reference Project</th>
-                <th>Date Requested</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {quotationRequests.map((req) => (
-                <tr key={req.id}>
-                  <td>{req.requestTitle}</td>
-                  <td>{req.referencePost}</td>
-                  <td>
-                    {new Date(req.dateRequested).toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
-                  </td>
-                  <td>
-                    <span className={`status-badge ${req.status.toLowerCase()}`}>
-                      {req.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      {selectedFile && (
+        <FileCardModal
+          file={selectedFile}
+          onClose={handleCloseModal}
+          onSubmit={handleSubmitResponse}
+        />
+      )}
     </div>
   );
 };

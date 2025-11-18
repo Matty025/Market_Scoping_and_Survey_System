@@ -1,0 +1,82 @@
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0,0,0,0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-container {
+  background: #fff;
+  padding: 25px;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 600px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.modal-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.download-btn,
+.submit-btn,
+.close-btn {
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.download-btn {
+  background-color: #22c55e;
+  color: white;
+  text-decoration: none;
+}
+
+.submit-btn {
+  background-color: #2563eb;
+  color: white;
+}
+
+.close-btn-FC {
+  background-color: #ef4444;
+  color: white;
+}
+
+.status-badge {
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-weight: 600;
+  color: white;
+  display: inline-block;
+  text-transform: capitalize;
+}
+
+.status-badge.pending {
+  background-color: #f59e0b;
+}
+
+.status-badge.approved {
+  background-color: #22c55e;
+}
+
+.status-badge.viewed {
+  background-color: #3b82f6;
+}
+
+.status-badge.answered {
+  background-color: #6b7280;
+}

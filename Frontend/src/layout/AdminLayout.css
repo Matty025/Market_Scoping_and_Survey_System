@@ -7,15 +7,17 @@
 /* Main content beside sidebar */
 .admin-main {
   flex: 1;
-  margin-left: 240px; /* same as sidebar width */
+  margin-left: 0; /* float sidebar: do not push content */
   display: flex;
   flex-direction: column;
   transition: margin-left 0.3s ease;
+  position: relative;
+  z-index: 0;
 }
 
 /* When sidebar is collapsed */
 .admin-layout.collapsed .admin-main {
-  margin-left: 50px; /* match your collapsed sidebar width */
+  margin-left: 0; /* float sidebar: keep content full width */
 }
 
 .admin-content {
@@ -23,4 +25,19 @@
   padding: 20px;
   background-color: #f5f6fa;
   overflow-y: auto;
+}
+
+/* Floating sidebar overlay (rendered when sidebar open) */
+.sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  z-index: 900; /* below the sidebar */
+}
+
+/* Ensure sidebar appears above overlay */
+.sidebar {
+  z-index: 1000;
 }

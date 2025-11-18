@@ -1,102 +1,126 @@
+/* Frontend/src/components/Sidebar.css */
+
 /* Base sidebar */
 .sidebar {
   width: 240px;
-  background-color: #1e1e2f;
-  color: white;
+  background-color: #111827; /* Darker, more modern blue-gray */
+  color: #ffffff;
   height: 100vh;
   position: fixed;
   top: 0;
   left: 0;
+  display: flex;
+  flex-direction: column;
   transition: width 0.3s ease;
   overflow: hidden;
   padding: 20px;
+  box-sizing: border-box;
+  z-index: 1000;
 }
 
-/* Collapsed sidebar */
+/* Collapsed sidebar (desktop) */
 .sidebar.collapsed {
   width: 50px;
   padding: 20px 10px;
- height: 105vh;
+  overflow: visible; /* allow logo to overflow if needed */
 }
 
 /* Header (Logo + Title) */
 .sidebar-header {
   display: flex;
   align-items: center;
-  justify-content: center;
-  margin-bottom: 15px;
+  justify-content: flex-start; /* Align to the left */
+  margin-bottom: 20px;
+  overflow: visible;
 }
 
 .sidebar-title {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 1.3rem;
+  gap: 12px;
+  font-size: 1.2rem; /* Slightly smaller for a cleaner look */
   font-weight: bold;
   white-space: nowrap;
 }
 
+/* Logo */
 .sidebar-logo-sdo {
-  width: 150px;
-  height: 150px;
+  width: 160px !important;
+  height: 160px !important;
+  object-fit: contain;
+  flex-shrink: 0;
+  min-width: 160px;
+  min-height: 160px;
+  transition: width 0.3s ease, height 0.3s ease;
 }
 
 /* Navigation */
 .sidebar-nav {
   display: flex;
+  flex-grow: 1; /* Allow nav to take up available space */
   flex-direction: column;
-  margin-top: 40px;
+  margin-top: 30px;
 }
 
 .sidebar-link {
-  color: white;
+  color: #ffffff;
   text-decoration: none;
   margin: 12px 0;
   font-size: 16px;
   display: flex;
   align-items: center;
   gap: 10px;
-  transition: 0.2s;
+  transition: color 0.2s ease, background-color 0.2s ease;
+  padding: 8px 6px;
+  border-radius: 6px;
 }
 
 .sidebar-link:hover,
 .sidebar-link.active {
-  color: #00bcd4;
+  color: #ffffff;
+  background-color: #3b82f6; /* Professional blue for active/hover */
 }
-/* Toggle button in top-right corner */
+
+/* Keep icon width consistent; hide labels when collapsed */
+.sidebar-link span[aria-hidden] {
+  min-width: 20px;
+  text-align: center;
+}
+.sidebar.collapsed .sidebar-link span + span {
+  display: none;
+}
+
+/* Toggle button */
 .sidebar-toggle-btn {
   position: absolute;
   top: 10px;
   right: 10px;
   background: none;
   border: none;
-  color: white;
+  color: #ffffff;
   font-size: 20px;
   cursor: pointer;
   padding: 6px;
   border-radius: 6px;
   transition: background 0.3s ease, transform 0.2s ease;
-  z-index: 10; /* Ensure it's above other elements */
+  z-index: 10;
 }
-
 .sidebar-toggle-btn:hover {
   background: rgba(255, 255, 255, 0.1);
   transform: scale(1.05);
 }
 
-/* Arrow icon rotation */
+/* Arrow rotation */
 .toggle-icon {
   transition: transform 0.3s ease;
 }
-
 .toggle-icon.rotated {
-  transform: rotate(180deg); /* Flips to point right when collapsed */
+  transform: rotate(180deg);
 }
 
-/* Sidebar Footer (for logout button) */
+/* Footer */
 .sidebar-footer {
-  margin-top: auto;     /* still pushes footer down */
-  margin-bottom: 40px;  /* move it slightly up */
+  margin-top: auto;
   padding: 10px 0;
   display: flex;
   flex-direction: column;
@@ -104,68 +128,7 @@
   flex-shrink: 0;
 }
 
-.sidebar-footer {
-  margin-top: auto;     /* still pushes footer down */
-  margin-bottom: 40px;  /* move it slightly up */
-  padding: 10px 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.sidebar-footer {
-  margin-top: auto;     /* still pushes footer down */
-  margin-bottom: 40px;  /* move it slightly up */
-  padding: 10px 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.sidebar-footer {
-  margin-top: auto;     /* still pushes footer down */
-  margin-bottom: 40px;  /* move it slightly up */
-  padding: 10px 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.sidebar-footer {
-  margin-top: auto;     /* still pushes footer down */
-  margin-bottom: 40px;  /* move it slightly up */
-  padding: 10px 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.sidebar-footer {
-  margin-top: auto;     /* still pushes footer down */
-  margin-bottom: 40px;  /* move it slightly up */
-  padding: 10px 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.sidebar-footer {
-  margin-top: auto;     /* still pushes footer down */
-  margin-bottom: 40px;  /* move it slightly up */
-  padding: 10px 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-
-/* Logout Button */
+/* Logout button */
 .sidebar-logout-btn {
   display: flex;
   align-items: center;
@@ -173,7 +136,7 @@
   width: 100%;
   background: none;
   border: none;
-  color: #ff6b6b;  /* Red color for logout emphasis */
+  color: #ff6b6b;
   font-size: 16px;
   text-decoration: none;
   padding: 12px 0;
@@ -181,129 +144,45 @@
   transition: color 0.2s ease, background 0.2s ease;
   border-radius: 6px;
 }
-
 .sidebar-logout-btn:hover {
-  color: #ff5252;  /* Darker red on hover */
-  background: rgba(255, 107, 107, 0.1);  /* Subtle background */
+  color: #ff5252;
+  background: rgba(255, 107, 107, 0.1);
 }
 
-/* Ensure footer doesn't interfere with nav */
-.sidebar-nav {
-  flex: 1;  /* Allow nav to take available space, pushing footer down */
-}
-
+/* Active link emphasis */
 .sidebar-link.active {
-  color: #00bcd4;
   font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
+
+/* Responsive widths */
+
+/* Large tablets / iPad Mini (~768px - 1024px) */
+@media (max-width: 1024px) and (min-width: 768px) {
+  .sidebar {
+    width: 200px !important;
+    padding: 20px !important;
+  }
+  .sidebar.collapsed {
+    width: 50px !important;
+  }
+  .sidebar-logo-sdo {
+    width: 160px !important;
+    height: 160px !important;
+  }
+}
+
+/* Small tablets / mobile (<768px) */
 @media (max-width: 767px) {
   .sidebar {
-    width: 200px;
-    height: 100vh; /* full viewport height */
+    width: 160px !important;
+    padding: 15px !important;
   }
-
   .sidebar.collapsed {
-    width: 0;
-    height: 100vh; /* still full height */
-    padding: 20px 0;
-    padding-bottom: 100px;
+    width: 50px !important;
+  }
+  .sidebar-logo-sdo {
+    width: 160px !important;
+    height: 160px !important;
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

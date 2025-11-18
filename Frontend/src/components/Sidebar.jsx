@@ -74,9 +74,14 @@ const handleLogout = () => {
 
       <div className="sidebar-header">
         {!isCollapsed && (
-          <h2 className="sidebar-title">
-            <img src={logo} alt="Logo" className="sidebar-logo-sdo" />
-          </h2>
+<h2 className="sidebar-title">
+  <img
+    src={logo}
+    alt="Logo"
+    className={`sidebar-logo-sdo ${isCollapsed ? "collapsed-logo" : ""}`}
+  />
+</h2>
+
         )}
       </div>
 

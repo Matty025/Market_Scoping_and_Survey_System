@@ -1,11 +1,20 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
+import axios from "axios";
 import AnnouncementForm from "../../components/AnnouncementForm";
 import StatsSection from "../../components/StatsSection";
+import ResponseModal from "../../components/ResponseModal"; // Import the new modal
+import { useAuth } from "../../components/AuthContext";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+} from "recharts";
+import {
+  FaUsers, FaBoxOpen, FaUserClock
+} from "react-icons/fa";
 import "./Dashboard.css";
 
 // Reusable DashboardCard Component
 const DashboardCard = ({ title, children, className = "" }) => (
-  <div className={`dashboard-card ${className}`}>
+  <div className={`dashboard-card ${className}`} >
     {title && <h4 className="card-title">{title}</h4>}
     {children}
   </div>
@@ -13,7 +22,7 @@ const DashboardCard = ({ title, children, className = "" }) => (
 
 // Reusable AnnouncementCard Component
 const AnnouncementCard = ({ announcement }) => (
-  <div className="announcement-card">
+  <div className="announcement-card" >
     <div className="announcement-header">
       <h4>{announcement.title}</h4>
       <span className="badge">{announcement.category}</span>
@@ -57,66 +66,114 @@ const LimitedList = ({ items, renderItem, initialCount = 3 }) => {
 };
 
 const Dashboard = () => {
-  const [announcements, setAnnouncements] = useState([
-    { title: "New Quotation Request: Laptops", description: "Requesting quotations for 50 laptops.", category: "ICT Equipment", posted: "2025-11-01", end: "2025-11-15", file: null },
-    { title: "New Quotation Request: Printers", description: "Requesting quotations for 10 printers.", category: "Office Supplies", posted: "2025-11-03", end: "2025-11-18", file: null },
-    { title: "System Maintenance Notice", description: "System maintenance scheduled.", category: "All", posted: "2025-11-05", end: "2025-11-10", file: null },
-  ]);
-
+  const { token } = useAuth();
+  const [announcements, setAnnouncements] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [stats, setStats] = useState([]);
+  const [suppliersOverview, setSuppliersOverview] = useState([]);
+  const [categoryChartData, setCategoryChartData] = useState([]);
+  const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
+  const [responses, setResponses] = useState([]);
+  const [isResponseLoading, setIsResponseLoading] = useState(false);
 
   const categoryOptions = ["All", "ICT Equipment", "Office Supplies", "Furniture", "Printing Services", "Stationery", "Electronics", "Cleaning Supplies"];
+
+  // Fetch announcements from the backend
+  useEffect(() => {
+    const fetchAnnouncements = async () => {
+      if (!token) return;
+      setIsLoading(true);
+      try {
+        // Fetch all dashboard data in parallel
+        const [announcementsRes, statsRes] = await Promise.all([
+          axios.get("http://localhost:3001/api/admin/announcements", { headers: { Authorization: `Bearer ${token}` } }),
+          axios.get("http://localhost:3001/api/dashboard/stats", { headers: { Authorization: `Bearer ${token}` } }),
+        ]);
+
+        // Format announcements
+        const formattedAnnouncements = announcementsRes.data.map(ann => ({
+          ...ann,
+          posted: new Date(ann.posted).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
+          end: ann.end ? new Date(ann.end).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "N/A"
+        }));
+        setAnnouncements(formattedAnnouncements);
+
+        // Format stats
+        const { totalSuppliers, pendingAccounts, activeAnnouncements } = statsRes.data;
+        setStats([
+          { label: "Total Suppliers", value: totalSuppliers, icon: <FaUsers />, bgColor: "#e0f2fe" },
+          { label: "Active Announcements", value: activeAnnouncements, icon: <FaBoxOpen />, bgColor: "#dcfce7" },
+          { label: "Pending Accounts", value: pendingAccounts, icon: <FaUserClock />, bgColor: "#fef9c3" },
+        ]);
+
+        setError(null);
+      } catch (err) {
+        setError("Failed to fetch dashboard data.");
+        console.error("Fetch error:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAnnouncements();
+  }, [token]);
 
   const filteredAnnouncements = useMemo(() => {
     if (selectedCategory === "All") return announcements;
     return announcements.filter((ann) => ann.category === selectedCategory);
   }, [announcements, selectedCategory]);
 
-  const stats = useMemo(() => {
-    const totalItems = filteredAnnouncements.reduce((sum, ann) => {
-      const match = ann.description.match(/(\d+)/);
-      return sum + (match ? parseInt(match[0], 10) : 0);
-    }, 0);
+  const handlePostAnnouncement = async (formData) => {
+    const data = new FormData();
+    data.append("title", formData.title);
+    data.append("description", formData.description);
+    data.append("file", formData.file);
+    data.append("categoryId", formData.categoryId); // Add the selected category ID
+    data.append("end", formData.end); // Add the end date
 
-    const categoryCounts = filteredAnnouncements.reduce((acc, ann) => {
-      acc[ann.category] = (acc[ann.category] || 0) + 1;
-      return acc;
-    }, {});
+    // Pass the array of supplier IDs to the backend
+    const supplierIds = formData.suppliers.filter(id => id !== 'all');
+    data.append("suppliers", JSON.stringify(supplierIds));
 
-    const mostCommonCategory = selectedCategory === "All"
-      ? (Object.keys(categoryCounts).reduce((a, b) => categoryCounts[a] > categoryCounts[b] ? a : b, "None"))
-      : selectedCategory;
-
-    const activeSuppliers = Object.keys(categoryCounts).length;
-
-    return [
-      { label: "Category", value: mostCommonCategory },
-      { label: "Total Items", value: totalItems },
-      { label: "No. Active Suppliers", value: activeSuppliers },
-      { label: "Average Price", value: "₱3,500" },
-      { label: "Lowest Price", value: "₱150" },
-      { label: "Highest Price", value: "₱50,000" },
-    ];
-  }, [filteredAnnouncements, selectedCategory]);
-
-  const suppliersOverview = useMemo(() => {
-    const categoryCounts = filteredAnnouncements.reduce((acc, ann) => {
-      acc[ann.category] = (acc[ann.category] || 0) + 1;
-      return acc;
-    }, {});
-    return Object.entries(categoryCounts).map(([cat, count]) => ({
-      name: `${cat} Supplier`,
-      category: cat,
-      activeDeals: count,
-    }));
-  }, [filteredAnnouncements]);
-
-  const handlePostAnnouncement = (newAnn) => {
-    setAnnouncements([...announcements, newAnn]);
-    setShowModal(false);
-    alert("✅ Announcement posted successfully!");
+    try {
+      const response = await axios.post("http://localhost:3001/api/admin/announcements", data, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      alert("✅ Announcement posted successfully!");
+      setShowModal(false);
+      // Refetch announcements to show the new one
+      const newAnn = { ...formData, id: response.data.fileId, posted: new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) };
+      setAnnouncements([newAnn, ...announcements]);
+    } catch (err) {
+      console.error("Failed to post announcement:", err);
+      const errorMsg = err.response?.data?.message || "An error occurred.";
+      alert(`❌ Failed to post announcement: ${errorMsg}`);
+    }
   };
+
+  const handleOpenResponseModal = async (announcement) => {
+    setSelectedAnnouncement(announcement);
+    setIsResponseLoading(true);
+    try {
+      const response = await axios.get(`http://localhost:3001/api/admin/announcements/${announcement.id}/responses`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setResponses(response.data);
+    } catch (error) {
+      console.error("Failed to fetch responses:", error);
+      alert("Could not load supplier responses.");
+    } finally {
+      setIsResponseLoading(false);
+    }
+  };
+
+  const handleCloseResponseModal = () => setSelectedAnnouncement(null);
 
   return (
     <div className="dashboard-container">
@@ -124,44 +181,28 @@ const Dashboard = () => {
       <div className="dashboard-header">
         <h2>📊 Dashboard Overview</h2>
         <p>Welcome to the Admin Dashboard! This is your overview page.</p>
-        <div className="header-controls">
-          <label htmlFor="category-select">Select Category:</label>
-          <select
-            id="category-select"
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="category-dropdown"
-          >
-            {categoryOptions.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
-          </select>
-          <button className="clear-btn" onClick={() => setSelectedCategory("All")}>Clear</button>
-        </div>
       </div>
 
       {/* Stats Section */}
       <StatsSection stats={stats} />
 
-      {/* Suppliers Overview with LimitedList */}
-      <CollapsibleSection title="🏢 Suppliers Overview">
-        <LimitedList
-          items={suppliersOverview}
-          initialCount={5}
-          renderItem={(supplier, i) => (
-            <li key={i}>
-              <strong>{supplier.name}</strong> ({supplier.category}) - {supplier.activeDeals} active deals
-            </li>
-          )}
-        />
-      </CollapsibleSection>
+      {isLoading && <p>Loading dashboard data...</p>}
+      {error && <p className="error-message">{error}</p>}
+
+      <div className="dashboard-grid">
+        {/* The main grid area is now empty and ready for future components. */}
+      </div>
 
       {/* Announcements Section with LimitedList */}
-      <CollapsibleSection title={`📢 Procurement Announcements (${filteredAnnouncements.length})`}>
+      <CollapsibleSection title={`📢 Recent Procurement Announcements (${filteredAnnouncements.length})`}>
         <button className="post-btn" onClick={() => setShowModal(true)}>+ Post Announcement</button>
-        <LimitedList
-          items={filteredAnnouncements}
-          initialCount={3}
-          renderItem={(ann, i) => <AnnouncementCard key={i} announcement={ann} />}
-        />
+        <div className="announcements-container">
+          <LimitedList
+            items={filteredAnnouncements}
+            initialCount={3}
+            renderItem={(ann, i) => <div onClick={() => handleOpenResponseModal(ann)}><AnnouncementCard key={ann.id || i} announcement={ann} /></div>}
+          />
+        </div>
       </CollapsibleSection>
 
       {/* Modal */}
@@ -171,10 +212,20 @@ const Dashboard = () => {
           onClick={(e) => e.target.classList.contains("modal-overlay") && setShowModal(false)}
         >
           <div className="modal">
-            <button className="modal-close-btn" onClick={() => setShowModal(false)}>✖</button>
+            <button type="button" className="modal-close-btn" onClick={() => setShowModal(false)}>✖</button>
             <AnnouncementForm onSubmit={handlePostAnnouncement} onCancel={() => setShowModal(false)} />
           </div>
         </div>
+      )}
+
+      {/* Responses Modal */}
+      {selectedAnnouncement && (
+        <ResponseModal
+          announcement={selectedAnnouncement}
+          responses={responses}
+          isLoading={isResponseLoading}
+          onClose={handleCloseResponseModal}
+        />
       )}
     </div>
   );

@@ -9,6 +9,7 @@
   width: 100%;
   border-top: 6px solid #3b82f6;
   transition: all 0.35s ease;
+  box-sizing: border-box;
 }
 
 .login-card:hover {
@@ -167,8 +168,103 @@
 .register-link .register-btn-login:hover {
   color: #3b82f6;
 }
-@media (max-width: 400px),(max-height:400px){
-  .login-card{
-    padding: 0px;
- }
+
+/* ===== Responsive Adjustments ===== */
+/* Very small screens (iPhone SE and similar, <=375px width) */
+@media (max-width: 375px) {
+  .login-card {
+    max-width: 300px;
+    padding: 20px 16px;
+    border-radius: 16px;
+  }
+  .login-title {
+    font-size: 20px;
+    margin-bottom: 14px;
+  }
+  .role-toggle {
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .role-toggle button {
+    padding: 9px 0;
+    font-size: 14px;
+  }
+  .input-icon {
+    padding: 9px 10px;
+    margin-bottom: 12px;
+  }
+  .input-icon input {
+    font-size: 15px;
+  }
+  .login-options {
+    margin-bottom: 12px;
+    font-size: 12px;
+  }
+  .login-btn {
+    padding: 10px;
+    font-size: 15px;
+  }
+  .register-link {
+    margin-top: 12px;
+    font-size: 12px;
+  }
+}
+
+/* Small phones (<=480px width) */
+@media (max-width: 480px) {
+  .login-card {
+    max-width: 320px;
+    padding: 24px 18px;
+    border-radius: 16px;
+  }
+  .login-title {
+    font-size: 22px;
+    margin-bottom: 18px;
+  }
+  .role-toggle { margin-bottom: 16px; }
+  .input-icon {
+    padding: 10px 12px;
+    margin-bottom: 14px;
+  }
+  .login-options { margin-bottom: 16px; }
+  .login-btn {
+    padding: 12px;
+    font-size: 16px;
+  }
+}
+
+/* Short viewports (low height devices) */
+@media (max-height: 480px) {
+  .login-card {
+    padding: 16px 14px;
+    border-radius: 14px;
+  }
+  .login-title { margin-bottom: 12px; }
+  .input-icon { margin-bottom: 10px; }
+  .login-options { margin-bottom: 10px; }
+}
+
+/* Tablets */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .login-card { max-width: 420px; }
+}
+
+/* Large desktops: keep compact */
+@media (min-width: 1280px) {
+  .login-card { max-width: 420px; }
+}
+
+/* Motion accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .login-card,
+  .login-btn,
+  .role-toggle button,
+  .input-icon {
+    transition: none;
+  }
+  .login-card:hover,
+  .login-btn:hover {
+    transform: none;
+    box-shadow: 0 10px 35px rgba(0, 0, 0, 0.15);
+  }
 }

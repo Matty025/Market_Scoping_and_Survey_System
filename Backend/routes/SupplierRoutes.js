@@ -1,61 +1,52 @@
 const express = require("express");
 const router = express.Router();
-const bcrypt = require("bcryptjs");
+const { protect } = require("./authMiddleware");
+const pool = require("../db.js");
 
-const SupplierModel = require("../models/SupplierModel");
-const UserModel = require("../models/UserModel");
+// @desc    Get assigned procurement files for a logged-in supplier
+// @route   GET /api/supplier-files
+// @access  Private
+router.get("/", protect, async (req, res) => {
+  console.log("[SupplierRoutes.js] GET / route hit.");
+  const loggedInUserId = req.user.userID; // From JWT payload via 'protect' middleware
 
-// SUPPLIER REGISTRATION
-router.post("/register", async (req, res) => {
   try {
-    const {
-      FullName,
-      Email,
-      Password,
-      CompanyName,
-      Address,
-      ContactNumber,
-      HasPhilgeps = false,
-      HasSECRegistration = false,
-      HasBusinessPermit = false,
-      HasTaxClearance = false,
-    } = req.body;
-
-    // 1. Create supplier
-    const supplier = await SupplierModel.createSupplier(
-      CompanyName,
-      Address,
-      ContactNumber,
-      HasPhilgeps,
-      HasSECRegistration,
-      HasBusinessPermit,
-      HasTaxClearance
+    // Find the SupplierID linked to the UserID
+    const userResult = await pool.query(
+      'SELECT "SupplierID" FROM "Users" WHERE "UserID" = $1',
+      [loggedInUserId]
     );
 
-    // 2. Hash password
-    const PasswordHash = await bcrypt.hash(Password, 10);
+    const supplierId = userResult.rows[0]?.SupplierID;
 
-    // 3. Supplier role ID (example: 2)
-    const SupplierRoleID = 2;
+    if (!supplierId) {
+      console.log("[SupplierRoutes.js] SupplierID not found for UserID:", loggedInUserId);
+      return res.status(404).json({ message: "Supplier profile not found for this user." });
+    }
 
-    // 4. Create linked User
-    const user = await UserModel.createSupplierUser(
-      FullName,
-      Email,
-      PasswordHash,
-      SupplierRoleID,
-      supplier.SupplierID
-    );
-
-    res.json({
-      message: "Supplier account created successfully",
-      supplier,
-      user,
-    });
-
+    // Query to get all files assigned to this supplier by joining the tables
+    const filesQuery = `
+      SELECT 
+        sf."SupplierFileID", 
+        sf."Status", 
+        sf."DateSent" as "dateSent", 
+        pf."FileID", 
+        pf."Title", 
+        pf."Description", 
+        pf."FilePath" as "filePath",
+        pf."DatePosted" as "datePosted",
+        pf."EndDate" as "endDate"
+      FROM "SupplierFiles" sf
+      JOIN "ProcurementFiles" pf ON sf."FileID" = pf."FileID"
+      WHERE sf."SupplierID" = $1
+      ORDER BY sf."DateSent" DESC;
+    `;
+    const assignedFiles = await pool.query(filesQuery, [supplierId]);
+    res.json(assignedFiles.rows);
+    console.log("[SupplierRoutes.js] Successfully fetched assigned files.");
   } catch (err) {
-    console.error("Error in supplier registration:", err);
-    res.status(500).json({ error: "Failed to register supplier" });
+    console.error("Error fetching supplier files:", err.message);
+    res.status(500).json({ message: "Server error while fetching files." });
   }
 });
 
