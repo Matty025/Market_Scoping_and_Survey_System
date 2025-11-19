@@ -51,8 +51,15 @@ router.post("/announcements", protect, upload.single("file"), async (req, res) =
   // suppliers will be a JSON string array like '["1", "3"]'
   const { title, description, categoryId, end } = req.body;
   const suppliers = req.body.suppliers ? JSON.parse(req.body.suppliers) : [];
+  const targetCategories = req.body.categories ? JSON.parse(req.body.categories) : [];
 
   const filePath = req.file ? req.file.path : null;
+
+  console.log(`[Announcements POST] user=${req.user?.userID} role=${req.user?.role}`);
+  console.log(`[Announcements POST] title=${title} categoryId=${categoryId} end=${end}`);
+  console.log(`[Announcements POST] suppliers(raw)=${req.body.suppliers} parsed=${JSON.stringify(suppliers)}`);
+  console.log(`[Announcements POST] categories(raw)=${req.body.categories} parsed=${JSON.stringify(targetCategories)}`);
+  console.log(`[Announcements POST] file=${req.file ? req.file.filename : 'none'}`);
 
   if (!title || !description || !filePath) {
     return res.status(400).json({ message: "Title, description, and file are required." });
@@ -62,35 +69,76 @@ router.post("/announcements", protect, upload.single("file"), async (req, res) =
   try {
     await client.query("BEGIN");
 
-    // 1. Insert into ProcurementFiles
+    // 1. Insert into ProcurementFiles (omit CategoryID if table doesn't have that column)
+    // Some DB schemas for ProcurementFiles do not include a CategoryID column — insert only the known columns.
     const procurementFileQuery = `
-      INSERT INTO "ProcurementFiles" ("Title", "Description", "CategoryID", "FilePath", "EndDate")
-      VALUES ($1, $2, $3, $4, $5) RETURNING "FileID";
+      INSERT INTO "ProcurementFiles" ("Title", "Description", "FilePath", "EndDate")
+      VALUES ($1, $2, $3, $4) RETURNING "FileID";
     `;
-    const procurementResult = await client.query(procurementFileQuery, [title, description, categoryId || null, filePath, end || null]);
+    const procurementResult = await client.query(procurementFileQuery, [title, description, filePath, end || null]);
     const newFileId = procurementResult.rows[0].FileID;
 
-    // 2. If suppliers are provided, insert into SupplierFiles
-    if (suppliers && suppliers.length > 0) {
-      const supplierFileQuery = `
-        INSERT INTO "SupplierFiles" ("SupplierID", "FileID", "Status")
-        VALUES ($1, $2, 'PENDING');
+    // 2. Determine which suppliers to notify
+    let supplierIdsToNotify = [];
+    if (targetCategories && targetCategories.length > 0) {
+      // Find suppliers based on the categories of items they offer
+      // UPDATED: Now uses the new, more direct SupplierCategories table.
+      const findSuppliersQuery = `
+        SELECT "SupplierID" FROM "SupplierCategories"
+        WHERE "CategoryID" = ANY($1::int[]);
       `;
-      // Loop through each supplier ID and create an entry
-      for (const supplierId of suppliers) {
-        // Ensure we don't process the 'all' keyword if it slips through
-        if (supplierId !== 'all') {
-          await client.query(supplierFileQuery, [supplierId, newFileId]);
-        }
+      const { rows } = await client.query(findSuppliersQuery, [targetCategories]);
+      supplierIdsToNotify = rows.map(r => r.SupplierID);
+    } else if (suppliers && suppliers.length > 0) {
+      // Use the manually selected list of suppliers
+      supplierIdsToNotify = suppliers.filter(id => id !== 'all');
+    }
+
+    // Ensure supplier IDs are integers (Postgres expects int[])
+    supplierIdsToNotify = supplierIdsToNotify.map(id => parseInt(id, 10)).filter(n => !Number.isNaN(n));
+    // Remove duplicates so a supplier only receives one SupplierFiles row
+    supplierIdsToNotify = Array.from(new Set(supplierIdsToNotify));
+    console.log(`[Announcements] Unique supplier IDs to notify: ${supplierIdsToNotify.length}`);
+
+    // 2a. Link the created procurement file to selected categories (if any)
+    if (targetCategories && Array.isArray(targetCategories) && targetCategories.length > 0) {
+      // Ensure category IDs are integers
+      const categoryIds = targetCategories.map(id => parseInt(id, 10)).filter(n => !Number.isNaN(n));
+      if (categoryIds.length > 0) {
+        const insertFileCategoriesQuery = `
+          INSERT INTO "ProcurementFileCategories" ("FileID", "CategoryID")
+          SELECT $1::int, t.category_id
+          FROM UNNEST($2::int[]) AS t(category_id)
+          ON CONFLICT DO NOTHING;
+        `;
+        await client.query(insertFileCategoriesQuery, [newFileId, categoryIds]);
+        console.log(`[Announcements] Linked file ${newFileId} to ${categoryIds.length} categories.`);
       }
+    }
+
+    // 3. Insert into SupplierFiles for each targeted supplier
+    if (supplierIdsToNotify.length > 0) {
+      // Use DISTINCT in the SELECT so duplicate supplier IDs in the provided array
+      // don't cause a conflict between rows of the same INSERT statement.
+      const supplierFileInsertQuery = `
+        INSERT INTO "SupplierFiles" ("SupplierID", "FileID", "Status")
+        SELECT DISTINCT t.supplier_id, $1::int, 'PENDING'
+        FROM UNNEST($2::int[]) AS t(supplier_id)
+        ON CONFLICT ("SupplierID", "FileID") DO NOTHING;
+      `;
+      // Use a single query to insert all rows at once for efficiency
+      await client.query(supplierFileInsertQuery, [newFileId, supplierIdsToNotify]);
+      console.log(`[Announcements] Sent announcement ${newFileId} to ${supplierIdsToNotify.length} suppliers.`);
+    } else {
+      console.log(`[Announcements] Announcement ${newFileId} created but not sent to any specific suppliers.`);
     }
 
     await client.query("COMMIT");
     res.status(201).json({ message: "Announcement posted successfully!", fileId: newFileId });
   } catch (err) {
     await client.query("ROLLBACK");
-    console.error("Error posting announcement:", err.message);
-    res.status(500).json({ message: "Server error while posting announcement." });
+    console.error("Error posting announcement:", err);
+    res.status(500).json({ message: "Server error while posting announcement.", error: err.message });
   } finally {
     client.release();
   }
@@ -121,8 +169,27 @@ router.get("/categories", protect, async (req, res) => {
     return res.status(403).json({ message: "Access denied. Admins only." });
   }
   try {
-    const result = await pool.query('SELECT "CategoryID", "CategoryName" FROM "Categories" ORDER BY "CategoryName" ASC');
-    res.json(result.rows);
+    const result = await pool.query(
+      'SELECT "CategoryID", "CategoryName", "ParentCategoryID" FROM "Categories" ORDER BY "ParentCategoryID" ASC, "CategoryName" ASC'
+    );
+
+    // Build the hierarchical structure
+    const categories = [];
+    const categoryMap = {};
+
+    result.rows.forEach(row => {
+      categoryMap[row.CategoryID] = { ...row, children: [] };
+    });
+
+    result.rows.forEach(row => {
+      if (row.ParentCategoryID) {
+        categoryMap[row.ParentCategoryID]?.children.push(categoryMap[row.CategoryID]);
+      } else {
+        categories.push(categoryMap[row.CategoryID]);
+      }
+    });
+
+    res.json(categories);
   } catch (err) {
     console.error("Error fetching categories:", err.message);
     res.status(500).json({ message: "Server error" });

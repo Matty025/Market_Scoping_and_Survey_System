@@ -43,6 +43,15 @@ const AnnouncementForm = ({ onSubmit, onCancel }) => {
     };
   }, []);
 
+  // Clear selection when sendType changes
+  useEffect(() => {
+    if (form.sendType === "category") {
+      setForm(f => ({ ...f, suppliers: [] }));
+    } else {
+      setForm(f => ({ ...f, categories: [] }));
+    }
+  }, [form.sendType]);
+
   useEffect(() => {
     const fetchInitialData = async () => {
       if (!token) return;
@@ -51,8 +60,7 @@ const AnnouncementForm = ({ onSubmit, onCancel }) => {
         const catResponse = await axios.get("http://localhost:3001/api/admin/categories", {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const formattedCategories = catResponse.data.map(cat => ({ value: cat.CategoryID, label: cat.CategoryName }));
-        setCategoryOptions([{ value: "all", label: "All Categories" }, ...formattedCategories]);
+        setCategoryOptions(catResponse.data); // Now receives hierarchical data
 
         // Fetch Suppliers
         const supResponse = await axios.get("http://localhost:3001/api/admin/suppliers", {
@@ -73,12 +81,21 @@ const AnnouncementForm = ({ onSubmit, onCancel }) => {
   const toggleSupplierDropdown = () => setSupplierDropdownOpen(!supplierDropdownOpen);
 
   const handleCategoryChange = (cat, isChecked) => {
-    if (cat.value === "all") {
-      setForm({ ...form, categories: isChecked ? categoryOptions.map(c => c.value) : [] });
+    let newCategories = [...form.categories];
+    if (isChecked) {
+      newCategories.push(cat.CategoryID);
+      // If a parent is checked, check all its children
+      if (cat.children) {
+        cat.children.forEach(child => newCategories.push(child.CategoryID));
+      }
     } else {
-      const filtered = form.categories.filter((c) => c !== "all");
-      setForm({ ...form, categories: isChecked ? [...filtered, cat.value] : filtered.filter((c) => c !== cat.value) });
+      newCategories = newCategories.filter(id => id !== cat.CategoryID);
+      // If a parent is unchecked, uncheck all its children
+      if (cat.children) {
+        cat.children.forEach(child => newCategories = newCategories.filter(id => id !== child.CategoryID));
+      }
     }
+    setForm({ ...form, categories: [...new Set(newCategories)] }); // Use Set to ensure uniqueness
   };
 
   const handleSupplierChange = (sup, isChecked) => {
@@ -126,16 +143,6 @@ const AnnouncementForm = ({ onSubmit, onCancel }) => {
       <label>Description</label>
       <textarea name="description" value={form.description} onChange={handleChange} placeholder="Enter description" rows="3" required />
 
-      <label>Send Announcement To</label>
-      <label>Category</label>
-      <select name="categoryId" value={form.categoryId} onChange={handleChange} required>
-        <option value="" disabled>Select a category</option>
-        {/* We filter out the "All Categories" option here as it's not a real category */}
-        {categoryOptions.filter(c => c.value !== 'all').map(cat => (
-          <option key={cat.value} value={cat.value}>{cat.label}</option>
-        ))}
-      </select>
-
       <label>Send To</label>
       <div className="send-type-options">
         <label>
@@ -149,35 +156,37 @@ const AnnouncementForm = ({ onSubmit, onCancel }) => {
       </div>
 
       {/* Category Selection */}
-      {/* This section is now replaced by the single-select dropdown above */}
-      {/* {form.sendType === "category" && (
+      {form.sendType === "category" && (
         <>
           <div className="dropdown-container" ref={dropdownRef}>
-            <div className="dropdown-selected" onClick={toggleDropdown}>
+            <div className="dropdown-selected" onClick={toggleDropdown} role="button">
               {form.categories.length > 0 ? `${form.categories.length} selected` : "Select Categories"}
               <span className="dropdown-arrow">{dropdownOpen ? "▲" : "▼"}</span>
             </div>
             {dropdownOpen && (
-              <div className="dropdown-menu">
-                {categoryOptions.map((cat) => (
-                  <label key={cat.value} className="dropdown-item">
-                    <input type="checkbox" checked={form.categories.includes(cat.value)} onChange={(e) => handleCategoryChange(cat, e.target.checked)} />
-                    <span className="category-label">{cat.label}</span>
-                  </label>
+              <div className="dropdown-menu-CR">
+                {categoryOptions.map((parent) => (
+                  <div key={parent.CategoryID}>
+                    <label className="dropdown-item parent-category">
+                      <input type="checkbox" checked={form.categories.includes(parent.CategoryID)} onChange={(e) => handleCategoryChange(parent, e.target.checked)} />
+                      <strong>{parent.CategoryName}</strong>
+                    </label>
+                    {parent.children.map(child => (
+                      <label key={child.CategoryID} className="dropdown-item child-category">
+                        <input type="checkbox" checked={form.categories.includes(child.CategoryID)} onChange={(e) => handleCategoryChange(child, e.target.checked)} />
+                        <span>{child.CategoryName}</span>
+                      </label>
+                    ))}
+                  </div>
                 ))}
               </div>
             )}
           </div>
           <div className="selected-categories">
-            {form.categories.filter(c => c !== 'all').map((catId) => (
-              <span key={catId} className="category-badge">
-                {categoryOptions.find(opt => opt.value === catId)?.label || 'Unknown'}
-                <button type="button" className="remove-cat-btn" onClick={() => handleRemoveCategory(catId)}>×</button>
-              </span>
-            ))}
+            {/* This part can be enhanced to show selected category names */}
           </div>
         </>
-      )} */}
+      )}
 
       {/* Supplier Selection */}
       {form.sendType === "supplier" && (

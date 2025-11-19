@@ -135,8 +135,13 @@ const Dashboard = () => {
     data.append("end", formData.end); // Add the end date
 
     // Pass the array of supplier IDs to the backend
-    const supplierIds = formData.suppliers.filter(id => id !== 'all');
-    data.append("suppliers", JSON.stringify(supplierIds));
+    if (formData.sendType === 'supplier') {
+      const supplierIds = formData.suppliers.filter(id => id !== 'all');
+      data.append("suppliers", JSON.stringify(supplierIds));
+    } else if (formData.sendType === 'category') {
+      // Pass the array of target category IDs
+      data.append("categories", JSON.stringify(formData.categories));
+    }
 
     try {
       const response = await axios.post("http://localhost:3001/api/admin/announcements", data, {
@@ -200,7 +205,7 @@ const Dashboard = () => {
           <LimitedList
             items={filteredAnnouncements}
             initialCount={3}
-            renderItem={(ann, i) => <div onClick={() => handleOpenResponseModal(ann)}><AnnouncementCard key={ann.id || i} announcement={ann} /></div>}
+            renderItem={(ann, i) => <div key={ann.id || i} onClick={() => handleOpenResponseModal(ann)}><AnnouncementCard announcement={ann} /></div>}
           />
         </div>
       </CollapsibleSection>

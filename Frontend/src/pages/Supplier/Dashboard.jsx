@@ -22,8 +22,14 @@ const SupplierDashboard = () => {
         const response = await axios.get("http://localhost:3001/api/supplier-files", {
           headers: { Authorization: `Bearer ${token}` },
         });
-        // Assuming the backend returns data that matches the structure of your tables
-        setAssignedFiles(response.data);
+        // Deduplicate server results by FileID so the same procurement file
+        // doesn't appear multiple times if the supplier was assigned the file more than once.
+        const rows = response.data || [];
+        const uniqueByFileId = Array.from(new Map(rows.map(r => [r.FileID, r])).values());
+        if (uniqueByFileId.length !== rows.length) {
+          console.warn(`Deduplicated assigned files: removed ${rows.length - uniqueByFileId.length} duplicates.`);
+        }
+        setAssignedFiles(uniqueByFileId);
       } catch (err) {
         setError("Failed to fetch assigned files. Please try again later.");
         console.error("Fetch error:", err);

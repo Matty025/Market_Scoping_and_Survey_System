@@ -1,3 +1,5 @@
+/* This file is for the Admin Dashboard, but also contains styles for AnnouncementForm used in a modal */
+
 /* General Dashboard Container for both Admin and Supplier */
 .dashboard-container, .supplier-dashboard {
   padding: 2rem;
@@ -249,6 +251,21 @@
   font-size: 0.75rem;
   font-weight: 600;
 }
+
+/* Hierarchical dropdown styles in AnnouncementForm */
+.dropdown-item.parent-category {
+  font-weight: bold;
+  color: #111827;
+  background-color: #f3f4f6;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.dropdown-item.child-category {
+  padding-left: 2.5rem; /* Indent child categories */
+}
+
+
 
 /* Response Modal Specific Styles */
 .response-list {

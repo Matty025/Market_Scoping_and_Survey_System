@@ -23,6 +23,7 @@ router.post("/register", async (req, res) => {
       hasSecRegistration,
       hasBusinessPermit,
       hasTaxClearance,
+      categories, // <-- This will be an array of CategoryIDs
     } = req.body;
 
     if (!role || !fullName || !email || !password)
@@ -53,52 +54,76 @@ router.post("/register", async (req, res) => {
 
     const passwordHash = await bcrypt.hash(password, 10);
 
+    // Use a transaction to ensure all or nothing is saved
+    const client = await pool.connect();
+
     if (normalizedRole === "buyer") {
-      const user = await UserModel.createUser(fullName, email, passwordHash, roleId);
-      return res.status(201).json({
-        message: "Buyer registered successfully",
-        user: {
-          userID: user.UserID,
-          fullName: user.FullName,
-          email: user.Email,
-          role: "buyer",
-        },
-      });
+      try {
+        const user = await UserModel.createUser(fullName, email, passwordHash, roleId);
+        return res.status(201).json({
+          message: "Buyer registered successfully",
+          user: {
+            userID: user.UserID,
+            fullName: user.FullName,
+            email: user.Email,
+            role: "buyer",
+          },
+        });
+      } finally {
+        client.release();
+      }
     }
 
     // Supplier registration
     if (!companyName || !address || !contactNumber)
       return res.status(400).json({ message: "Missing supplier fields" });
 
-    // Create supplier first
-    const supplier = await SupplierModel.createSupplier(
-      companyName,
-      address,
-      contactNumber,
-      !!hasPhilgeps,
-      !!hasSecRegistration,
-      !!hasBusinessPermit,
-      !!hasTaxClearance
-    );
+    try {
+      await client.query("BEGIN");
 
-    const user = await UserModel.createSupplierUser(
-      fullName,
-      email,
-      passwordHash,
-      roleId,
-      supplier.SupplierID
-    );
+      // 1. Create supplier
+      const supplier = await SupplierModel.createSupplier(
+        companyName, address, contactNumber,
+        !!hasPhilgeps, !!hasSecRegistration, !!hasBusinessPermit, !!hasTaxClearance,
+        client // Pass the client for transaction
+      );
+      const newSupplierId = supplier.SupplierID;
 
-    return res.status(201).json({
-      message: "Supplier registered successfully",
-      supplier,
-      user: {
-        userID: user.UserID,
-        fullName: user.FullName,
-        email: user.Email,
-        role: "supplier",
-      },
-    });
+      // 2. Create user linked to the supplier
+      const user = await UserModel.createSupplierUser(
+        fullName, email, passwordHash, roleId, newSupplierId,
+        client // Pass the client for transaction
+      );
+
+      // 3. Link supplier to categories
+      if (categories && Array.isArray(categories) && categories.length > 0) {
+        const categoryInsertQuery = `
+          INSERT INTO "SupplierCategories" ("SupplierID", "CategoryID")
+          SELECT $1, "CategoryID" FROM UNNEST($2::int[]) AS "CategoryID"
+        `;
+        await client.query(categoryInsertQuery, [newSupplierId, categories]);
+        console.log(`[Register] Linked supplier ${newSupplierId} to categories: ${categories.join(', ')}`);
+      }
+
+      await client.query("COMMIT");
+
+      return res.status(201).json({
+        message: "Supplier registered successfully",
+        supplier,
+        user: {
+          userID: user.UserID,
+          fullName: user.FullName,
+          email: user.Email,
+          role: "supplier",
+        },
+      });
+    } catch (transactionError) {
+      await client.query("ROLLBACK");
+      console.error("Supplier registration transaction error:", transactionError);
+      return res.status(500).json({ message: "Server error during registration." });
+    } finally {
+      client.release();
+    }
   } catch (error) {
     console.error("Register error:", error);
     return res.status(500).json({ message: "Server error" });

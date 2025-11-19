@@ -88,19 +88,20 @@
   color: #6b7280;
 }
 
-.dropdown-menu {
+.dropdown-menu-CR {
   position: absolute;
   top: 105%;
-  left: 0;
-  right: 0;
+  left: 0; /* Align with the left edge of the container */
   background-color: #ffffff;
-  border: 1px solid #d1d5db;
+  border: 1px solid #d1d5db; /* Keep border */
   border-radius: 6px;
   box-shadow: 0 6px 12px rgba(0,0,0,0.1);
   max-height: 200px;
   overflow-y: auto;
   z-index: 1000;
   padding: 6px 0;
+  min-width: 100%; /* Ensure it's at least as wide as the input */
+  width: max-content; /* Expand to fit the widest item */
 }
 
 .dropdown-item {

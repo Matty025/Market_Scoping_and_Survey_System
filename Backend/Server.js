@@ -76,6 +76,10 @@ const responseRoutes = require("./routes/responseRoutes");
 console.log("[Server.js] responseRoutes loaded.");
 app.use("/api/supplier-responses", responseRoutes);
 
+const publicRoutes = require("./routes/publicRoutes");
+console.log("[Server.js] publicRoutes loaded.");
+app.use("/api/public", publicRoutes);
+
 // Check DB connection and start server
 const startServer = async () => {
   try {

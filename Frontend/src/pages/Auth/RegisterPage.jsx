@@ -1,290 +1,315 @@
-import React, { useState, useMemo } from "react";
+// ===== LIBRARIES =====
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import "./RegisterPage.css";
+
+// ===== COMPONENTS =====
 import Toast from "../../components/Toast";
+import CategoryModal from "../../components/CategoryModal";
 
-// Unified Register Page for Supplier and Buyer
-// - Posts to /auth/register with role in the body
-// - Uses env-based API URL (VITE_API_URL)
-// - Validates fields and prevents double submit
+// ===== STYLES =====
+import "./RegisterPage.css";
 
-const initialFormData = {
-  fullName: "",
-  email: "",
-  password: "",
-  confirmPassword: "",
-  // Supplier-only fields
-  companyName: "",
-  address: "",
-  contactNumber: "",
-    hasPhilgeps: false,
-  hasSecRegistration: false,
-  hasBusinessPermit: false,
-  hasTaxClearance: false,
-};
-
-export default function RegisterPage() {
+// ===== CUSTOM HOOK =====
+const useRegistrationForm = () => {
   const navigate = useNavigate();
-  const [role, setRole] = useState("supplier"); // 'supplier' | 'buyer'
+  const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3001";
+
+  const initialFormData = {
+    fullName: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    companyName: "",
+    address: "",
+    contactNumber: "",
+    hasPhilgeps: false,
+    hasSecRegistration: false,
+    hasBusinessPermit: false,
+    hasTaxClearance: false,
+    selectedCategories: [],
+  };
+
+  const [role, setRole] = useState("supplier");
   const [formData, setFormData] = useState(initialFormData);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
-  const [successMsg, setSuccessMsg] = useState("");
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [categoryGroups, setCategoryGroups] = useState([]);
   const [toast, setToast] = useState({ visible: false, type: "info", message: "" });
 
+  // ===== TOAST =====
   const showToast = (type, message, duration = 3000) => {
-    setToast({ visible: true, type, message, duration });
+    setToast({ visible: true, type, message });
+    setTimeout(() => setToast({ visible: false, type: "info", message: "" }), duration);
   };
-  const hideToast = () => setToast({ visible: false, type: "info", message: "" });
 
-  const API_BASE = useMemo(() => {
-    return import.meta.env.VITE_API_URL || "http://localhost:3001";
-  }, []);
+  const hideToast = () => setToast({ ...toast, visible: false });
 
-  const handleChange = (e) => {
+  // ===== FETCH CATEGORIES =====
+  useEffect(() => {
+    if (role !== "supplier") return;
+
+    const fetchCategories = async () => {
+      try {
+        const res = await axios.get(`${API_BASE}/api/public/categories`);
+        const data = res?.data;
+
+        if (!data || !Array.isArray(data)) {
+          console.warn("Unexpected categories response:", data);
+          showToast("error", "Failed to load categories. Try again.");
+          return;
+        }
+
+        let formatted = [];
+
+        // Case A: API returns grouped categories: [{ name, options: [{CategoryName, CategoryID}, ...] }, ...]
+        if (data.length > 0 && data[0] && Array.isArray(data[0].options)) {
+          formatted = data.map(group => ({
+            label: group.name || group.label || "Group",
+            options: (group.options || [])
+              .filter(cat => cat && (cat.CategoryID ?? cat.value) != null && (cat.ParentCategoryID ?? true) !== null)
+              .map(cat => ({
+                label: cat.CategoryName || cat.label || "",
+                value: cat.CategoryID ?? cat.value,
+              })),
+          }));
+        } else {
+          // Case B: API returns a flat array of categories: [{ CategoryID, CategoryName, ParentCategoryID }, ...]
+          // Exclude top-level parents (ParentCategoryID === null) so they are not selectable
+          const childOnly = data.filter(cat => cat && (cat.ParentCategoryID !== null && cat.ParentCategoryID !== undefined));
+          formatted = [
+            {
+              label: "All Categories",
+              options: childOnly.map(cat => ({ label: cat.CategoryName || cat.label || "", value: cat.CategoryID ?? cat.value })),
+            },
+          ];
+        }
+
+        setCategoryGroups(formatted);
+      } catch (err) {
+        console.error(err);
+        showToast("error", "Failed to load categories. Try again.");
+      }
+    };
+
+    fetchCategories();
+  }, [role, API_BASE]);
+
+  // ===== HANDLERS =====
+  const handleChange = e => {
     const { name, value, type, checked } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
+    setFormData(prev => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+  };
+
+  const handleCategoryChange = selectedValues => {
+    setFormData(prev => ({ ...prev, selectedCategories: selectedValues }));
   };
 
   const validate = () => {
     const email = formData.email.trim();
-    const password = formData.password;
-    const confirmPassword = formData.confirmPassword;
 
     if (!formData.fullName.trim()) return "Full name is required.";
     if (!email) return "Email is required.";
-    // Basic email format check
-    const emailOk = /.+@.+\..+/.test(email);
-    if (!emailOk) return "Enter a valid email address.";
-
-    if (!password) return "Password is required.";
-    if (password.length < 6) return "Password must be at least 6 characters.";
-    if (password !== confirmPassword) return "Passwords do not match.";
+    if (!/.+@.+\..+/.test(email)) return "Enter a valid email address.";
+    if (!formData.password) return "Password is required.";
+    if (formData.password.length < 6) return "Password must be at least 6 characters long.";
+    if (formData.password !== formData.confirmPassword) return "Passwords do not match.";
 
     if (role === "supplier") {
-      if (!formData.companyName.trim()) return "Company name is required for suppliers.";
-      if (!formData.address.trim()) return "Address is required for suppliers.";
-      if (!formData.contactNumber.trim()) return "Contact number is required for suppliers.";
-          }
+      if (!formData.companyName.trim()) return "Company name is required.";
+      if (!formData.address.trim()) return "Address is required.";
+      if (!formData.contactNumber.trim()) return "Contact number is required.";
+    }
 
     return "";
   };
 
-  const resetForm = () => {
-    setFormData(initialFormData);
-  };
+  const handleFinalSubmit = async e => {
+    // Ant Design Form `onFinish` passes form values, not an event.
+    // Handle both cases: a DOM event (from a native form/button) or form values object.
+    if (e && typeof e.preventDefault === "function") {
+      e.preventDefault();
+    } else if (e && typeof e === "object" && Array.isArray(e.categories)) {
+      // update selected categories from form values if provided
+      setFormData(prev => ({ ...prev, selectedCategories: e.categories }));
+    }
 
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    setErrorMsg("");
-    setSuccessMsg("");
-
-    const validationError = validate();
-    if (validationError) {
-      setErrorMsg(validationError);
-      showToast("error", validationError);
+    if (role === "supplier" && formData.selectedCategories.length === 0) {
+      showToast("error", "Please select at least one category.");
       return;
     }
+
+    const error = validate();
+    if (error) return showToast("error", error);
 
     setIsSubmitting(true);
 
     try {
-      const payloadBase = {
-        role: role.toLowerCase(),
+      let payload = {
+        role,
         fullName: formData.fullName.trim(),
         email: formData.email.trim(),
         password: formData.password,
       };
 
-      let payload = payloadBase;
-
       if (role === "supplier") {
         payload = {
-          ...payloadBase,
+          ...payload,
           companyName: formData.companyName.trim(),
           address: formData.address.trim(),
           contactNumber: formData.contactNumber.trim(),
-                    hasPhilgeps: !!formData.hasPhilgeps,
-          hasSecRegistration: !!formData.hasSecRegistration,
-          hasBusinessPermit: !!formData.hasBusinessPermit,
-          hasTaxClearance: !!formData.hasTaxClearance,
+          hasPhilgeps: formData.hasPhilgeps,
+          hasSecRegistration: formData.hasSecRegistration,
+          hasBusinessPermit: formData.hasBusinessPermit,
+          hasTaxClearance: formData.hasTaxClearance,
+          categories: formData.selectedCategories,
         };
       }
 
-      const url = `${API_BASE}/auth/register`;
-      const res = await axios.post(url, payload);
-
-      const message = res.data?.message || `${role === "supplier" ? "Supplier" : "Buyer"} registered successfully.`;
-      setSuccessMsg(message);
-      showToast("success", message);
-
-      // Optional: direct to login after short delay
-      resetForm();
+      const res = await axios.post(`${API_BASE}/auth/register`, payload);
+      showToast("success", res.data?.message || `${role} registered successfully.`);
+      setFormData(initialFormData);
       setTimeout(() => navigate("/"), 800);
     } catch (err) {
-      let msg =
-        err?.response?.data?.message ||
-        err?.response?.data?.error ||
-        err?.response?.data?.msg ||
-        "Registration failed. Please try again.";
-      if (err?.response?.status === 409) {
-        msg = "Email already in use. Try logging in or use another email.";
-      }
-      setErrorMsg(msg);
+      let msg = err?.response?.data?.message || "Registration failed. Try again.";
+      if (err?.response?.status === 409) msg = "Email already in use.";
       showToast("error", msg);
     } finally {
       setIsSubmitting(false);
+      setIsCategoryModalOpen(false);
     }
   };
+
+  const handleInitialRegister = e => {
+    e.preventDefault();
+    const error = validate();
+    if (error) return showToast("error", error);
+
+    if (role === "supplier") setIsCategoryModalOpen(true);
+    else handleFinalSubmit(e);
+  };
+
+  return {
+    role,
+    setRole,
+    formData,
+    handleChange,
+    handleCategoryChange,
+    isSubmitting,
+    toast,
+    hideToast,
+    handleInitialRegister,
+    isCategoryModalOpen,
+    setIsCategoryModalOpen,
+    handleFinalSubmit,
+    categoryGroups,
+    navigate,
+  };
+};
+
+// ===== SUB-COMPONENTS =====
+const RoleToggle = ({ role, setRole }) => (
+  <div className="role-toggle">
+    {["supplier", "buyer"].map(r => (
+      <button key={r} className={role === r ? "active" : ""} type="button" onClick={() => setRole(r)}>
+        {r.toUpperCase()}
+      </button>
+    ))}
+  </div>
+);
+
+const UserInputs = ({ formData, handleChange, role }) => (
+  <>
+    <input type="text" name="fullName" placeholder={role === "supplier" ? "Contact Person Full Name" : "Full Name"} value={formData.fullName} onChange={handleChange} required />
+    <input type="email" name="email" placeholder="Email Address" value={formData.email} onChange={handleChange} required />
+    <input type="password" name="password" placeholder="Password" value={formData.password} onChange={handleChange} required />
+    <input type="password" name="confirmPassword" placeholder="Confirm Password" value={formData.confirmPassword} onChange={handleChange} required />
+  </>
+);
+
+const SupplierInputs = ({ formData, handleChange }) => (
+  <>
+    <input type="text" name="companyName" placeholder="Company Name" value={formData.companyName} onChange={handleChange} required />
+    <input type="text" name="address" placeholder="Address" value={formData.address} onChange={handleChange} required />
+    <input type="text" name="contactNumber" placeholder="Contact Number" value={formData.contactNumber} onChange={handleChange} required />
+  </>
+);
+
+const DocumentChecks = ({ formData, handleChange }) => {
+  const docs = [
+    { key: "hasPhilgeps", label: "PhilGEPS Registration" },
+    { key: "hasSecRegistration", label: "SEC Registration" },
+    { key: "hasBusinessPermit", label: "Business Permit" },
+    { key: "hasTaxClearance", label: "Tax Clearance" },
+  ];
+
+  return (
+    <div className="document-section">
+      <h3>Required Documents</h3>
+      <div className="checkboxes">
+        {docs.map(d => (
+          <label key={d.key}>
+            <input type="checkbox" name={d.key} checked={!!formData[d.key]} onChange={handleChange} />
+            {d.label}
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ===== MAIN COMPONENT =====
+export default function RegisterPage() {
+  const {
+    role,
+    setRole,
+    formData,
+    handleChange,
+    handleCategoryChange,
+    isSubmitting,
+    toast,
+    hideToast,
+    handleInitialRegister,
+    isCategoryModalOpen,
+    setIsCategoryModalOpen,
+    handleFinalSubmit,
+    categoryGroups,
+    navigate,
+  } = useRegistrationForm();
 
   return (
     <div className="register-card">
       <Toast type={toast.type} message={toast.message} visible={toast.visible} onClose={hideToast} />
+
       <h1 className="register-title">{role === "supplier" ? "Supplier" : "Buyer"} Registration</h1>
 
-      {/* Role toggle */}
-      <div className="role-toggle">
-        {[
-          { key: "supplier", label: "Supplier" },
-          { key: "buyer", label: "Buyer" },
-        ].map((r) => (
-          <button
-            key={r.key}
-            className={role === r.key ? "active" : ""}
-            onClick={() => setRole(r.key)}
-            type="button"
-          >
-            {r.label}
-          </button>
-        ))}
-      </div>
+      <RoleToggle role={role} setRole={setRole} />
 
-      {errorMsg && <p className="error-message">{errorMsg}</p>}
-      {successMsg && <p className="success-message">{successMsg}</p>}
-
-      <form onSubmit={handleRegister}>
+      <form onSubmit={handleInitialRegister}>
         <div className="input-group">
-          <input
-            type="text"
-            name="fullName"
-            placeholder={role === "supplier" ? "Contact Person Full Name" : "Full Name"}
-            value={formData.fullName}
-            onChange={handleChange}
-            required
-          />
-          <input
-            type="email"
-            name="email"
-            placeholder="Email Address"
-            value={formData.email}
-            onChange={handleChange}
-            required
-          />
-          <input
-            type="password"
-            name="password"
-            placeholder="Password"
-            value={formData.password}
-            onChange={handleChange}
-            required
-          />
-          <input
-            type="password"
-            name="confirmPassword"
-            placeholder="Confirm Password"
-            value={formData.confirmPassword}
-            onChange={handleChange}
-            required
-          />
-
-          {role === "supplier" && (
-            <>
-              <input
-                type="text"
-                name="companyName"
-                placeholder="Company Name"
-                value={formData.companyName}
-                onChange={handleChange}
-                required
-              />
-              <input
-                type="text"
-                name="address"
-                placeholder="Address"
-                value={formData.address}
-                onChange={handleChange}
-                required
-              />
-              <input
-                type="text"
-                name="contactNumber"
-                placeholder="Contact Number"
-                value={formData.contactNumber}
-                onChange={handleChange}
-                required
-              />
-                          </>
-          )}
+          <UserInputs formData={formData} handleChange={handleChange} role={role} />
+          {role === "supplier" && <SupplierInputs formData={formData} handleChange={handleChange} />}
         </div>
 
-        {role === "supplier" && (
-          <div className="document-section">
-            <h3>Required Documents / Registrations</h3>
-            <div className="checkboxes">
-              <label>
-                <input
-                  type="checkbox"
-                  name="hasPhilgeps"
-                  checked={formData.hasPhilgeps}
-                  onChange={handleChange}
-                />
-                PhilGEPS Registration
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  name="hasSecRegistration"
-                  checked={formData.hasSecRegistration}
-                  onChange={handleChange}
-                />
-                SEC Registration
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  name="hasBusinessPermit"
-                  checked={formData.hasBusinessPermit}
-                  onChange={handleChange}
-                />
-                Business Permit
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  name="hasTaxClearance"
-                  checked={formData.hasTaxClearance}
-                  onChange={handleChange}
-                />
-                Tax Clearance
-              </label>
-            </div>
-            <p className="note">
-              Physical copies of these documents must be sent to DepEd@gmail.com for verification.
-            </p>
-          </div>
-        )}
+        {role === "supplier" && <DocumentChecks formData={formData} handleChange={handleChange} />}
 
-        <button type="submit" className="register-btn" disabled={isSubmitting}>
-          {isSubmitting ? "Registering..." : "Register"}
+        <button type="submit" disabled={isSubmitting} className="register-btn">
+          {isSubmitting ? "Validating..." : (role === "supplier" ? "Next: Select Categories" : "Register")}
         </button>
       </form>
 
+      <CategoryModal
+        isOpen={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
+        onSubmit={handleFinalSubmit}
+        categoryGroups={categoryGroups}
+        selectedCategories={formData.selectedCategories}
+        handleChange={handleCategoryChange}
+        isSubmitting={isSubmitting}
+      />
+
       <p className="login-link">
-        Already have an account? <button type="button" onClick={() => navigate("/")}>Login</button>
+        Already have an account? <button onClick={() => navigate("/")}>Login</button>
       </p>
     </div>
   );
