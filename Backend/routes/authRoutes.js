@@ -152,6 +152,16 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ message: "Invalid email or password" });
     }
 
+    // Enforce account status stored in "AccountStatus" column
+    const accountStatus = (user.AccountStatus || '').toString().toUpperCase();
+    if (accountStatus === 'BLACKLISTED') {
+      return res.status(403).json({ message: 'Account blacklisted. Contact administrator.' });
+    }
+    if (accountStatus !== 'APPROVED') {
+      // For PENDING or REJECTED and any other non-approved statuses
+      return res.status(403).json({ message: 'Your account is waiting for approval. Please contact the DepEd office with required documents.' });
+    }
+
     const token = jwt.sign(
       { userID: user.UserID, role: user.RoleName  },
       process.env.JWT_SECRET,

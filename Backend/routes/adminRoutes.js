@@ -196,6 +196,53 @@ router.get("/categories", protect, async (req, res) => {
   }
 });
 
+// Admin: list users (optional ?status=)
+router.get('/users', protect, async (req, res) => {
+  if (req.user.role.toLowerCase() !== 'admin') {
+    return res.status(403).json({ message: 'Access denied. Admins only.' });
+  }
+
+  try {
+    const { status } = req.query;
+    let query = `SELECT u."UserID", u."FullName", u."Email", r."RoleName", u."AccountStatus", u."SupplierID" FROM "Users" u LEFT JOIN "Roles" r ON r."RoleID" = u."RoleID"`;
+    const params = [];
+    if (status) {
+      query += ` WHERE u."AccountStatus" = $1`;
+      params.push(status.toUpperCase());
+    }
+    query += ` ORDER BY u."UserID" DESC`;
+    const { rows } = await pool.query(query, params);
+    res.json(rows);
+  } catch (err) {
+    console.error('Error fetching users:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin: update user account status
+router.patch('/users/:id', protect, async (req, res) => {
+  if (req.user.role.toLowerCase() !== 'admin') {
+    return res.status(403).json({ message: 'Access denied. Admins only.' });
+  }
+  const userId = parseInt(req.params.id, 10);
+  const { status } = req.body;
+  if (!userId || !status) return res.status(400).json({ message: 'Missing user id or status' });
+
+  const allowed = ['PENDING','APPROVED','REJECTED','BLACKLISTED'];
+  const normalized = String(status).toUpperCase();
+  if (!allowed.includes(normalized)) return res.status(400).json({ message: 'Invalid status' });
+
+  try {
+    const updateQ = `UPDATE "Users" SET "AccountStatus" = $1 WHERE "UserID" = $2 RETURNING "UserID","FullName","Email","AccountStatus"`;
+    const { rows } = await pool.query(updateQ, [normalized, userId]);
+    if (rows.length === 0) return res.status(404).json({ message: 'User not found' });
+    res.json({ message: 'User status updated', user: rows[0] });
+  } catch (err) {
+    console.error('Error updating user status:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // @desc    Get all responses for a specific announcement
 // @route   GET /api/admin/announcements/:id/responses
 // @access  Private (Admin)
