@@ -2,6 +2,8 @@ const express = require("express");
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
+const xlsx = require('xlsx'); // For reading Excel files
+const fs = require('fs');     // For file system operations (deleting temp files)
 
 // configure multer storage
 const storage = multer.diskStorage({
@@ -15,8 +17,8 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 const { protect } = require("./authMiddleware");
-const pool = require("../db.js");
-
+const pool = require("../db.js"); // Your database connection pool
+  
 // @desc    Get assigned procurement files for a logged-in supplier
 // @route   GET /api/supplier-files
 // @access  Private
@@ -65,36 +67,149 @@ router.get("/", protect, async (req, res) => {
 });
 
 // ---- Add upload endpoint at bottom ----
-router.post('/uploads', protect, upload.single('file'), async (req, res) => {
+router.post('/uploads', protect, upload.single('file'), async (req, res) => { // The 'file' name must match the frontend FormData key
   console.log('[SupplierRoutes] POST /uploads hit');
+  const file = req.file;
+  let uploadLogId;
+
+  if (!file) {
+    return res.status(400).json({ message: 'File is required' });
+  }
+
   try {
-    // Ensure user is a supplier
+    // 1. Authenticate and get SupplierID
     if (!req.user || !req.user.role || req.user.role.toLowerCase() !== 'supplier') {
       return res.status(403).json({ message: 'Only suppliers may upload product files' });
     }
-
-    // Find SupplierID for this user
     const userId = req.user.userID;
     const userQ = await pool.query('SELECT "SupplierID" FROM "Users" WHERE "UserID" = $1', [userId]);
     const supplierId = userQ.rows[0]?.SupplierID;
     if (!supplierId) return res.status(404).json({ message: 'Supplier profile not found' });
 
-    if (!req.file) return res.status(400).json({ message: 'File is required' });
+    // 2. Log the upload attempt with 'PROCESSING' status
+    const logResult = await pool.query(
+      `INSERT INTO "SupplierUploads" ("SupplierID", "FilePath", "FileName", "Status") VALUES ($1, $2, $3, 'PROCESSING') RETURNING "UploadID"`,
+      [supplierId, file.path, file.originalname]
+    );
+    uploadLogId = logResult.rows[0].UploadID;
 
-    const filePath = req.file.path;
-    const fileName = req.file.originalname;
+    // 3. Find and read the correct sheet from the Excel file
+    const workbook = xlsx.readFile(file.path);
+    let products = [];
+    let sheetFound = false;
 
-    // Insert upload record
-    const insertQ = `INSERT INTO "SupplierUploads" ("SupplierID","FilePath","FileName","Status") VALUES ($1,$2,$3,'PENDING') RETURNING "UploadID","CreatedAt"`;
-    const { rows } = await pool.query(insertQ, [supplierId, filePath, fileName]);
-    const uploadId = rows[0].UploadID;
+    // Define the essential headers we need to find (case-insensitive)
+    const requiredHeaders = ['name', 'price', 'unit'];
 
-    // TODO: kick off background processing to parse CSV/Excel and upsert Items
+    console.log('[UPLOAD_DEBUG] Workbook sheets found:', workbook.SheetNames);
+    for (const sheetName of workbook.SheetNames) {
+      const worksheet = workbook.Sheets[sheetName];
+      // Convert sheet to JSON to inspect the keys of the first object, which represent the headers
+      const sheetDataAsJson = xlsx.utils.sheet_to_json(worksheet);
 
-    res.status(201).json({ message: 'File uploaded', uploadId, createdAt: rows[0].CreatedAt });
+      if (sheetDataAsJson.length > 0) {
+        const firstRowKeys = Object.keys(sheetDataAsJson[0]).map(k => k.toLowerCase().trim());
+        console.log(`[UPLOAD_DEBUG] Checking sheet "${sheetName}". Headers found:`, firstRowKeys);
+        
+        // Check if this sheet contains all the required headers
+        const hasRequiredHeaders = requiredHeaders.every(rh => firstRowKeys.some(frk => frk.includes(rh)));
+
+        if (hasRequiredHeaders) {
+          products = sheetDataAsJson;
+          sheetFound = true;
+          console.log(`[UPLOAD_SUCCESS] Found valid product data in sheet: "${sheetName}". Processing ${products.length} rows.`);
+          break; // Stop looking once we've found the right sheet
+        }
+      }
+    }
+
+    if (!sheetFound) {
+      throw new Error('Upload failed: Could not find a sheet with the required columns (Name, Price, Unit).');
+    }
+
+    // 4. Process and save products in a single database transaction
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // DEBUG: Log the first product row to see its structure
+      if (products.length > 0) console.log('[UPLOAD_DEBUG] First product row data:', products[0]);
+
+      for (const product of products) {
+        // --- ENHANCED COLUMN MAPPING (Case-Insensitive) ---
+        const getVal = (obj, keys) => {
+          const lowerCaseObjKeys = Object.keys(obj).reduce((acc, k) => {
+            acc[k.toLowerCase().trim()] = obj[k];
+            return acc;
+          }, {});
+          for (const key of keys) {
+            if (lowerCaseObjKeys[key.toLowerCase()] !== undefined) return lowerCaseObjKeys[key.toLowerCase()];
+          }
+          return undefined;
+        };
+
+        const name = getVal(product, ['Names', 'Name', 'Product Name', 'Item Name', 'Item']);
+        const description = getVal(product, ['Description']);
+        const price = parseFloat(getVal(product, ['Price', 'Cost']));
+        const unit = getVal(product, ['Unit', 'Unit of Measure']);
+        const stock = parseFloat(getVal(product, ['Stock', 'Quantity', 'Qty'])) || 0;
+        const location = getVal(product, ['Location']);
+        const categoryName = getVal(product, ['Category', 'CategoryName']);
+
+        if (!name || isNaN(price) || !unit) {
+          console.error(`[UPLOAD_SKIP] Skipping row. Reason: Missing required fields. Parsed values -> Name: ${name}, Price: ${price}, Unit: ${unit}. Original Data: ${JSON.stringify(product)}`);
+          continue; // Skip rows that are missing essential data
+        }
+
+        const itemInsertResult = await client.query(
+          `INSERT INTO "Items" ("SupplierID", "Name", "Description", "Price", "Stock", "Unit", "Location") VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING "ItemID"`,
+          [supplierId, name, description, price, stock, unit, location]
+        );
+        const newItemId = itemInsertResult.rows[0].ItemID;
+
+        // If a category name was provided, find its ID and link it
+        if (categoryName && newItemId) {
+          const categoryResult = await client.query('SELECT "CategoryID" FROM "Categories" WHERE LOWER("CategoryName") = LOWER($1)', [categoryName.trim()]);
+          const categoryId = categoryResult.rows[0]?.CategoryID;
+          if (categoryId) {
+            await client.query('INSERT INTO "ItemCategories" ("ItemID", "CategoryID") VALUES ($1, $2) ON CONFLICT DO NOTHING', [newItemId, categoryId]);
+          } else {
+            console.warn(`[UPLOAD] Category "${categoryName}" not found for item "${name}".`);
+          }
+        }
+      }
+
+      await client.query('COMMIT');
+
+      // 5. Update the log to 'COMPLETED' - This now happens inside the 'try' block after a successful COMMIT
+      await client.query(
+        `UPDATE "SupplierUploads" SET "Status" = 'COMPLETED', "RowCount" = $1, "ProcessedAt" = NOW() WHERE "UploadID" = $2`,
+        [products.length, uploadLogId]
+      );
+
+      res.status(201).json({ message: `Successfully processed and saved ${products.length} products.`, uploadId: uploadLogId });
+
+    } catch (transactionError) {
+      await client.query('ROLLBACK'); // If any item fails, undo all insertions from this file
+      throw transactionError; // Let the outer catch block handle it
+    } finally {
+      client.release(); // Return the database client to the pool
+    }
   } catch (err) {
     console.error('Upload error:', err);
-    res.status(500).json({ message: 'Server error while uploading file', error: err.message });
+
+    // If processing fails, update the log to 'FAILED'
+    if (uploadLogId) {
+      await pool.query(`UPDATE "SupplierUploads" SET "Status" = 'FAILED' WHERE "UploadID" = $1`, [uploadLogId]);
+    }
+    res.status(500).json({ message: 'Server error while processing file', error: err.message });
+  } finally {
+    // 6. Clean up by deleting the temporary file from the 'uploads/' folder
+    if (file) {
+      fs.unlink(file.path, (unlinkErr) => {
+        if (unlinkErr) console.error('Failed to delete temporary file:', file.path);
+      });
+    }
   }
 });
 
@@ -153,6 +268,18 @@ router.post('/items', protect, async (req, res) => {
     const { rows } = await pool.query(insertQ, vals);
     const newItemId = rows[0].ItemID;
 
+    // --- ENHANCED LOGGING ---
+    // Create a rich details object for the history log.
+    const details = {
+      createdItem: { name, price, unit, stock }
+    };
+
+    // Log the creation action to ActionHistory
+    await pool.query(
+      `INSERT INTO "ActionHistory" ("UserID", "SupplierID", "ActionType", "TargetID", "Details") VALUES ($1, $2, $3, $4, $5)`,
+      [userId, supplierId, 'ITEM_CREATED', newItemId, JSON.stringify(details)]
+    );
+
     // Insert categories if provided (categories expected as array of ints)
     if (categories && Array.isArray(categories) && categories.length > 0) {
       const catIds = categories.map((c) => parseInt(c, 10)).filter((n) => !Number.isNaN(n));
@@ -169,10 +296,15 @@ router.post('/items', protect, async (req, res) => {
     res.status(201).json({ message: 'Item created', itemId: newItemId });
   } catch (err) {
     console.error('Error creating item:', err);
-    res.status(500).json({ message: 'Server error creating item', error: err.message });
+    res.status(500).json({ message: 'Server error creating item', error: err.message });    
   }
 });
 
+
+
+
+
+  
 // GET /items - list items for logged-in supplier, optional search q
 router.get('/items', protect, async (req, res) => {
   try {
@@ -187,7 +319,7 @@ router.get('/items', protect, async (req, res) => {
     const q = req.query.q || '';
     const searchQ = `%${q.trim().toLowerCase()}%`;
     const query = `
-      SELECT "ItemID", "Name", "Description", "Price", "Stock", "Unit", "Location", "DatePosted"
+      SELECT "ItemID" as id, "Name" as name, "Description" as description, "Price" as price, "Stock" as stock, "Unit" as unit, "Location" as location, "DatePosted" as date
       FROM "Items"
       WHERE "SupplierID" = $1 AND LOWER("Name") LIKE $2
       ORDER BY "DatePosted" DESC
@@ -225,6 +357,154 @@ router.get('/categories', protect, async (req, res) => {
   } catch (err) {
     console.error('Error fetching supplier categories:', err.message);
     res.status(500).json({ message: 'Server error fetching supplier categories' });
+  }
+});
+
+// PUT /items/:id - Update a single item
+router.put('/items/:id', protect, async (req, res) => {
+  const { id } = req.params;
+  const itemId = parseInt(id, 10);
+  const { name, description, price, stock, unit, location } = req.body;
+
+  try {
+    // 1. Verify user and get supplier ID
+    const userId = req.user.userID;
+    const userQ = await pool.query('SELECT "SupplierID" FROM "Users" WHERE "UserID" = $1', [userId]);
+    const supplierId = userQ.rows[0]?.SupplierID;
+    if (!supplierId) return res.status(404).json({ message: 'Supplier profile not found' });
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+  
+      // 2. Get the old item data for history logging
+      const oldItemResult = await client.query('SELECT * FROM "Items" WHERE "ItemID" = $1 AND "SupplierID" = $2', [itemId, supplierId]);
+      if (oldItemResult.rowCount === 0) {
+        throw new Error('Item not found or you do not have permission to edit it.');
+      }
+      const oldItem = oldItemResult.rows[0];
+
+      // 3. Update the item  
+      const updateResult = await client.query(
+        `UPDATE "Items" SET "Name" = $1, "Description" = $2, "Price" = $3, "Stock" = $4, "Unit" = $5, "Location" = $6, "DateUpdated" = NOW()
+         WHERE "ItemID" = $7 AND "SupplierID" = $8`,
+        [name, description, price, stock, unit, location, itemId, supplierId]
+      );
+      
+      // 4. Log changes to ActionHistory
+      const changes = { Name: name, Description: description, Price: price, Stock: stock, Unit: unit, Location: location };  
+      for (const key in changes) {
+        if (String(oldItem[key]) !== String(changes[key])) {
+          await client.query(
+            'INSERT INTO "ActionHistory" ("UserID", "SupplierID", "ActionType", "TargetID", "Details") VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING',
+            [userId, supplierId, 'ITEM_UPDATED', itemId, JSON.stringify({ field: key, oldValue: oldItem[key], newValue: changes[key] })]
+          );
+        }
+      }
+
+      await client.query('COMMIT');
+      res.status(200).json({ message: 'Item updated successfully' });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error('Error updating item:', err);
+    res.status(500).json({ message: 'Server error updating item', error: err.message });
+  }
+});
+
+// DELETE /items/:id - Delete a single item
+router.delete('/items/:id', protect, async (req, res) => {
+  const { id } = req.params;
+  const itemId = parseInt(id, 10);
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const userId = req.user.userID;
+    const userQ = await client.query('SELECT "SupplierID" FROM "Users" WHERE "UserID" = $1', [userId]);
+    const supplierId = userQ.rows[0]?.SupplierID;
+    if (!supplierId) {
+      throw new Error('Supplier profile not found');
+    }
+
+    // --- ENHANCED LOGGING ---
+    // 1. Get the item's name BEFORE deleting it.
+    const itemQuery = await client.query('SELECT "Name" FROM "Items" WHERE "ItemID" = $1 AND "SupplierID" = $2', [itemId, supplierId]);
+    if (itemQuery.rows.length === 0) {
+      return res.status(404).json({ message: 'Item not found or you do not have permission to delete it.' });
+    }
+    const itemName = itemQuery.rows[0].Name;
+
+    // 2. Log the action with the captured name in the details.
+    const details = { deletedItemName: itemName };
+    await client.query(
+      'INSERT INTO "ActionHistory" ("UserID", "SupplierID", "ActionType", "TargetID", "Details") VALUES ($1, $2, $3, $4, $5)',
+      [userId, supplierId, 'ITEM_DELETED', itemId, JSON.stringify(details)]
+    );
+
+    // 3. Delete the item and its associations.
+    await client.query('DELETE FROM "ItemHistory" WHERE "ItemID" = $1', [itemId]);
+    await client.query('DELETE FROM "ItemCategories" WHERE "ItemID" = $1', [itemId]);
+    await client.query('DELETE FROM "Items" WHERE "ItemID" = $1 AND "SupplierID" = $2', [itemId, supplierId]);
+
+    await client.query('COMMIT');
+    res.status(200).json({ message: `Item '${itemName}' deleted successfully` });
+  } catch (err) {
+    console.error('Error deleting item:', err);
+    res.status(500).json({ message: 'Server error deleting item', error: err.message });
+  }
+});
+
+// DELETE /uploads/:id - delete an upload record and all associated items
+router.delete('/uploads/:id', protect, async (req, res) => {
+  const { id } = req.params;
+  const uploadId = parseInt(id, 10);
+
+  if (isNaN(uploadId)) {
+    return res.status(400).json({ message: 'Invalid Upload ID.' });
+  }
+
+  try {
+    // 1. Verify user is a supplier and owns this upload
+    if (!req.user || req.user.role.toLowerCase() !== 'supplier') {
+      return res.status(403).json({ message: 'Forbidden.' });
+    }
+    const userId = req.user.userID;
+    const userQ = await pool.query('SELECT "SupplierID" FROM "Users" WHERE "UserID" = $1', [userId]);
+    const supplierId = userQ.rows[0]?.SupplierID;
+    if (!supplierId) return res.status(404).json({ message: 'Supplier profile not found.' });
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // 2. Delete all associated item categories and items
+      await client.query('DELETE FROM "ItemCategories" WHERE "ItemID" IN (SELECT "ItemID" FROM "Items" WHERE "UploadID" = $1 AND "SupplierID" = $2)', [uploadId, supplierId]);
+      await client.query('DELETE FROM "Items" WHERE "UploadID" = $1 AND "SupplierID" = $2', [uploadId, supplierId]);
+
+      // 3. Delete the upload record itself
+      const deleteUploadResult = await client.query('DELETE FROM "SupplierUploads" WHERE "UploadID" = $1 AND "SupplierID" = $2', [uploadId, supplierId]);
+
+      if (deleteUploadResult.rowCount === 0) {
+        throw new Error('Upload not found or you do not have permission to delete it.');
+      }
+
+      await client.query('COMMIT');
+      res.status(200).json({ message: 'Upload and all associated products have been deleted.' });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error('Error deleting upload:', err);
+    res.status(500).json({ message: 'Server error while deleting upload.', error: err.message });
   }
 });
 

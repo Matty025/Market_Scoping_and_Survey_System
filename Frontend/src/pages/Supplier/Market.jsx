@@ -1,89 +1,97 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "./Market.css";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import { useAuth } from "../../components/AuthContext";
+import AddProductForm from "./AddProductForm"; // We'll reuse this for adding/editing
+import Toast from "../../components/Toast";
+
+const backendBase = "http://localhost:3001";
 
 const SupplierMarket = () => {
-  const navigate = useNavigate(); // ✅ Moved inside the component
+  const navigate = useNavigate();
+  const { token } = useAuth();
 
-  // ✅ Sample data (replace with backend data later)
-  const [products] = useState([
-    {
-      id: 1,
-      type: "Electronics",
-      description: "15-inch Laptop with 8GB RAM and 256GB SSD",
-      unit: "Piece",
-      price: 35000,
-      date: "2025-11-01",
-    },
-    {
-      id: 2,
-      type: "Furniture",
-      description: "Wooden Study Table",
-      unit: "Piece",
-      price: 2500,
-      date: "2025-11-05",
-    },
-    {
-      id: 3,
-      type: "School Supplies",
-      description: "Ballpen (Blue Ink)",
-      unit: "Box (12 pcs)",
-      price: 120,
-      date: "2025-11-07",
-    },
-    {
-      id: 4,
-      type: "Electronics",
-      description: "Projector with HDMI and VGA support",
-      unit: "Set",
-      price: 15000,
-      date: "2025-11-09",
-    },
-  ]);
-
-  // ✅ State for search and filters
+  const [products, setProducts] = useState([]);
   const [search, setSearch] = useState("");
-  const [selectedTypes, setSelectedTypes] = useState([]);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingProduct, setEditingProduct] = useState(null); // For editing
+  const [toast, setToast] = useState({ visible: false, message: "", type: "info" });
 
-  // ✅ Extract unique types for dropdown filter
-  const allTypes = [...new Set(products.map((p) => p.type))];
-
-  // ✅ Handle checkbox toggle
-  const toggleType = (type) => {
-    setSelectedTypes((prev) =>
-      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
-    );
+  // Fetch products from the backend
+  const fetchProducts = async () => {
+    if (!token) return;
+    try {
+      const res = await axios.get(`${backendBase}/api/supplier-files/items`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setProducts(res.data || []);
+    } catch (err) {
+      console.error("Failed to fetch products", err);
+      setToast({ visible: true, message: "Could not load your products.", type: "error" });
+    }
   };
 
-  // ✅ Filter logic
+  useEffect(() => {
+    fetchProducts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
+  // Handle Delete
+  const handleDelete = async (productId) => {
+    if (!window.confirm("Are you sure you want to delete this product? This action will be logged.")) {
+      return;
+    }
+    try {
+      await axios.delete(`${backendBase}/api/supplier-files/items/${productId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setToast({ visible: true, message: "Product deleted successfully.", type: "success" });
+      fetchProducts(); // Refresh the product list
+    } catch (err) {
+      console.error("Delete failed", err);
+      setToast({ visible: true, message: `Delete failed: ${err.response?.data?.message || err.message}`, type: "error" });
+    }
+  };
+
+  // Handle Edit
+  const handleEdit = (product) => {
+    // We will implement the edit modal in a future step. For now, this opens the modal.
+    setEditingProduct(product);
+    setShowAddModal(true);
+  };
+
+  const handleModalClose = () => {
+    setShowAddModal(false);
+    setEditingProduct(null);
+    fetchProducts(); // Always refetch data when the modal closes
+  };
+
+  // Filter logic
   const filteredProducts = products.filter((product) => {
-    const matchesSearch =
-      product.description.toLowerCase().includes(search.toLowerCase()) ||
-      product.type.toLowerCase().includes(search.toLowerCase());
-
-    const matchesType =
-      selectedTypes.length === 0 || selectedTypes.includes(product.type);
-
-    return matchesSearch && matchesType;
+    return (
+      product.name.toLowerCase().includes(search.toLowerCase()) ||
+      (product.description && product.description.toLowerCase().includes(search.toLowerCase()))
+    );
   });
-
-  // ✅ Dropdown toggle state
-  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   return (
     <div className="supplier-market">
       {/* Header */}
       <header className="market-header">
         <h2>🛍️ Supplier Market</h2>
-        <p>Manage and view all your products listed in the market.</p>
+        <p>View, add, and manage all your products listed in the market.</p>
       </header>
 
       <div className="market-actions">
+        <button className="upload-btn" onClick={() => setShowAddModal(true)}>
+          + Add Product Manually
+        </button>
         <button
           className="upload-btn"
           onClick={() => navigate("/supplier/upload-products")}
         >
-          📁 Upload Product File
+          📁 Bulk Upload from File
         </button>
       </div>
 
@@ -91,34 +99,11 @@ const SupplierMarket = () => {
       <div className="market-controls">
         <input
           type="text"
-          placeholder="Search by type or description..."
+          placeholder="Search by product name or description..."
           className="search-bar"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-
-        <div className="dropdown-container">
-          <button
-            className="dropdown-toggle"
-            onClick={() => setDropdownOpen(!dropdownOpen)}
-          >
-            Filter by Type ▾
-          </button>
-          {dropdownOpen && (
-            <div className="dropdown-menu">
-              {allTypes.map((type) => (
-                <label key={type} className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={selectedTypes.includes(type)}
-                    onChange={() => toggleType(type)}
-                  />
-                  {type}
-                </label>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Product Table */}
@@ -126,33 +111,34 @@ const SupplierMarket = () => {
         <table className="market-table">
           <thead>
             <tr>
-              <th>Product Type</th>
+              <th>Product Name</th>
               <th>Description</th>
               <th>Unit</th>
               <th>Price (₱)</th>
               <th>Date Posted</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {filteredProducts.length > 0 ? (
               filteredProducts.map((product) => (
                 <tr key={product.id}>
-                  <td>{product.type}</td>
-                  <td>{product.description}</td>
+                  <td>{product.name}</td>
+                  <td className="description-cell">{product.description}</td>
                   <td>{product.unit}</td>
                   <td>₱{product.price.toLocaleString()}</td>
-                  <td>
-                    {new Date(product.date).toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
+                  <td>{new Date(product.date).toLocaleDateString("en-US", {
+                      year: 'numeric', month: 'short', day: 'numeric'
+                  })}</td>
+                  <td className="actions-cell">
+                    <button className="btn-edit" onClick={() => handleEdit(product)}>Edit</button>
+                    <button className="btn-delete" onClick={() => handleDelete(product.id)}>Delete</button>
                   </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan="5" className="no-results">
+                <td colSpan="6" className="no-results">
                   No matching products found.
                 </td>
               </tr>
@@ -160,6 +146,13 @@ const SupplierMarket = () => {
           </tbody>
         </table>
       </div>
+
+      {/* Re-using the AddProductForm for both Add and Edit */}
+      {showAddModal && (
+        <AddProductForm onClose={handleModalClose} onCreated={fetchProducts} productToEdit={editingProduct} />
+      )}
+
+      <Toast visible={toast.visible} type={toast.type} message={toast.message} onClose={() => setToast({ ...toast, visible: false })} />
     </div>
   );
 };

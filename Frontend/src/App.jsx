@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider,useAuth } from "./components/AuthContext";
+import { AuthProvider, useAuth } from "./components/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 // Auth pages
 import RegisterPage from "./pages/Auth/RegisterPage";
@@ -11,6 +11,7 @@ import Dashboard from "./pages/Admin/Dashboard";
 import ManageAccounts from "./pages/Admin/ManageAccounts";
 import Market from "./pages/Admin/Market";
 import MarketSuppliers from "./pages/Admin/MarketSuppliers";
+import SupplierActionHistory from "./pages/Admin/SupplierActionHistory";
 import Reports from "./pages/Admin/Reports";
 import Settings from "./pages/Admin/Settings";
 
@@ -51,6 +52,7 @@ function AppContent() {
         <Route path="manage-accounts" element={<ManageAccounts />} />
         <Route path="market" element={<Market />} />
         <Route path="market-suppliers" element={<MarketSuppliers />} />
+        <Route path="supplier-action-history" element={<SupplierActionHistory />} />
         <Route path="reports" element={<Reports />} />
         <Route path="settings" element={<Settings />} />
       </Route>

@@ -153,10 +153,61 @@ router.get("/suppliers", protect, async (req, res) => {
   }
 
   try {
-    const result = await pool.query('SELECT "SupplierID", "CompanyName" FROM "Suppliers"');
-    res.json(result.rows);
+    // This query joins Suppliers, Users, and counts items to match frontend expectations.
+    const suppliersQuery = `
+      SELECT
+        s."SupplierID" as id,
+        s."CompanyName" as name,
+        u."Email" as email,
+        s."Address" as location,
+        s."DateCreated" as "dateJoined",
+        u."AccountStatus" as status,
+        (
+          SELECT "CategoryName" FROM "Categories" c
+          JOIN "SupplierCategories" sc ON c."CategoryID" = sc."CategoryID"
+          WHERE sc."SupplierID" = s."SupplierID"
+          LIMIT 1
+        ) as category,
+        (
+          SELECT COUNT(*) FROM "Items" i WHERE i."SupplierID" = s."SupplierID"
+        ) as "totalProducts"
+      FROM "Suppliers" s
+      LEFT JOIN "Users" u ON s."SupplierID" = u."SupplierID"
+      ORDER BY s."DateCreated" DESC;
+    `;
+    const { rows } = await pool.query(suppliersQuery);
+    res.json(rows);
   } catch (err) {
     console.error("Error fetching suppliers:", err.message);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// @desc    Get a single supplier by ID
+// @route   GET /api/admin/suppliers/:id
+// @access  Private (Admin)
+router.get("/suppliers/:id", protect, async (req, res) => {
+  if (req.user.role.toLowerCase() !== 'admin') {
+    return res.status(403).json({ message: "Access denied. Admins only." });
+  }
+  const { id } = req.params;
+  if (!id) {
+    return res.status(400).json({ message: "Supplier ID is required." });
+  }
+
+  try {
+    const query = `
+      SELECT "SupplierID" as id, "CompanyName" as name, "Address" as address
+      FROM "Suppliers"
+      WHERE "SupplierID" = $1;
+    `;
+    const { rows } = await pool.query(query, [id]);
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "Supplier not found." });
+    }
+    res.json(rows[0]);
+  } catch (err) {
+    console.error("Error fetching single supplier:", err.message);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -268,6 +319,149 @@ router.get("/announcements/:id/responses", protect, async (req, res) => {
   } catch (err) {
     console.error("Error fetching announcement responses:", err.message);
     res.status(500).json({ message: "Server error" });
+  }
+});
+
+// @desc    Get all market items with advanced filtering for Admin
+// @route   GET /api/admin/market-items
+// @access  Private (Admin)
+router.get("/market-items", protect, async (req, res) => {
+  try {
+    // Optional: Add role check for admin
+    if (req.user.role.toLowerCase() !== 'admin') {
+      return res.status(403).json({ message: "Access denied. Admins only." });
+    }
+
+    const { search, category, supplier, dateFrom, dateTo } = req.query;
+
+    let queryParams = [];
+    let whereClauses = [];
+
+    let baseQuery = `
+      SELECT
+        i."ItemID" as id,
+        i."Name" as name,
+        i."Description" as description,
+        i."Price" as price,
+        i."Stock" as stock,
+        i."Unit" as unit,
+        i."Location" as location,
+        i."DateUpdated" as date,
+        s."CompanyName" as company,
+        c."CategoryName" as category
+      FROM "Items" i
+      JOIN "Suppliers" s ON i."SupplierID" = s."SupplierID"
+      LEFT JOIN "ItemCategories" ic ON i."ItemID" = ic."ItemID"
+      LEFT JOIN "Categories" c ON ic."CategoryID" = c."CategoryID"
+    `;
+
+    if (search) {
+      queryParams.push(`%${search.toLowerCase()}%`);
+      whereClauses.push(`(LOWER(i."Name") LIKE $${queryParams.length} OR LOWER(s."CompanyName") LIKE $${queryParams.length})`);
+    }
+
+    if (category) {
+      queryParams.push(category);
+      whereClauses.push(`c."CategoryName" = $${queryParams.length}`);
+    }
+    
+    if (whereClauses.length > 0) {
+      baseQuery += " WHERE " + whereClauses.join(" AND ");
+    }
+
+    baseQuery += ' ORDER BY i."DateUpdated" DESC';
+
+    const { rows } = await pool.query(baseQuery, queryParams);
+    res.json(rows);
+
+  } catch (err) {
+    console.error("Error fetching market items for admin:", err);
+    res.status(500).json({ message: "Server error while fetching market items." });
+  }
+});
+
+// @desc    Get all actions from ActionHistory for Admin view
+// @route   GET /api/admin/action-history
+// @access  Private (Admin)
+router.get("/action-history", protect, async (req, res) => {
+  try {
+    if (req.user.role.toLowerCase() !== 'admin') {
+      return res.status(403).json({ message: "Access denied. Admins only." });
+    }
+
+    let query = `
+      SELECT
+        ah."HistoryID" as id,
+        ah."ActionType" as "actionType",
+        ah."TargetID" as "targetId",
+        ah."Details" as details,
+        ah."CreatedAt" as date,
+        u."FullName" as "userName",
+        s."CompanyName" as "companyName"
+      FROM "ActionHistory" ah
+      JOIN "Users" u ON ah."UserID" = u."UserID"
+      JOIN "Suppliers" s ON ah."SupplierID" = s."SupplierID"
+    `;
+    const queryParams = [];
+    const { supplierId } = req.query;
+
+    if (supplierId) {
+      queryParams.push(supplierId);
+      query += ` WHERE ah."SupplierID" = $1`;
+    }
+
+    query += ` ORDER BY ah."CreatedAt" DESC LIMIT 200;`;
+
+    const { rows } = await pool.query(query, queryParams);
+    res.json(rows);
+
+  } catch (err) {
+    console.error("Error fetching action history for admin:", err);
+    res.status(500).json({ message: "Server error while fetching action history." });
+  }
+});
+
+// @desc    Get action history for a specific supplier (for Admin view)
+// @route   GET /api/admin/suppliers/:supplierId/history
+// @access  Private (Admin)
+router.get("/suppliers/:supplierId/history", protect, async (req, res) => {
+  // Ensure the user is an admin before proceeding
+  if (req.user.role.toLowerCase() !== 'admin') {
+    return res.status(403).json({ message: "Access denied. Admins only." });
+  }
+
+  const { supplierId } = req.params;
+
+  if (!supplierId || isNaN(parseInt(supplierId))) {
+      return res.status(400).json({ message: "A valid Supplier ID is required." });
+  }
+
+  try {
+    // This query joins ActionHistory with Users to get the user's name
+    // and filters by the supplierId from the URL parameter.
+    // UPDATED: Now includes a LEFT JOIN on Items to get the product name.
+    const historyQuery = `
+      SELECT
+        ah."HistoryID" as "historyId",
+        ah."ActionType" as "actionType",
+        ah."TargetID" as "targetId",
+        ah."Details" as details,
+        ah."CreatedAt" as "createdAt",
+        u."FullName" as "userName",
+        i."Name" as "itemName"
+      FROM "ActionHistory" ah
+      LEFT JOIN "Users" u ON u."UserID" = ah."UserID"
+      LEFT JOIN "Items" i ON ah."TargetID" = i."ItemID"
+      WHERE ah."SupplierID" = $1
+      ORDER BY ah."CreatedAt" DESC;
+    `;
+
+    const { rows } = await pool.query(historyQuery, [supplierId]);
+    res.json(rows);
+
+  } catch (err) {
+    console.error("Failed to fetch supplier action history:", err);
+    res.status(500).json({ message: "Internal server error while fetching history." });
   }
 });
 

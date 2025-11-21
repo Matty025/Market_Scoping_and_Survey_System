@@ -1,0 +1,67 @@
+/* Styles for the SupplierActionHistory component */
+.supplier-action-history-container {
+  margin-top: 24px;
+}
+
+.history-table-container {
+  overflow-x: auto;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+}
+
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.history-table th,
+.history-table td {
+  padding: 14px 18px;
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb;
+  white-space: nowrap;
+}
+
+.history-table tr:last-child td {
+  border-bottom: none;
+}
+
+.history-table th {
+  background-color: #f9fafb;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.history-table td {
+  font-size: 0.95rem;
+  color: #374151;
+}
+
+.details-cell {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.9rem;
+  color: #4b5563;
+  white-space: normal;
+  max-width: 600px; /* Increased width to allow more content per line or more lines */
+  word-break: break-word;
+}
+
+.action-badge {
+  display: inline-block;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #fff;
+  line-height: 1;
+}
+
+.action-badge.item_created { background-color: #16a34a; } /* Green */
+.action-badge.item_updated { background-color: #2563eb; } /* Blue */
+.action-badge.item_deleted { background-color: #dc2626; } /* Red */
+.action-badge.file_uploaded { background-color: #7c3aed; } /* Purple */

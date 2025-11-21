@@ -1,85 +1,101 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import "./Market.css";
-
+import axios from "axios";
+import { useAuth } from "../../components/AuthContext"; // Assuming you have AuthContext for admin too
 const Market = () => {
-    const categoryGroups = {
-    GOODS: [
-      "Office Supplies & Devices",
-      "IT Equipment & Peripherals",
-      "Educational & Instructional Materials",
-      "Furniture & Fixtures",
-      "Sports & Physical Education Equipment",
-      "Laboratory Equipment & Supplies",
-      "Electrical & Electronic Supplies",
-      "Cleaning & Janitorial Supplies",
-      "Medical & First Aid Supplies",
-      "Vehicles, Tools & Machinery",
-      "Printing & Reproduction Services",
-      "Uniforms, Apparel & Fabrics",
-      "Food & Catering Supplies",
-      "General Support Services"
-    ],
-    INFRASTRUCTURE_PROJECTS: [
-      "School Building Construction",
-      "School Building Rehabilitation",
-      "Water Supply & Sanitation Systems",
-      "Electrical & Power Systems",
-      "Site Development & Landscaping",
-      "Roofing and Painting Works",
-      "Minor Repairs & Maintenance Work"
-    ],
-    CONSULTING_SERVICES: [
-      "Architectural & Engineering Design",
-      "Feasibility & Project Studies",
-      "Construction Supervision",
-      "ICT System Development",
-      "Research & Evaluation Studies"
-    ],
-
-
-
-
-
-  };
-
-  const marketItems = [
-    { company: "ABC Supplies", category: "Office Supplies & Devices", product: "Laptop", updated: "Nov 01, 2025", unit: "pcs", price: 50000, stock: 15 },
-    { company: "Tech Solutions", category: "IT Equipment & Peripherals", product: "Printer", updated: "Nov 02, 2025", unit: "pcs", price: 12000, stock: 10 },
-    { company: "Furniture World", category: "Furniture & Fixtures", product: "Office Desk", updated: "Nov 03, 2025", unit: "pcs", price: 9500, stock: 5 },
-    { company: "Lab Equip Co.", category: "Laboratory Equipment & Supplies", product: "Microscope", updated: "Nov 05, 2025", unit: "pcs", price: 15000, stock: 3 },
-    { company: "Sporty Ltd.", category: "Sports & Physical Education Equipment", product: "Basketball", updated: "Nov 04, 2025", unit: "pcs", price: 1200, stock: 20 },
-  ];
-
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("All");
-  const [selectedSupplier, setSelectedSupplier] = useState("All");
-  const [dateFilter, setDateFilter] = useState("");
+  const { token } = useAuth();
+  const [marketItems, setMarketItems] = useState([]);
+  const [filters, setFilters] = useState({
+    search: "",
+    category: "",
+    supplier: "",
+    dateFrom: "",
+    dateTo: "",
+  });
   const [modalItem, setModalItem] = useState(null);
   const [bookmarks, setBookmarks] = useState([]);
   const [showBookmarks, setShowBookmarks] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const suppliers = useMemo(() => ["All", ...new Set(marketItems.map((item) => item.company))], [marketItems]);
+  // These would also be fetched from the backend in a real app
+  const [allSuppliers, setAllSuppliers] = useState([]);
+  const [allCategories, setAllCategories] = useState([]);
 
-  const filteredItems = useMemo(() => {
-    const source = showBookmarks ? bookmarks : marketItems;
-    return source.filter((item) => {
-      const matchesSearch =
-        item.product.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.company.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory = selectedCategory === "All" || item.category === selectedCategory;
-      const matchesSupplier = selectedSupplier === "All" || item.company === selectedSupplier;
-      const matchesDate = !dateFilter || item.updated === dateFilter;
-      return matchesSearch && matchesCategory && matchesSupplier && matchesDate;
-    });
-  }, [searchQuery, selectedCategory, selectedSupplier, dateFilter, marketItems, bookmarks, showBookmarks]);
+  // Debounce handler to prevent API calls on every keystroke
+  const debounce = (func, delay) => {
+    let timeout;
+    return (...args) => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => func(...args), delay);
+    };
+  };
+
+  const fetchMarketData = useCallback(async (currentFilters) => {
+    if (!token) return;
+    setIsLoading(true);
+    try {
+      const res = await axios.get("http://localhost:3001/api/admin/market-items", {
+        headers: { Authorization: `Bearer ${token}` },
+        params: currentFilters,
+      });
+      setMarketItems(res.data || []);
+    } catch (err) {
+      console.error("Failed to fetch market data", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [token]);
+
+  // Use a debounced version for fetching
+  const debouncedFetch = useCallback(debounce(fetchMarketData, 500), [fetchMarketData]);
+
+  useEffect(() => {
+    // Fetch initial data and filter options
+    const fetchInitialData = async () => {
+      if (!token) return;
+      setIsLoading(true);
+      try {
+        // Fetch filter options and initial market data in parallel for speed
+        const [marketRes, suppliersRes, categoriesRes] = await Promise.all([
+          axios.get("http://localhost:3001/api/admin/market-items", { headers: { Authorization: `Bearer ${token}` } }),
+          axios.get("http://localhost:3001/api/admin/suppliers", { headers: { Authorization: `Bearer ${token}` } }),
+          axios.get("http://localhost:3001/api/admin/categories", { headers: { Authorization: `Bearer ${token}` } })
+        ]);
+
+        setMarketItems(marketRes.data || []);
+        setAllSuppliers(["All", ...suppliersRes.data.map(s => s.CompanyName)]);
+        // Flatten the hierarchical categories for the dropdown
+        setAllCategories(["All", ...categoriesRes.data.map(c => c.CategoryName)]);
+      } catch (err) {
+        console.error("Failed to fetch initial data", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (token) {
+      fetchInitialData();
+    }
+  }, [token]);
+
+  useEffect(() => {
+    debouncedFetch(filters);
+  }, [filters, debouncedFetch]);
+
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target;
+    setFilters(prev => ({ ...prev, [name]: value }));
+  };
 
   const toggleBookmark = (item) => {
-    if (bookmarks.find((b) => b.product === item.product && b.company === item.company)) {
-      setBookmarks((prev) => prev.filter((b) => b.product !== item.product));
+    if (bookmarks.find((b) => b.id === item.id)) {
+      setBookmarks((prev) => prev.filter((b) => b.id !== item.id));
     } else {
       setBookmarks((prev) => [...prev, item]);
     }
   };
+
+  const displayedItems = showBookmarks ? bookmarks : marketItems;
 
   return (
     <div className="market-container">
@@ -87,8 +103,7 @@ const Market = () => {
         <h2>🛒 Market</h2>
         <button
           className={`bookmark-view-btn ${showBookmarks ? "active" : ""}`}
-          onClick={() => setShowBookmarks(!showBookmarks)}
-        >
+          onClick={() => setShowBookmarks(!showBookmarks)}>
           ⭐ {showBookmarks ? "View All Items" : "View Bookmarked"}
         </button>
       </div>
@@ -98,54 +113,58 @@ const Market = () => {
       <div className="market-filter-bar">
         <input
           type="text"
+          name="search"
           placeholder="Search by product or supplier..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          value={filters.search}
+          onChange={handleFilterChange}
           className="market-search-input"
         />
         <select
-          value={selectedCategory}
-          onChange={(e) => setSelectedCategory(e.target.value)}
-          className="market-category-select"
-        >
+          name="category"
+          value={filters.category}
+          onChange={handleFilterChange}
+          className="market-category-select">
           <option value="All">All Categories</option>
-          {Object.entries(categoryGroups).map(([group, categories]) => (
-            <optgroup key={group} label={group.replace(/_/g, " ")}>
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
-            </optgroup>
+          {allCategories.map((cat) => (
+            <option key={cat} value={cat === "All" ? "" : cat}>
+              {cat}
+            </option>
           ))}
         </select>
         <select
-          value={selectedSupplier}
-          onChange={(e) => setSelectedSupplier(e.target.value)}
-          className="market-supplier-select"
-        >
-          {suppliers.map((s) => (
-            <option key={s} value={s}>
+          name="supplier"
+          value={filters.supplier}
+          onChange={handleFilterChange}
+          className="market-supplier-select">
+          {allSuppliers.map((s) => (
+            <option key={s} value={s === "All" ? "" : s}>
               {s}
             </option>
           ))}
         </select>
-        <input
-          type="date"
-          value={dateFilter}
-          onChange={(e) => setDateFilter(e.target.value)}
-          className="market-date-input"
-        />
+        <div className="date-filter-group">
+          <label htmlFor="dateFrom">From:</label>
+          <input
+            type="date"
+            name="dateFrom"
+            value={filters.dateFrom}
+            onChange={handleFilterChange}
+            className="market-date-input" />
+          <label htmlFor="dateTo">To:</label>
+          <input type="date" name="dateTo" value={filters.dateTo} onChange={handleFilterChange} className="market-date-input" />
+        </div>
       </div>
 
       {/* Product Grid */}
       <div className="market-grid">
-        {filteredItems.length === 0 ? (
+        {isLoading ? (
+          <p className="no-items">Loading products...</p>
+        ) : displayedItems.length === 0 ? (
           <p className="no-items">No items found.</p>
         ) : (
-          filteredItems.map((item, index) => (
-            <div key={index} className="market-card" onClick={() => setModalItem(item)}>
-              <h4>{item.product}</h4>
+          displayedItems.map((item) => (
+            <div key={item.id} className="market-card" onClick={() => setModalItem(item)}>
+              <h4>{item.name}</h4>
               <p>
                 <strong>Supplier:</strong> {item.company}
               </p>
@@ -154,14 +173,13 @@ const Market = () => {
               </p>
               <button
                 className={`bookmark-btn ${
-                  bookmarks.find((b) => b.product === item.product) ? "active" : ""
+                  bookmarks.find((b) => b.id === item.id) ? "active" : ""
                 }`}
                 onClick={(e) => {
                   e.stopPropagation();
                   toggleBookmark(item);
-                }}
-              >
-                ⭐ {bookmarks.find((b) => b.product === item.product) ? "Bookmarked" : "Bookmark"}
+                }}>
+                ⭐ {bookmarks.find((b) => b.id === item.id) ? "Bookmarked" : "Bookmark"}
               </button>
             </div>
           ))
@@ -175,7 +193,7 @@ const Market = () => {
             <button className="modal-close-btn" onClick={() => setModalItem(null)}>
               ✖
             </button>
-            <h2>{modalItem.product}</h2>
+            <h2>{modalItem.name}</h2>
             <p>
               <strong>Supplier:</strong> {modalItem.company}
             </p>
@@ -183,7 +201,13 @@ const Market = () => {
               <strong>Category:</strong> {modalItem.category}
             </p>
             <p>
-              <strong>Updated:</strong> {modalItem.updated}
+              <strong>Updated:</strong> {new Date(modalItem.date).toLocaleString("en-US", {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit'
+              })}
             </p>
             <p>
               <strong>Unit:</strong> {modalItem.unit}
@@ -200,6 +224,7 @@ const Market = () => {
           </div>
         </div>
       )}
+
     </div>
   );
 };

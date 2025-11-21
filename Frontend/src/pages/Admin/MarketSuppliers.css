@@ -64,8 +64,9 @@
   color: #374151;
 }
 
-.supplier-table tr:hover {
+.supplier-table tr.supplier-row-clickable:hover {
   background-color: #f1fdf5;
+  cursor: pointer;
 }
 
 .no-results {
@@ -89,4 +90,19 @@
 
 .status-badge.inactive {
   background-color: #ef4444;
+}
+
+/* View History Button */
+.view-history-btn {
+  background-color: #f0fdf4; /* Light green */
+  color: #166534; /* Dark green */
+  border: 1px solid #16a34a;
+  padding: 5px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.view-history-btn:hover {
+  background-color: #dcfce7; /* Slightly darker green on hover */
 }

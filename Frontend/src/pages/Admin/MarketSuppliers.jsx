@@ -1,59 +1,72 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import { useAuth } from "../../components/AuthContext";
 import "./MarketSuppliers.css";
+import SupplierActionHistory from "./SupplierActionHistory";
+import Modal from "../../components/Modal"; // Correctly import a real Modal component
+
+const backendBase = "http://localhost:3001";
 
 const MarketSuppliers = () => {
-  // ✅ Sample supplier data (replace with backend data later)
-  const [suppliers] = useState([
-    {
-      id: 1,
-      name: "TechZone Solutions",
-      email: "contact@techzone.com",
-      category: "Electronics",
-      location: "Quezon City",
-      totalProducts: 24,
-      status: "Active",
-      dateJoined: "2024-06-15",
-    },
-    {
-      id: 2,
-      name: "OfficePro Supplies",
-      email: "sales@officepro.com",
-      category: "Office Equipment",
-      location: "Makati City",
-      totalProducts: 15,
-      status: "Inactive",
-      dateJoined: "2024-02-20",
-    },
-    {
-      id: 3,
-      name: "EduPrint Co.",
-      email: "info@eduprint.com",
-      category: "School Supplies",
-      location: "Baliuag, Bulacan",
-      totalProducts: 37,
-      status: "Active",
-      dateJoined: "2024-09-02",
-    },
-    {
-      id: 4,
-      name: "FurniSmart",
-      email: "furnismart@gmail.com",
-      category: "Furniture",
-      location: "Pasig City",
-      totalProducts: 12,
-      status: "Active",
-      dateJoined: "2024-03-11",
-    },
-  ]);
+  const { token } = useAuth();
+  const [suppliers, setSuppliers] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [selectedSupplier, setSelectedSupplier] = useState(null); // To track the selected supplier for the modal
+
+  // const navigate = useNavigate(); // No longer needed if we use a modal
+
+  useEffect(() => {
+    const fetchSuppliers = async () => {
+      if (!token) {
+        setIsLoading(false);
+        return;
+      }
+      try {
+        setIsLoading(true);
+        const res = await axios.get(`${backendBase}/api/admin/suppliers`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setSuppliers(res.data || []);
+        setError(null);
+      } catch (err) {
+        console.error("Failed to fetch suppliers:", err);
+        setError("Failed to load suppliers. Please try again later.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchSuppliers();
+  }, [token]);
+
+  // Function to handle clicking on a supplier row
+  const handleViewHistoryClick = (supplier) => {
+    // Instead of navigating, we set the supplier ID to open the modal
+    setSelectedSupplier(supplier);
+  };
 
   const [search, setSearch] = useState("");
 
-  const filteredSuppliers = suppliers.filter(
-    (s) =>
-      s.name.toLowerCase().includes(search.toLowerCase()) ||
-      s.category.toLowerCase().includes(search.toLowerCase()) ||
-      s.location.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredSuppliers = suppliers.filter((s) => {
+    const searchTerm = search.toLowerCase();
+    if (!searchTerm) return true; // Show all if search is empty
+
+    const nameMatch = s.name?.toLowerCase().includes(searchTerm);
+    const locationMatch = s.location?.toLowerCase().includes(searchTerm);
+
+    let categoryMatch = false;
+    if (s.category) {
+      if (Array.isArray(s.category)) {
+        // If 'category' is an array, check if any item in the array matches
+        categoryMatch = s.category.some(cat => cat.toLowerCase().includes(searchTerm));
+      } else if (typeof s.category === 'string') {
+        // If 'category' is a string, perform a simple check
+        categoryMatch = s.category.toLowerCase().includes(searchTerm);
+      }
+    }
+    return nameMatch || locationMatch || categoryMatch;
+  });
 
   return (
     <div className="market-suppliers-container">
@@ -83,22 +96,44 @@ const MarketSuppliers = () => {
               <th>Category</th>
               <th>Location</th>
               <th>Total Products</th>
+              <th>History</th>
               <th>Status</th>
               <th>Date Joined</th>
             </tr>
           </thead>
           <tbody>
-            {filteredSuppliers.length > 0 ? (
-              filteredSuppliers.map((supplier) => (
+            {isLoading ? (
+              <tr>
+                <td colSpan="8" className="no-results">Loading suppliers...</td>
+              </tr>
+            ) : error ? (
+              <tr>
+                <td colSpan="8" className="no-results" style={{ color: 'red' }}>
+                  {error}
+                </td>
+              </tr>
+            ) : filteredSuppliers.length > 0 ? (
+               filteredSuppliers.map((supplier) => (
                 <tr key={supplier.id}>
                   <td>{supplier.name}</td>
                   <td>{supplier.email}</td>
-                  <td>{supplier.category}</td>
-                  <td>{supplier.location}</td>
+                  <td>
+                    {/* Handle both string and array for category */}
+                    {Array.isArray(supplier.category) && supplier.category.length
+                      ? supplier.category.join(', ')
+                      : supplier.category || 'N/A'
+                    }
+                  </td>
+                  <td>{supplier.location || "N/A"}</td>
                   <td>{supplier.totalProducts}</td>
                   <td>
+                    <button onClick={() => handleViewHistoryClick(supplier)} className="view-history-btn">
+                      View
+                    </button>
+                  </td>
+                  <td>
                     <span
-                      className={`status-badge ${supplier.status.toLowerCase()}`}
+                      className={`status-badge ${supplier.status?.toLowerCase()}`}
                     >
                       {supplier.status}
                     </span>
@@ -114,7 +149,7 @@ const MarketSuppliers = () => {
               ))
             ) : (
               <tr>
-                <td colSpan="7" className="no-results">
+                <td colSpan="8" className="no-results">
                   No suppliers found.
                 </td>
               </tr>
@@ -122,8 +157,20 @@ const MarketSuppliers = () => {
           </tbody>
         </table>
       </div>
+
+      {/* Modal for Supplier Action History */}
+      {selectedSupplier && (
+        <Modal
+          show={!!selectedSupplier}
+          onClose={() => setSelectedSupplier(null)}
+          title={`Action History for ${selectedSupplier.name}`}>
+          <SupplierActionHistory supplierId={selectedSupplier.id} />
+        </Modal>
+      )}
+
     </div>
   );
 };
+
 
 export default MarketSuppliers;
