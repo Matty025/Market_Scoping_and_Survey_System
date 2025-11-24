@@ -216,26 +216,40 @@ router.get("/suppliers/:id", protect, async (req, res) => {
 // @route   GET /api/admin/categories
 // @access  Private (Admin)
 router.get("/categories", protect, async (req, res) => {
-  if (req.user.role.toLowerCase() !== 'admin') {
+  if (req.user.role.toLowerCase() !== "admin") {
     return res.status(403).json({ message: "Access denied. Admins only." });
   }
-  try {
-    const result = await pool.query(
-      'SELECT "CategoryID", "CategoryName", "ParentCategoryID" FROM "Categories" ORDER BY "ParentCategoryID" ASC, "CategoryName" ASC'
-    );
 
-    // Build the hierarchical structure
+  try {
+    // Order by ParentCategoryID first, THEN by CategoryID to ensure stable nesting
+    const result = await pool.query(`
+      SELECT "CategoryID", "CategoryName", "ParentCategoryID"
+      FROM "Categories"
+      ORDER BY "ParentCategoryID" NULLS FIRST, "CategoryID" ASC
+    `);
+
     const categories = [];
     const categoryMap = {};
 
+    // STEP 1 — Create base objects with Subcategories array
     result.rows.forEach(row => {
-      categoryMap[row.CategoryID] = { ...row, children: [] };
+      categoryMap[row.CategoryID] = {
+        CategoryID: row.CategoryID,
+        CategoryName: row.CategoryName,
+        ParentCategoryID: row.ParentCategoryID,
+        Subcategories: []     // Always included
+      };
     });
 
+    // STEP 2 — Nest subcategories under parents
     result.rows.forEach(row => {
-      if (row.ParentCategoryID) {
-        categoryMap[row.ParentCategoryID]?.children.push(categoryMap[row.CategoryID]);
+      if (row.ParentCategoryID && categoryMap[row.ParentCategoryID]) {
+        // It IS a subcategory → attach to parent
+        categoryMap[row.ParentCategoryID].Subcategories.push(
+          categoryMap[row.CategoryID]
+        );
       } else {
+        // It's a main category → push to root
         categories.push(categoryMap[row.CategoryID]);
       }
     });
@@ -246,6 +260,7 @@ router.get("/categories", protect, async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
 
 // Admin: list users (optional ?status=)
 router.get('/users', protect, async (req, res) => {
@@ -361,8 +376,21 @@ router.get("/market-items", protect, async (req, res) => {
     }
 
     if (category) {
-      queryParams.push(category);
-      whereClauses.push(`c."CategoryName" = $${queryParams.length}`);
+      // This is the new, more advanced category filtering logic.
+      // It finds items in the selected category OR in any of its subcategories.
+      queryParams.push(category); // e.g., 'Goods'
+      const categoryFilterClause = `
+        c."CategoryID" IN (
+          WITH RECURSIVE subcategories AS (
+            SELECT "CategoryID" FROM "Categories" WHERE "CategoryName" = $${queryParams.length}
+            UNION
+            SELECT c_sub."CategoryID" FROM "Categories" c_sub
+            INNER JOIN subcategories sc ON c_sub."ParentCategoryID" = sc."CategoryID"
+          )
+          SELECT "CategoryID" FROM subcategories
+        )
+      `;
+      whereClauses.push(categoryFilterClause);
     }
     
     if (whereClauses.length > 0) {

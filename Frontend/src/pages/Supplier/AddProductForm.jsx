@@ -38,31 +38,43 @@ export default function AddProductForm({ onClose, onCreated, productToEdit }) {
   const categoryRef = useRef(null);
 
   useEffect(() => {
-    fetchCategories();
+    const isEditing = !!productToEdit;
+    setIsEditMode(isEditing);
 
-    if (productToEdit) {
-      setIsEditMode(true);
+    // --- CONSOLIDATED SETUP LOGIC ---
+    // 1. Fetch the correct set of categories based on the mode.
+    fetchCategories(isEditing);
+
+    // 2. If we are editing, populate the form fields with the product's data.
+    if (isEditing) {
       setName(productToEdit.name || '');
       setDescription(productToEdit.description || '');
       setPrice(productToEdit.price || '');
       setStock(productToEdit.stock || '');
       setUnit(productToEdit.unit || units[0]);
       setLocation(productToEdit.location || '');
-      // Note: Fetching and setting categories for the item to edit is a more complex step.
-      // We will handle this in a future enhancement to keep this step clear.
+      setSelectedCategories(productToEdit.categories || []);
     }
-
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, productToEdit]);
+  }, [token, productToEdit]); // This effect runs only when the component loads or the product to edit changes.
 
-  const fetchCategories = async () => {
+  const fetchCategories = async (isEditing) => {
     if (!token) return;
     try {
-      // CORRECTED: Use the endpoint you provided
-      const categoriesRes = await axios.get(`${backendBase}/api/supplier-files/categories`, { headers: { Authorization: `Bearer ${token}` } });
+      // --- ADJUSTMENT: Fetch ALL categories if in edit mode, otherwise fetch only supplier's categories ---
+      // This ensures we can always display the name of a category, even if it's not in the supplier's current list.
+      const endpoint = isEditing
+        ? `${backendBase}/api/admin/categories` // Endpoint that returns ALL categories
+        : `${backendBase}/api/supplier-files/categories`; // Endpoint for supplier-specific categories
+
+      const categoriesRes = await axios.get(endpoint, { headers: { Authorization: `Bearer ${token}` } });
+
       if (Array.isArray(categoriesRes.data) && categoriesRes.data.length > 0) {
-        const flat = categoriesRes.data.map((c) => ({ id: c.CategoryID, name: c.CategoryName }));
-        setAllCategories(flat);
+        // This formatting works for both endpoints
+        const formattedCategories = categoriesRes.data.map((c) => ({
+          id: c.CategoryID, name: c.CategoryName 
+        }));
+        setAllCategories(formattedCategories);
       } else {
         setAllCategories([]);
         setToast({ visible: true, message: 'No categories assigned to your supplier profile.', type: 'info' });
@@ -92,10 +104,33 @@ export default function AddProductForm({ onClose, onCreated, productToEdit }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!token) return setToast({ visible: true, message: 'Not authenticated', type: 'error' });
-    if (!name || !unit) return setToast({ visible: true, message: 'Name and unit required', type: 'error' });
+
+    // --- ENHANCED VALIDATION BLOCK ---
+    const priceValue = parseFloat(price);
+    const stockValue = parseFloat(stock);
+
+    if (!name.trim() || !location.trim() || !price || !stock || !unit) {
+      return setToast({ visible: true, message: 'Please fill out all required fields (*).', type: 'error' });
+    }
+    // --- NEW VALIDATION: CHECK FOR CATEGORIES ---
+    if (selectedCategories.length === 0) {
+      return setToast({ visible: true, message: 'Please select at least one category for the product.', type: 'error' });
+    }
+    if (isNaN(priceValue) || priceValue < 0) {
+      return setToast({ visible: true, message: 'Price must be a valid, non-negative number.', type: 'error' });
+    }
+    if (isNaN(stockValue) || stockValue < 0) {
+      return setToast({ visible: true, message: 'Stock must be a valid, non-negative number.', type: 'error' });
+    }
+    // Check if stock is a whole number (not a float/double)
+    if (stockValue % 1 !== 0) {
+      return setToast({ visible: true, message: 'Stock must be a whole number (e.g., 100), not a decimal.', type: 'error' });
+    }
+    // --- END OF VALIDATION BLOCK ---
 
     try {
-      const payload = { name, description, price: parseFloat(price) || 0, stock: parseFloat(stock) || 0, unit, location, categories: selectedCategories };
+      // Use the validated numeric values
+      const payload = { name, description, price: priceValue, stock: stockValue, unit, location, categories: selectedCategories };
 
       if (isEditMode) {
         // --- UPDATE LOGIC ---
@@ -257,7 +292,8 @@ return (
                 )}
 
                 {selectedCategories.map((id) => {
-                  const item = allCategories.find((c) => c.id === id);
+                  // --- FIX: Correctly find the category object by its 'id' property ---
+                  const item = allCategories.find((c) => c.id === id); 
                   return (
                     <span key={id} className="ms-chip">
                       {item ? item.name : id}

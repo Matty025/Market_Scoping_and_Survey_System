@@ -1,82 +1,189 @@
+/* Modal Backdrop */
 .modal-backdrop {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0,0,0,0.5);
+  background-color: rgba(10, 25, 41, 0.6);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 1000;
+  backdrop-filter: blur(5px);
+  animation: fadeIn 0.3s ease;
 }
 
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Modal Container */
 .modal-container {
-  background: #fff;
-  padding: 25px;
-  border-radius: 12px;
+  background: #ffffff;
+  padding: 2rem 2.5rem;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
   width: 90%;
   max-width: 600px;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.2);
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 1rem;
+  animation: slideIn 0.4s ease-out;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
-.modal-buttons {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 15px;
+@keyframes slideIn {
+  from {
+    transform: translateY(-30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
-.download-btn,
-.submit-btn,
-.close-btn {
-  padding: 8px 12px;
-  border-radius: 6px;
-  border: none;
-  cursor: pointer;
+/* Header and Description */
+.modal-container h2 {
+  font-size: 1.8rem;
   font-weight: 600;
+  color: #2c3e50;
+  margin: 0;
+  line-height: 1.3;
 }
 
-.download-btn {
-  background-color: #22c55e;
+.modal-container p {
+  font-size: 1rem;
+  color: #576c7f;
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* Date Information */
+.modal-file-dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  font-size: 0.9rem;
+  color: #576c7f;
+  padding: 0.75rem 0;
+  border-top: 1px solid #e8edf3;
+  border-bottom: 1px solid #e8edf3;
+  margin-top: 0.5rem;
+}
+
+.modal-file-dates strong {
+  color: #34495e;
+}
+
+.deadline-date {
+  color: #c0392b;
+}
+
+.deadline-date strong {
+  color: #c0392b;
+}
+
+/* Status Badge (inherits from Dashboard.css, adding margin) */
+.modal-container .status-badge {
+  margin-bottom: 0.5rem;
+}
+
+/* Custom File Input */
+.modal-container input[type="file"] {
+  border: 2px dashed #dde3ea;
+  border-radius: 8px;
+  padding: 1.5rem;
+  text-align: center;
+  color: #576c7f;
+  cursor: pointer;
+  transition: border-color 0.3s, background-color 0.3s;
+}
+
+.modal-container input[type="file"]:hover {
+  border-color: #3498db;
+  background-color: #f4f7fa;
+}
+
+/* Style for the file input button text */
+.modal-container input[type="file"]::file-selector-button {
+  background-color: #3498db;
   color: white;
-  text-decoration: none;
-}
-
-.submit-btn {
-  background-color: #2563eb;
-  color: white;
-}
-
-.close-btn-FC {
-  background-color: #ef4444;
-  color: white;
-}
-
-.status-badge {
-  padding: 4px 10px;
+  border: none;
+  padding: 0.6rem 1.2rem;
   border-radius: 8px;
   font-weight: 600;
+  cursor: pointer;
+  margin-right: 1rem;
+  transition: background-color 0.3s;
+}
+
+.modal-container input[type="file"]::file-selector-button:hover {
+  background-color: #2980b9;
+}
+
+/* Button Container */
+.modal-buttons {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+
+/* General Button Styling */
+.modal-buttons button,
+.modal-buttons .download-btn {
+  padding: 0.7rem 1.5rem;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Submit Button (Primary) */
+.submit-btn {
+  background-color: #27ae60;
   color: white;
-  display: inline-block;
-  text-transform: capitalize;
 }
 
-.status-badge.pending {
-  background-color: #f59e0b;
+.submit-btn:hover {
+  background-color: #229954;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(39, 174, 96, 0.2);
 }
 
-.status-badge.approved {
-  background-color: #22c55e;
+/* Download Button */
+.download-btn {
+  background-color: #e8edf3;
+  color: #34495e;
 }
 
-.status-badge.viewed {
-  background-color: #3b82f6;
+.download-btn:hover {
+  background-color: #dce4ec;
 }
 
-.status-badge.answered {
-  background-color: #6b7280;
+/* Close Button (Secondary) */
+.close-btn-FC {
+  background-color: transparent;
+  color: #7f8c8d;
+  border: 1px solid #dde3ea;
+}
+
+.close-btn-FC:hover {
+  background-color: #fbeae8;
+  color: #c0392b;
+  border-color: #f5b7b1;
 }

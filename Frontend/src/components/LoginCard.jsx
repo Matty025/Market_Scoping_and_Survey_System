@@ -5,7 +5,6 @@ import { FaEnvelope, FaLock } from "react-icons/fa";
 import { useAuth } from "./AuthContext"; // Import context
 import "./LoginCard.css";
 import Toast from "./Toast";
-
 export default function LoginCard() {
   const navigate = useNavigate();
   const { login } = useAuth(); // Use context

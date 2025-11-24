@@ -132,6 +132,13 @@ router.post('/uploads', protect, upload.single('file'), async (req, res) => { //
     try {
       await client.query('BEGIN');
 
+      // --- NEW: Pre-fetch all category names for efficient matching ---
+      const allCategoriesResult = await client.query('SELECT "CategoryID", "CategoryName" FROM "Categories"');
+      const allCategories = allCategoriesResult.rows.map(c => ({
+        id: c.CategoryID,
+        name: c.CategoryName.toLowerCase() // Use lowercase for case-insensitive matching
+      }));
+
       // DEBUG: Log the first product row to see its structure
       if (products.length > 0) console.log('[UPLOAD_DEBUG] First product row data:', products[0]);
 
@@ -167,14 +174,32 @@ router.post('/uploads', protect, upload.single('file'), async (req, res) => { //
         );
         const newItemId = itemInsertResult.rows[0].ItemID;
 
-        // If a category name was provided, find its ID and link it
-        if (categoryName && newItemId) {
-          const categoryResult = await client.query('SELECT "CategoryID" FROM "Categories" WHERE LOWER("CategoryName") = LOWER($1)', [categoryName.trim()]);
-          const categoryId = categoryResult.rows[0]?.CategoryID;
-          if (categoryId) {
-            await client.query('INSERT INTO "ItemCategories" ("ItemID", "CategoryID") VALUES ($1, $2) ON CONFLICT DO NOTHING', [newItemId, categoryId]);
-          } else {
-            console.warn(`[UPLOAD] Category "${categoryName}" not found for item "${name}".`);
+        // --- BEST PRACTICE: STRICT COMMA-SEPARATED CATEGORY HANDLING ---
+        if (categoryName && typeof categoryName === 'string' && newItemId) {
+          const foundCategoryIds = new Set();
+
+          // 1. Split the cell content by commas. This is the only supported delimiter.
+          const categoryNamesFromCell = categoryName.split(',').map(c => c.trim()).filter(Boolean);
+
+          // 2. For each name found after splitting, find its corresponding ID.
+          for (const namePart of categoryNamesFromCell) {
+            const lowerCaseNamePart = namePart.toLowerCase();
+            const matchedCat = allCategories.find(c => c.name === lowerCaseNamePart);
+            if (matchedCat) {
+              foundCategoryIds.add(matchedCat.id);
+            } else {
+              // Log a warning if a category name from the Excel file is not found in the database.
+              console.warn(`[UPLOAD] Category "${namePart}" for item "${name}" was not found in the database and was skipped.`);
+            }
+          }
+
+          // 3. Insert all unique, valid category IDs that were found into the ItemCategories table.
+          for (const categoryId of foundCategoryIds) {
+            if (categoryId) { // Final safety check
+              await client.query('INSERT INTO "ItemCategories" ("ItemID", "CategoryID") VALUES ($1, $2) ON CONFLICT DO NOTHING', [newItemId, categoryId]);
+            } else {
+              console.warn(`[UPLOAD] An invalid category ID was found for item "${name}".`);
+            }
           }
         }
       }
@@ -319,10 +344,25 @@ router.get('/items', protect, async (req, res) => {
     const q = req.query.q || '';
     const searchQ = `%${q.trim().toLowerCase()}%`;
     const query = `
-      SELECT "ItemID" as id, "Name" as name, "Description" as description, "Price" as price, "Stock" as stock, "Unit" as unit, "Location" as location, "DatePosted" as date
-      FROM "Items"
-      WHERE "SupplierID" = $1 AND LOWER("Name") LIKE $2
-      ORDER BY "DatePosted" DESC
+      SELECT
+        i."ItemID" as id, 
+        i."Name" as name, 
+        i."Description" as description, 
+        i."Price" as price, 
+        i."Stock" as stock, 
+        i."Unit" as unit, 
+        i."Location" as location, 
+        i."DatePosted" as date,
+        -- Aggregate Category IDs into an array
+        COALESCE(ARRAY_AGG(DISTINCT ic."CategoryID") FILTER (WHERE ic."CategoryID" IS NOT NULL), '{}') as categories,
+        -- Aggregate Category Names into a single string
+        COALESCE(STRING_AGG(DISTINCT c."CategoryName", ', '), 'N/A') as "categoryNames"
+      FROM "Items" i
+      LEFT JOIN "ItemCategories" ic ON i."ItemID" = ic."ItemID"
+      LEFT JOIN "Categories" c ON ic."CategoryID" = c."CategoryID"
+      WHERE i."SupplierID" = $1 AND LOWER(i."Name") LIKE $2
+      GROUP BY i."ItemID"
+      ORDER BY i."DatePosted" DESC
       LIMIT 50;
     `;
     const { rows } = await pool.query(query, [supplierId, searchQ]);
@@ -364,7 +404,7 @@ router.get('/categories', protect, async (req, res) => {
 router.put('/items/:id', protect, async (req, res) => {
   const { id } = req.params;
   const itemId = parseInt(id, 10);
-  const { name, description, price, stock, unit, location } = req.body;
+  const { name, description, price, stock, unit, location, categories } = req.body;
 
   try {
     // 1. Verify user and get supplier ID
@@ -390,6 +430,20 @@ router.put('/items/:id', protect, async (req, res) => {
          WHERE "ItemID" = $7 AND "SupplierID" = $8`,
         [name, description, price, stock, unit, location, itemId, supplierId]
       );
+
+      // --- FIX: UPDATE ITEM CATEGORIES ---
+      // 1. Delete all existing categories for this item.
+      await client.query('DELETE FROM "ItemCategories" WHERE "ItemID" = $1', [itemId]);
+
+      // 2. Insert the new set of categories, if any were provided.
+      if (categories && Array.isArray(categories) && categories.length > 0) {
+        const catIds = categories.map((c) => parseInt(c, 10)).filter((n) => !Number.isNaN(n));
+        if (catIds.length > 0) {
+          const insertCatsQuery = `INSERT INTO "ItemCategories" ("ItemID", "CategoryID") SELECT $1, t.cat_id FROM UNNEST($2::int[]) AS t(cat_id) ON CONFLICT DO NOTHING;`;
+          await client.query(insertCatsQuery, [itemId, catIds]);
+        }
+      }
+      // --- END OF FIX ---
       
       // 4. Log changes to ActionHistory
       const changes = { Name: name, Description: description, Price: price, Stock: stock, Unit: unit, Location: location };  

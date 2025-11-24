@@ -18,14 +18,26 @@ const FileCardModal = ({ file, onClose, onSubmit }) => {
       <div className="modal-container">
         <h2>📄 {file.Title}</h2>
         <p>{file.Description}</p>
-        <p>
-          Date Posted:{" "}
-          {new Date(file.datePosted).toLocaleDateString("en-US", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          })}
-        </p>
+        <div className="modal-file-dates">
+          <span>
+            <strong>Date Posted:</strong>{" "}
+            {new Date(file.datePosted || file.dateSent).toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
+          </span>
+          {(file.EndDate || file.endDate) && (
+            <span className="deadline-date">
+              <strong>Deadline:</strong>{" "}
+              {new Date(file.EndDate || file.endDate).toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
+            </span>
+          )}
+        </div>
         <span className={`status-badge ${file.Status.toLowerCase()}`}>
           {file.Status}
         </span>
