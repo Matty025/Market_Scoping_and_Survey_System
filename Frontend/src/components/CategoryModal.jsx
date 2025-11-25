@@ -14,38 +14,52 @@ const CategoryModal = ({
 }) => {
   const [form] = Form.useForm();
 
-  // Preset main categories -> list of known subcategory labels / keywords
-  const PRESETS = useMemo(() => ({
-    Goods: [
-      "Office Supplies",
-      "Office Supplies & Devices",
-      "IT Equipment",
-      "IT Equipment & Peripherals",
-      "Educational & Instructional Materials",
-      "Furniture & Fixtures",
-      "Sports & Physical Education Equipment",
-      "Laboratory Equipment & Supplies",
-      "Electrical & Electronic Supplies",
-      "Cleaning & Janitorial Supplies",
-      "Medical & First Aid Supplies",
-      "Vehicles, Tools & Machinery",
-      "Printing & Reproduction Services",
-      "Uniforms, Apparel & Fabrics",
-      "Food & Catering Supplies",
-      "General Support Services",
-    ],
-    "Infrastructure Projects": [
-      // put known infra-related keywords (flexible matching)
-      "infrastructure",
-      "project",
-      "construction",
-    ],
-    "Consulting Services": [
-      "consult",
-      "services",
-      "consulting",
-    ],
-  }), []);
+  // Build a mapping of main categories -> parent category IDs
+  const PRESETS = useMemo(() => {
+    const mapping = {};
+    (categoryGroups || []).forEach(group => {
+      group.options?.forEach(opt => {
+        if (opt.label && opt.parentLabel) {
+          if (!mapping[opt.parentLabel]) mapping[opt.parentLabel] = [];
+          mapping[opt.parentLabel].push(opt.value);
+        }
+      });
+    });
+    return mapping;
+  }, [categoryGroups]);
+
+  // Fallback for old data if parentLabel is not provided
+  // You can remove this if your API already provides parent info
+  const FALLBACK_PRESETS = useMemo(() => ({
+    Goods: categoryGroups.flatMap(g =>
+      g.options?.filter(o =>
+        ["Office Supplies", "IT Equipment", "Educational & Instructional Materials",
+         "Furniture & Fixtures", "Sports & Physical Education Equipment",
+         "Laboratory Equipment & Supplies", "Electrical & Electronic Supplies",
+         "Cleaning & Janitorial Supplies", "Medical & First Aid Supplies",
+         "Vehicles, Tools & Machinery", "Printing & Reproduction Services",
+         "Uniforms, Apparel & Fabrics", "Food & Catering Supplies",
+         "General Support Services"].includes(o.label)
+      ).map(o => o.value) || []
+    ),
+    "Infrastructure Projects": categoryGroups.flatMap(g =>
+      g.options?.filter(o =>
+        ["School Building Construction", "School Building Rehabilitation",
+         "Water Supply & Sanitation Systems", "Electrical & Power Systems",
+         "Site Development & Landscaping", "Roofing and Painting Works",
+         "Minor Repairs & Maintenance Work"].includes(o.label)
+      ).map(o => o.value) || []
+    ),
+    "Consulting Services": categoryGroups.flatMap(g =>
+      g.options?.filter(o =>
+        ["Architectural & Engineering Design", "Feasibility & Project Studies",
+         "Construction Supervision", "ICT System Development",
+         "Research & Evaluation Studies"].includes(o.label)
+      ).map(o => o.value) || []
+    ),
+  }), [categoryGroups]);
+
+  const combinedPresets = { ...PRESETS, ...FALLBACK_PRESETS };
 
   return (
     <Modal
@@ -68,19 +82,15 @@ const CategoryModal = ({
     >
       <p>Please select all categories that apply.</p>
       <Form form={form} onFinish={onSubmit} layout="vertical" name="category_form">
-        <div className="preset-buttons" style={{ marginBottom: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {Object.keys(PRESETS).map(p => {
-            // determine if preset is already fully selected
-            const allOptionValues = (categoryGroups || []).flatMap(g => (g.options || []).map(o => o.value));
-            const matchedValues = (categoryGroups || [])
-              .flatMap(g => (g.options || []))
-              .filter(o => {
-                const label = (o.label || o.CategoryName || "").toString().toLowerCase();
-                return PRESETS[p].some(k => label.includes(k.toLowerCase()));
-              })
-              .map(o => o.value);
-
-            const isActive = matchedValues.length > 0 && matchedValues.every(v => (selectedCategories || []).includes(v));
+        <div
+          className="preset-buttons"
+          style={{ marginBottom: 12, display: "flex", gap: 8, flexWrap: "wrap" }}
+        >
+          {Object.keys(combinedPresets).map(p => {
+            const matchedValues = combinedPresets[p] || [];
+            const isActive =
+              matchedValues.length > 0 &&
+              matchedValues.every(v => (selectedCategories || []).includes(v));
 
             return (
               <button
@@ -90,12 +100,12 @@ const CategoryModal = ({
                 onClick={() => {
                   if (!matchedValues || matchedValues.length === 0) return;
 
-                  // If active -> remove these from selection (toggle); otherwise merge them in
-                  let newSelection = Array.isArray(selectedCategories) ? [...selectedCategories] : [];
+                  let newSelection = Array.isArray(selectedCategories)
+                    ? [...selectedCategories]
+                    : [];
                   if (isActive) {
                     newSelection = newSelection.filter(v => !matchedValues.includes(v));
                   } else {
-                    // merge unique
                     const set = new Set(newSelection.concat(matchedValues));
                     newSelection = Array.from(set);
                   }
@@ -111,6 +121,7 @@ const CategoryModal = ({
             );
           })}
         </div>
+
         <Form.Item
           name="categories"
           rules={[{ required: true, message: "Please select at least one category." }]}
@@ -122,12 +133,13 @@ const CategoryModal = ({
             placeholder="Please select categories"
             value={selectedCategories}
             onChange={handleChange}
-            // This is the key to fixing the dropdown appearing behind the modal
-            getPopupContainer={(triggerNode) => triggerNode.parentNode}
+            getPopupContainer={triggerNode => triggerNode.parentNode}
             options={categoryGroups}
             optionFilterProp="label"
             filterSort={(optionA, optionB) =>
-              (optionA?.label ?? '').toLowerCase().localeCompare((optionB?.label ?? '').toLowerCase())
+              (optionA?.label ?? "").toLowerCase().localeCompare(
+                (optionB?.label ?? "").toLowerCase()
+              )
             }
             notFoundContent={<div>No categories available</div>}
           />

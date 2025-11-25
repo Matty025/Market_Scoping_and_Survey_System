@@ -4,7 +4,8 @@ const multer = require("multer");
 const path = require("path");
 const { protect } = require("./authMiddleware");
 const pool = require("../db.js");
-
+const archiver = require("archiver");
+const fs = require("fs");
 // --- Multer Configuration for File Uploads ---
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -340,73 +341,100 @@ router.get("/announcements/:id/responses", protect, async (req, res) => {
 // @desc    Get all market items with advanced filtering for Admin
 // @route   GET /api/admin/market-items
 // @access  Private (Admin)
+// @desc    Get all market items with advanced filtering for Admin
+// @route   GET /api/admin/market-items
+// @access  Private (Admin)
 router.get("/market-items", protect, async (req, res) => {
   try {
-    // Optional: Add role check for admin
     if (req.user.role.toLowerCase() !== 'admin') {
       return res.status(403).json({ message: "Access denied. Admins only." });
     }
 
     const { search, category, supplier, dateFrom, dateTo } = req.query;
 
-    let queryParams = [];
-    let whereClauses = [];
+    const queryParams = [];
+    const whereClauses = [];
 
     let baseQuery = `
       SELECT
-        i."ItemID" as id,
-        i."Name" as name,
-        i."Description" as description,
-        i."Price" as price,
-        i."Stock" as stock,
-        i."Unit" as unit,
-        i."Location" as location,
-        i."DateUpdated" as date,
-        s."CompanyName" as company,
-        c."CategoryName" as category
+        i."ItemID" AS id,
+        i."Name" AS name,
+        i."Description" AS description,
+        i."Price" AS price,
+        i."Stock" AS stock,
+        i."Unit" AS unit,
+        i."Location" AS location,
+        i."DateUpdated" AS date,
+        s."CompanyName" AS company,
+        STRING_AGG(c."CategoryName", ', ') AS categories
       FROM "Items" i
       JOIN "Suppliers" s ON i."SupplierID" = s."SupplierID"
       LEFT JOIN "ItemCategories" ic ON i."ItemID" = ic."ItemID"
       LEFT JOIN "Categories" c ON ic."CategoryID" = c."CategoryID"
     `;
 
+    // Search filter
     if (search) {
       queryParams.push(`%${search.toLowerCase()}%`);
       whereClauses.push(`(LOWER(i."Name") LIKE $${queryParams.length} OR LOWER(s."CompanyName") LIKE $${queryParams.length})`);
     }
 
+    // Supplier filter
+    if (supplier) {
+      queryParams.push(supplier);
+      whereClauses.push(`i."SupplierID" = $${queryParams.length}`);
+    }
+
+    // Date range filter
+    if (dateFrom) {
+      queryParams.push(dateFrom);
+      whereClauses.push(`i."DateUpdated" >= $${queryParams.length}`);
+    }
+    if (dateTo) {
+      queryParams.push(dateTo);
+      whereClauses.push(`i."DateUpdated" <= $${queryParams.length}`);
+    }
+
+    // Category filter
     if (category) {
-      // This is the new, more advanced category filtering logic.
-      // It finds items in the selected category OR in any of its subcategories.
-      queryParams.push(category); // e.g., 'Goods'
-      const categoryFilterClause = `
-        c."CategoryID" IN (
+      queryParams.push(category);
+      whereClauses.push(`
+        i."ItemID" IN (
           WITH RECURSIVE subcategories AS (
             SELECT "CategoryID" FROM "Categories" WHERE "CategoryName" = $${queryParams.length}
             UNION
             SELECT c_sub."CategoryID" FROM "Categories" c_sub
             INNER JOIN subcategories sc ON c_sub."ParentCategoryID" = sc."CategoryID"
           )
-          SELECT "CategoryID" FROM subcategories
+          SELECT ic."ItemID" FROM "ItemCategories" ic WHERE ic."CategoryID" IN (SELECT "CategoryID" FROM subcategories)
         )
-      `;
-      whereClauses.push(categoryFilterClause);
+      `);
     }
-    
+
     if (whereClauses.length > 0) {
       baseQuery += " WHERE " + whereClauses.join(" AND ");
     }
 
-    baseQuery += ' ORDER BY i."DateUpdated" DESC';
+    baseQuery += `
+      GROUP BY i."ItemID", s."CompanyName"
+      ORDER BY i."DateUpdated" DESC
+    `;
 
     const { rows } = await pool.query(baseQuery, queryParams);
-    res.json(rows);
 
+    // Map categories to single string for frontend
+    const result = rows.map(item => ({
+      ...item,
+      categories: item.categories || '',
+    }));
+
+    res.json(result);
   } catch (err) {
-    console.error("Error fetching market items for admin:", err);
+    console.error("Error fetching market items:", err);
     res.status(500).json({ message: "Server error while fetching market items." });
   }
 });
+
 
 // @desc    Get all actions from ActionHistory for Admin view
 // @route   GET /api/admin/action-history
@@ -492,5 +520,162 @@ router.get("/suppliers/:supplierId/history", protect, async (req, res) => {
     res.status(500).json({ message: "Internal server error while fetching history." });
   }
 });
+
+// 📂 Download ALL supplier quotations for an announcement
+router.get("/announcements/:id/download-all", protect, async (req, res) => {
+  if (req.user.role.toLowerCase() !== "admin") {
+    return res.status(403).json({ message: "Admins only" });
+  }
+
+  const announcementId = req.params.id;
+
+  try {
+    // Get all supplier response file paths
+    const query = `
+      SELECT
+        s."CompanyName",
+        sr."ResponseFilePath"
+      FROM "SupplierResponses" sr
+      JOIN "SupplierFiles" sf ON sr."SupplierFileID" = sf."SupplierFileID"
+      JOIN "Suppliers" s ON sf."SupplierID" = s."SupplierID"
+      WHERE sf."FileID" = $1;
+    `;
+    const { rows } = await pool.query(query, [announcementId]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "No quotations found." });
+    }
+
+    // Prepare ZIP stream
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=quotations_${announcementId}.zip`
+    );
+
+    const archive = archiver("zip");
+    archive.pipe(res);
+
+    // Add each file
+    rows.forEach((row) => {
+      const filePath = path.join(__dirname, "..", row.ResponseFilePath);
+
+      if (fs.existsSync(filePath)) {
+        archive.file(filePath, {
+          name: `${row.CompanyName.replace(/[^a-z0-9]/gi, "_")}.pdf`,
+        });
+      }
+    });
+
+    archive.finalize();
+  } catch (err) {
+    console.error("ZIP creation error:", err);
+    res.status(500).json({ message: "Error generating ZIP" });
+  }
+})
+// @desc    Get dashboard statistics
+// @route   GET /api/admin/stats
+// @access  Private (Admin)
+router.get("/stats", protect, async (req, res) => {
+  try {
+    if (!req.user || req.user.role.toLowerCase() !== "admin") {
+      return res.status(403).json({ message: "Admins only" });
+    }
+
+    const client = await pool.connect();
+
+    let totalSuppliers = 0;
+    let totalProducts = 0;
+    let activeAnnouncements = 0;
+    let pendingResponses = 0;
+    let answeredResponses = 0;
+    let totalCategories = 0;
+    let pendingAccounts = 0;
+
+    try {
+      await client.query("BEGIN");
+
+      // Total suppliers
+      const totalSuppliersRes = await client.query(`SELECT COUNT(*) AS count FROM "Suppliers"`);
+      totalSuppliers = parseInt(totalSuppliersRes.rows[0].count, 10) || 0;
+      console.log("totalSuppliers query result:", totalSuppliersRes.rows[0]);
+
+      // Total products
+      const totalProductsRes = await client.query(`SELECT COUNT(*) AS count FROM "Items"`);
+      totalProducts = parseInt(totalProductsRes.rows[0].count, 10) || 0;
+      console.log("totalProducts query result:", totalProductsRes.rows[0]);
+
+      // Active announcements
+      const activeAnnouncementsRes = await client.query(`
+        SELECT COUNT(*) AS count FROM "ProcurementFiles" WHERE "DatePosted" <= NOW()
+      `);
+      activeAnnouncements = parseInt(activeAnnouncementsRes.rows[0].count, 10) || 0;
+      console.log("activeAnnouncements query result:", activeAnnouncementsRes.rows[0]);
+
+      // Pending and answered responses
+      const responsesRes = await client.query(`
+        SELECT
+          SUM(CASE WHEN "Status" = 'PENDING' THEN 1 ELSE 0 END) AS pending,
+          SUM(CASE WHEN "Status" = 'ANSWERED' THEN 1 ELSE 0 END) AS answered
+        FROM "SupplierFiles"
+      `);
+      pendingResponses = parseInt(responsesRes.rows[0].pending, 10) || 0;
+      answeredResponses = parseInt(responsesRes.rows[0].answered, 10) || 0;
+      console.log("responses query result:", responsesRes.rows[0]);
+
+      // Total categories (from "Categories" table)
+      const totalCategoriesRes = await client.query(`SELECT COUNT(*) AS count FROM "Categories"`);
+      totalCategories = parseInt(totalCategoriesRes.rows[0].count, 10) || 0;
+      console.log("totalCategories query result:", totalCategoriesRes.rows[0]);
+
+      // Pending accounts (from "Users" where "AccountStatus" = 'PENDING')
+      const pendingAccountsRes = await client.query(`SELECT COUNT(*) AS count FROM "Users" WHERE "AccountStatus" = 'PENDING'`);
+      pendingAccounts = parseInt(pendingAccountsRes.rows[0].count, 10) || 0;
+      console.log("pendingAccounts query result:", pendingAccountsRes.rows[0]);
+
+      await client.query("COMMIT");
+
+      console.log("Final stats object:", {
+        totalSuppliers,
+        totalProducts,
+        activeAnnouncements,
+        pendingResponses,
+        answeredResponses,
+        totalCategories,
+        pendingAccounts
+      });
+
+      res.json({
+        totalSuppliers,
+        totalProducts,
+        activeAnnouncements,
+        pendingResponses,
+        answeredResponses,
+        totalCategories,
+        pendingAccounts
+      });
+    } catch (err) {
+      await client.query("ROLLBACK");
+      console.error("Stats transaction error:", err);
+      // Even on error, send partial data if available
+      res.json({
+        totalSuppliers,
+        totalProducts,
+        activeAnnouncements,
+        pendingResponses,
+        answeredResponses,
+        totalCategories,
+        pendingAccounts
+      });
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error("Stats connection error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+
 
 module.exports = router;

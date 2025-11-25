@@ -20,7 +20,6 @@ const AnnouncementForm = ({ onSubmit, onCancel }) => {
     sendType: "category",
     categories: [],
     suppliers: [],
-    posted: "",
     end: "",
     file: null
   });
@@ -274,17 +273,6 @@ const fetchSuppliers = async () => {
 
 
       <div className="date-fields">
-        <div>
-          <label>Posted Date</label>
-          <input
-            type="date"
-            name="posted"
-            value={form.posted}
-            onChange={handleChange}
-            required
-          />
-        </div>
-
         <div>
           <label>End Date</label>
           <input

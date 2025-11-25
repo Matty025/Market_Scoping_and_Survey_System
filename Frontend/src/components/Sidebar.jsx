@@ -1,64 +1,49 @@
 import React from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { FaChevronLeft, FaSignOutAlt } from "react-icons/fa";
+import { 
+  FaChevronLeft, FaSignOutAlt, FaTachometerAlt, FaShoppingCart, 
+  FaUpload, FaChartLine, FaUser, FaUsers, FaCog, FaBuilding 
+} from "react-icons/fa";
 import logo from "../assets/Logo.png";
 import "./Sidebar.css";
 
-/**
- * Sidebar component
- * Props:
- *  - isCollapsed: boolean
- *  - onToggle: function
- *  - role: "admin" | "supplier" | "buyer" (default: "admin")
- */
 const Sidebar = ({ isCollapsed = false, onToggle = () => {}, role = "admin" }) => {
   const navigate = useNavigate();
 
-const handleLogout = () => {
-  if (window.confirm("Are you sure you want to logout?")) {
-    // Clear all relevant session storage
-    sessionStorage.removeItem("userRole");
-    sessionStorage.removeItem("token");
-    sessionStorage.removeItem("fullName");
-    sessionStorage.removeItem("userID");
-
-    // Optionally clear remembered email
-    // localStorage.removeItem("rememberedEmail");
-
-    // Notify app that storage changed
-    window.dispatchEvent(new Event("storage"));
-
-    navigate("/"); // Go to login
-  }
-};
-
-
+  const handleLogout = () => {
+    if (window.confirm("Are you sure you want to logout?")) {
+      sessionStorage.removeItem("userRole");
+      sessionStorage.removeItem("token");
+      sessionStorage.removeItem("fullName");
+      sessionStorage.removeItem("userID");
+      window.dispatchEvent(new Event("storage"));
+      navigate("/");
+    }
+  };
 
   const navLinks =
     role === "supplier"
       ? [
-          { to: "/supplier/dashboard", label: "Dashboard", emoji: "📊" },
-          { to: "/supplier/market", label: "Market", emoji: "🛍️" },
-          { to: "/supplier/upload-products", label: "Upload Products", emoji: "📤" },
-          { to: "/supplier/reports", label: "Reports", emoji: "📈" },
-          { to: "/supplier/profile", label: "Profile", emoji: "👤" },
+          { to: "/supplier/dashboard", label: "Dashboard", icon: <FaTachometerAlt /> },
+          { to: "/supplier/market", label: "Market", icon: <FaShoppingCart /> },
+          { to: "/supplier/upload-products", label: "Upload Products", icon: <FaUpload /> },
+          { to: "/supplier/reports", label: "Reports", icon: <FaChartLine /> },
+          { to: "/supplier/profile", label: "Profile", icon: <FaUser /> },
         ]
-
       : role === "buyer"
       ? [
-          { to: "/buyer/dashboard", label: "Dashboard", emoji: "📊" },
-          { to: "/buyer/market", label: "Market", emoji: "🛍️" },
-          { to: "/buyer/market-suppliers", label: "Market Suppliers", emoji: "🏢" },
-          { to: "/buyer/profile", label: "Profile", emoji: "👤" },
+          { to: "/buyer/dashboard", label: "Dashboard", icon: <FaTachometerAlt /> },
+          { to: "/buyer/market", label: "Market", icon: <FaShoppingCart /> },
+          { to: "/buyer/market-suppliers", label: "Market Suppliers", icon: <FaBuilding /> },
+          { to: "/buyer/profile", label: "Profile", icon: <FaUser /> },
         ]
       : [
-          // admin default
-          { to: "/admin/dashboard", label: "Dashboard", emoji: "📊" },
-          { to: "/admin/manage-accounts", label: "Manage Accounts", emoji: "👥" },
-          { to: "/admin/market", label: "Market", emoji: "🛒" },
-          { to: "/admin/market-suppliers", label: "Market Suppliers", emoji: "🏢" },
-          { to: "/admin/reports", label: "Reports", emoji: "📑" },
-          { to: "/admin/settings", label: "Settings", emoji: "⚙️" },
+          { to: "/admin/dashboard", label: "Dashboard", icon: <FaTachometerAlt /> },
+          { to: "/admin/manage-accounts", label: "Manage Accounts", icon: <FaUsers /> },
+          { to: "/admin/market", label: "Market", icon: <FaShoppingCart /> },
+          { to: "/admin/market-suppliers", label: "Market Suppliers", icon: <FaBuilding /> },
+          { to: "/admin/reports", label: "Reports", icon: <FaChartLine /> },
+          { to: "/admin/settings", label: "Settings", icon: <FaCog /> },
         ];
 
   return (
@@ -74,14 +59,13 @@ const handleLogout = () => {
 
       <div className="sidebar-header">
         {!isCollapsed && (
-<h2 className="sidebar-title">
-  <img
-    src={logo}
-    alt="Logo"
-    className={`sidebar-logo-sdo ${isCollapsed ? "collapsed-logo" : ""}`}
-  />
-</h2>
-
+          <h2 className="sidebar-title">
+            <img
+              src={logo}
+              alt="Logo"
+              className={`sidebar-logo-sdo ${isCollapsed ? "collapsed-logo" : ""}`}
+            />
+          </h2>
         )}
       </div>
 
@@ -94,7 +78,7 @@ const handleLogout = () => {
               `sidebar-link ${isActive ? "active" : ""}`
             }
           >
-            <span aria-hidden>{link.emoji}</span>
+            <span className="sidebar-link-icon">{link.icon}</span>
             {!isCollapsed && <span style={{ marginLeft: 8 }}>{link.label}</span>}
           </NavLink>
         ))}
@@ -102,7 +86,7 @@ const handleLogout = () => {
 
       <div className="sidebar-footer">
         <button className="sidebar-logout-btn" onClick={handleLogout} title="Logout">
-          <FaSignOutAlt />
+          <FaSignOutAlt className="sidebar-link-icon" />
           {!isCollapsed && "Logout"}
         </button>
       </div>

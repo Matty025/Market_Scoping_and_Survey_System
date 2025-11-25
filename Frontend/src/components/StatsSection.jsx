@@ -1,15 +1,34 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import "./StatsSection.css";
 
 const StatsSection = ({ stats }) => {
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  useEffect(() => {
+    // Trigger fade-in animation on mount
+    setIsLoaded(true);
+  }, []);
+
   return (
-    <div className="stats-container">
+    <div className={`stats-container ${isLoaded ? "loaded" : ""}`}>
       {stats.map((stat, index) => (
-        <div key={index} className="stat-card">
-          <div className="stat-icon" style={{ backgroundColor: stat.bgColor }}>{stat.icon}</div>
+        <div
+          key={index}
+          className={`stat-card1 ${stat.label.includes("Pending") ? "pulse" : ""}`}
+          role="button"
+          tabIndex={0}
+          aria-label={`${stat.label}: ${stat.value}`}
+          title={`${stat.label}: ${stat.value}`}
+        >
+          {/* Icon */}
+          <div className="stat-icon">
+            {React.cloneElement(stat.icon, { size: 24, color: "#ffffff" })}
+          </div>
+
+          {/* Info */}
           <div className="stat-info">
-            <h4 className="stat-label">{stat.label}</h4>
-            <p className="stat-value">
+            <h5 className="stat-label">{stat.label}</h5>
+            <p className={`stat-value ${typeof stat.value === "number" ? "numeric" : ""}`}>
               {stat.value}
             </p>
           </div>
