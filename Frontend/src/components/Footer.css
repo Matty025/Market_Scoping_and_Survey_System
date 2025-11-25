@@ -1,7 +1,7 @@
 .footer {
-  background-color: #1e1e2f; /* dark gray */
-  color: #ffffff;
-  padding: 15px 0;
+  background-color: #f3f5ff; /* dark gray */
+  color: #000000;
+  padding: 5px 0;
   text-align: center;
   font-family: "Poppins", sans-serif;
 }
@@ -18,12 +18,12 @@
 }
 
 .footer-subtext {
-  color: #959595;
+  color: #000000;
   font-size: 0.9rem;
 }
 
 .footer-subtext strong {
-  color: #ffffff; /* optional accent color for your team name */
+  color: #000000; /* optional accent color for your team name */
 }
 
 @media (max-width: 768px) {
