@@ -10,8 +10,7 @@ const Market = () => {
     search: "",
     category: "",
     supplier: "",
-    dateFrom: "",
-    dateTo: "",
+    date: "",
   });
 
   const [modalItem, setModalItem] = useState(null);
@@ -26,7 +25,7 @@ const Market = () => {
   const [selectedSubCategory, setSelectedSubCategory] = useState("");
 
   // Supplier + category data
-  const [allSuppliers, setAllSuppliers] = useState([]); // Now storing full supplier objects
+  const [allSuppliers, setAllSuppliers] = useState([]);
   const [allCategories, setAllCategories] = useState([]);
 
   // Debounce function
@@ -68,7 +67,6 @@ const Market = () => {
   useEffect(() => {
     const fetchInitialData = async () => {
       if (!token) return;
-
       setIsLoading(true);
       try {
         const [suppliersRes, categoriesRes] = await Promise.all([
@@ -80,21 +78,35 @@ const Market = () => {
           }),
         ]);
 
-        // Filter out suppliers with null or undefined IDs to prevent key errors
-        const validSuppliers = (suppliersRes.data || []).filter(s => s && s.SupplierID != null);
-        setAllSuppliers(validSuppliers);
+        // Debug: Log the raw response
+        console.log("Raw Suppliers Response:", suppliersRes.data);
+
+        // Map the backend response to match expected format
+        // Backend returns: {id, name, email, location}
+        // Frontend expects: {SupplierID, CompanyName}
+        const mappedSuppliers = (suppliersRes.data || [])
+          .filter((s) => s && s.id != null && s.name)
+          .map((s) => ({
+            SupplierID: s.id,
+            CompanyName: s.name,
+            Address: s.location || s.Address,
+            ContactNumber: s.ContactNumber,
+            Email: s.email,
+          }));
+        
+        console.log("Mapped Suppliers:", mappedSuppliers);
+        setAllSuppliers(mappedSuppliers);
 
         const allCats = categoriesRes.data || [];
         setAllCategories(allCats);
-
         setMainCategories(allCats.filter((c) => !c.ParentCategoryID));
       } catch (err) {
         console.error("Failed to fetch initial data", err);
+        console.error("Error details:", err.response?.data);
       } finally {
         setIsLoading(false);
       }
     };
-
     if (token) fetchInitialData();
   }, [token]);
 
@@ -104,31 +116,31 @@ const Market = () => {
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
+    console.log(`Filter changed: ${name} = ${value}`); // Debug log
     setFilters((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleMainCategoryChange = (e) => {
     const mainCatId = e.target.value;
     setSelectedMainCategory(mainCatId);
+    setSelectedSubCategory("");
 
     if (mainCatId) {
       const selectedCat = allCategories.find(
         (c) => c.CategoryID === parseInt(mainCatId, 10)
       );
       setSubCategoryOptions(selectedCat?.Subcategories || []);
-      // Set the main category as the filter, but allow subcategory to override
       setFilters((prev) => ({ ...prev, category: mainCatId }));
     } else {
-      // Clear subcategory selection and filter when main category is cleared
       setSubCategoryOptions([]);
-      setSelectedSubCategory("");
       setFilters((prev) => ({ ...prev, category: "" }));
     }
   };
 
   const handleSubCategoryChange = (e) => {
-    setSelectedSubCategory(e.target.value);
-    handleFilterChange(e); // Reuse the existing filter update logic
+    const subCatId = e.target.value;
+    setSelectedSubCategory(subCatId);
+    setFilters((prev) => ({ ...prev, category: subCatId }));
   };
 
   const toggleBookmark = (item) => {
@@ -152,7 +164,6 @@ const Market = () => {
           ⭐ {showBookmarks ? "View All Items" : "View Bookmarked"}
         </button>
       </div>
-
       <p>Browse and survey available products from suppliers.</p>
 
       {/* FILTERS */}
@@ -173,7 +184,7 @@ const Market = () => {
           onChange={handleMainCategoryChange}
           className="market-category-select"
         >
-          <option value="" key="all-main-categories">All Categories</option>
+          <option value="">All Categories</option>
           {mainCategories.map((cat) => (
             <option key={`main-${cat.CategoryID}`} value={cat.CategoryID}>
               {cat.CategoryName}
@@ -189,7 +200,7 @@ const Market = () => {
           className="market-category-select"
           disabled={!subCategoryOptions.length}
         >
-          <option value="" key="all-subcategories">All Subcategories</option>
+          <option value="">All Subcategories</option>
           {subCategoryOptions.map((subCat) => (
             <option key={`sub-${subCat.CategoryID}`} value={subCat.CategoryID}>
               {subCat.CategoryName}
@@ -197,14 +208,14 @@ const Market = () => {
           ))}
         </select>
 
-        {/* SUPPLIER */}
+        {/* SUPPLIER - FIXED */}
         <select
           name="supplier"
           value={filters.supplier}
           onChange={handleFilterChange}
           className="market-supplier-select"
         >
-          <option value="" key="all-suppliers">All Suppliers</option>
+          <option value="">All Suppliers</option>
           {allSuppliers.map((s) => (
             <option key={`sup-${s.SupplierID}`} value={s.SupplierID}>
               {s.CompanyName}
@@ -213,26 +224,21 @@ const Market = () => {
         </select>
 
         {/* DATE */}
-        <div className="date-filter-group">
-          <label>From:</label>
-          <input
-            type="date"
-            name="dateFrom"
-            value={filters.dateFrom}
-            onChange={handleFilterChange}
-            className="market-date-input"
-          />
-
-          <label>To:</label>
-          <input
-            type="date"
-            name="dateTo"
-            value={filters.dateTo}
-            onChange={handleFilterChange}
-            className="market-date-input"
-          />
-        </div>
+        <input
+          type="date"
+          name="date"
+          value={filters.date}
+          onChange={handleFilterChange}
+          className="market-date-input"
+        />
       </div>
+
+      {/* Debug info - Remove this after fixing */}
+      {allSuppliers.length === 0 && !isLoading && (
+        <p style={{ color: "orange", padding: "10px" }}>
+          ⚠️ No suppliers loaded. Check console for errors.
+        </p>
+      )}
 
       {/* PRODUCT GRID */}
       <div className="market-grid">
@@ -248,13 +254,32 @@ const Market = () => {
               onClick={() => setModalItem(item)}
             >
               <h4>{item.name}</h4>
+              {item.description && (
+                <p className="item-description">{item.description}</p>
+              )}
+              {item.categories && (
+                <div className="category-tags">
+                  {item.categories.split(', ').map((cat, idx) => (
+                    <span key={idx} className="category-badge">
+                      {cat}
+                    </span>
+                  ))}
+                </div>
+              )}
               <p>
                 <strong>Supplier:</strong> {item.company}
               </p>
-              <p>
+              <p className="item-updated">
+                <strong>Updated:</strong>{" "}
+                {new Date(item.date).toLocaleDateString("en-US", {
+                  year: "numeric",
+                  month: "short",
+                  day: "numeric",
+                })}
+              </p>
+              <p className="item-price">
                 <strong>₱{item.price.toLocaleString()}</strong>
               </p>
-
               <button
                 className={`bookmark-btn ${
                   bookmarks.find((b) => b.id === item.id) ? "active" : ""
@@ -281,16 +306,32 @@ const Market = () => {
             className="market-modal-content"
             onClick={(e) => e.stopPropagation()}
           >
-            <button className="modal-close-btn" onClick={() => setModalItem(null)}>
+            <button
+              className="modal-close-btn"
+              onClick={() => setModalItem(null)}
+            >
               ✖
             </button>
-
             <h2>{modalItem.name}</h2>
+            {modalItem.description && (
+              <p className="modal-description">
+                <strong>Description:</strong> {modalItem.description}
+              </p>
+            )}
+            {modalItem.categories && (
+              <div className="modal-info-row">
+                <strong>Categories:</strong>
+                <div className="category-tags modal-categories">
+                  {modalItem.categories.split(', ').map((cat, idx) => (
+                    <span key={idx} className="category-badge">
+                      {cat}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
             <p>
               <strong>Supplier:</strong> {modalItem.company}
-            </p>
-            <p>
-              <strong>Category:</strong> {modalItem.categoryname || 'N/A'}
             </p>
             <p>
               <strong>Updated:</strong>{" "}
@@ -306,13 +347,16 @@ const Market = () => {
               <strong>Unit:</strong> {modalItem.unit}
             </p>
             <p>
-              <strong>Price:</strong> ₱
-              {modalItem.price.toLocaleString()}
+              <strong>Price:</strong> ₱{modalItem.price.toLocaleString()}
             </p>
             <p>
               <strong>Stock:</strong> {modalItem.stock}
             </p>
-
+            {modalItem.location && (
+              <p>
+                <strong>Location:</strong> {modalItem.location}
+              </p>
+            )}
             <button
               className="bookmark-btn modal-bookmark"
               onClick={() => toggleBookmark(modalItem)}

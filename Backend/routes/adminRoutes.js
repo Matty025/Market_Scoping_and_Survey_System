@@ -346,11 +346,11 @@ router.get("/announcements/:id/responses", protect, async (req, res) => {
 // @access  Private (Admin)
 router.get("/market-items", protect, async (req, res) => {
   try {
-    if (req.user.role.toLowerCase() !== 'admin') {
+    if (req.user.role.toLowerCase() !== "admin") {
       return res.status(403).json({ message: "Access denied. Admins only." });
     }
 
-    const { search, category, supplier, dateFrom, dateTo } = req.query;
+    const { search, category, supplier, date } = req.query; // single date filter
 
     const queryParams = [];
     const whereClauses = [];
@@ -376,7 +376,9 @@ router.get("/market-items", protect, async (req, res) => {
     // Search filter
     if (search) {
       queryParams.push(`%${search.toLowerCase()}%`);
-      whereClauses.push(`(LOWER(i."Name") LIKE $${queryParams.length} OR LOWER(s."CompanyName") LIKE $${queryParams.length})`);
+      whereClauses.push(
+        `(LOWER(i."Name") LIKE $${queryParams.length} OR LOWER(s."CompanyName") LIKE $${queryParams.length})`
+      );
     }
 
     // Supplier filter
@@ -385,28 +387,30 @@ router.get("/market-items", protect, async (req, res) => {
       whereClauses.push(`i."SupplierID" = $${queryParams.length}`);
     }
 
-    // Date range filter
-    if (dateFrom) {
-      queryParams.push(dateFrom);
-      whereClauses.push(`i."DateUpdated" >= $${queryParams.length}`);
-    }
-    if (dateTo) {
-      queryParams.push(dateTo);
-      whereClauses.push(`i."DateUpdated" <= $${queryParams.length}`);
+    // Single date filter (match items updated on that day)
+    if (date) {
+      queryParams.push(date);
+      queryParams.push(date);
+      whereClauses.push(
+        `i."DateUpdated"::date >= $${queryParams.length - 1}::date AND i."DateUpdated"::date <= $${queryParams.length}::date`
+      );
     }
 
-    // Category filter
+    // Category filter by ID with recursive subcategories
     if (category) {
       queryParams.push(category);
       whereClauses.push(`
         i."ItemID" IN (
           WITH RECURSIVE subcategories AS (
-            SELECT "CategoryID" FROM "Categories" WHERE "CategoryName" = $${queryParams.length}
-            UNION
-            SELECT c_sub."CategoryID" FROM "Categories" c_sub
+            SELECT "CategoryID" FROM "Categories" WHERE "CategoryID" = $${queryParams.length}
+            UNION ALL
+            SELECT c_sub."CategoryID"
+            FROM "Categories" c_sub
             INNER JOIN subcategories sc ON c_sub."ParentCategoryID" = sc."CategoryID"
           )
-          SELECT ic."ItemID" FROM "ItemCategories" ic WHERE ic."CategoryID" IN (SELECT "CategoryID" FROM subcategories)
+          SELECT ic."ItemID"
+          FROM "ItemCategories" ic
+          WHERE ic."CategoryID" IN (SELECT "CategoryID" FROM subcategories)
         )
       `);
     }
@@ -422,10 +426,9 @@ router.get("/market-items", protect, async (req, res) => {
 
     const { rows } = await pool.query(baseQuery, queryParams);
 
-    // Map categories to single string for frontend
-    const result = rows.map(item => ({
+    const result = rows.map((item) => ({
       ...item,
-      categories: item.categories || '',
+      categories: item.categories || "",
     }));
 
     res.json(result);
@@ -434,6 +437,45 @@ router.get("/market-items", protect, async (req, res) => {
     res.status(500).json({ message: "Server error while fetching market items." });
   }
 });
+
+
+// GET /api/admin/suppliers - FIXED VERSION
+router.get("/suppliers", protect, async (req, res) => {
+  try {
+    if (req.user.role.toLowerCase() !== "admin") {
+      return res.status(403).json({ message: "Access denied. Admins only." });
+    }
+
+    // Make sure we're selecting directly from Suppliers table
+    // WITHOUT any aliases that would lowercase the fields
+    const query = `
+      SELECT 
+        "SupplierID",
+        "CompanyName",
+        "Address",
+        "ContactNumber",
+        "HasPhilgeps",
+        "HasSECRegistration",
+        "HasBusinessPermit",
+        "HasTaxClearance",
+        "DateCreated",
+        "DateUpdated"
+      FROM "Suppliers"
+      ORDER BY "CompanyName" ASC
+    `;
+
+    const { rows } = await pool.query(query);
+    
+    // Debug: Log what we're actually returning
+    console.log("Suppliers being returned:", rows);
+    
+    res.json(rows);
+  } catch (err) {
+    console.error("Error fetching suppliers:", err);
+    res.status(500).json({ message: "Server error while fetching suppliers." });
+  }
+});
+
 
 
 // @desc    Get all actions from ActionHistory for Admin view

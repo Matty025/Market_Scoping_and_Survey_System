@@ -1,89 +1,107 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import axios from "axios";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from "recharts";
 import "./Reports.css";
 
 const Reports = () => {
-  const suppliers = [
-    {
-      name: "ABC Supplies",
-      status: "Active",
-      lastUpdate: "Nov 01, 2025",
-      products: [
-        { product: "Laptop", category: "Office Supplies", price: 50000 },
-        { product: "Notebook", category: "Office Supplies", price: 150 },
-        { product: "Printer", category: "IT Equipment", price: 12000 },
-      ],
-    },
-    {
-      name: "Tech Solutions",
-      status: "Active",
-      lastUpdate: "Nov 02, 2025",
-      products: [
-        { product: "Printer", category: "IT Equipment", price: 12000 },
-        { product: "Monitor", category: "IT Equipment", price: 8000 },
-        { product: "Router", category: "IT Equipment", price: 3500 },
-      ],
-    },
-    {
-      name: "Furniture World",
-      status: "Inactive",
-      lastUpdate: "Oct 25, 2025",
-      products: [
-        { product: "Desk Chair", category: "Furniture", price: 4500 },
-        { product: "Office Desk", category: "Furniture", price: 9500 },
-      ],
-    },
-  ];
+  const [suppliers, setSuppliers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Prepare data for chart per supplier
-  const prepareChartData = (products) => {
-    const categories = {};
-    products.forEach(p => {
-      if (!categories[p.category]) categories[p.category] = [];
-      categories[p.category].push(p.price);
-    });
+  useEffect(() => {
+    const fetchReports = async () => {
+      try {
+        const { data: suppliersList } = await axios.get(
+          "http://localhost:3001/api/reports/supplier-reports"
+        );
 
-    return Object.keys(categories).map(cat => {
-      const prices = categories[cat];
-      const highest = Math.max(...prices);
-      const lowest = Math.min(...prices);
-      const average = Math.round(prices.reduce((a,b)=>a+b,0)/prices.length);
-      return { category: cat, highest, lowest, average };
-    });
+        if (!suppliersList || suppliersList.length === 0) {
+          setSuppliers([]);
+          return;
+        }
+
+        const fullReports = await Promise.all(
+          suppliersList.map(async (s) => {
+            try {
+              const { data: fullReport } = await axios.get(
+                `http://localhost:3001/api/reports/all-reports/${s.supplier_id}`
+              );
+              return { ...s, ...fullReport };
+            } catch {
+              return s;
+            }
+          })
+        );
+
+        setSuppliers(fullReports);
+      } catch (err) {
+        console.error(err);
+        setError("Failed to load supplier reports.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchReports();
+  }, []);
+
+  const prepareChartData = (priceAnalytics) => {
+    if (!priceAnalytics || priceAnalytics.length === 0) return [];
+    return priceAnalytics.map((p) => ({
+      category: p.CategoryName || "Unknown",
+      highest: Number(p.highest) || 0,
+      average: Number(p.average) || 0,
+      lowest: Number(p.lowest) || 0,
+    }));
   };
+
+  if (loading) return <p>Loading supplier reports...</p>;
+  if (error) return <p className="error">{error}</p>;
+  if (suppliers.length === 0) return <p>No suppliers found.</p>;
 
   return (
     <div className="reports-container">
-      <h2>📑 Supplier Reports</h2>
-      <p>Monitor supplier performance, product updates, and pricing trends visually.</p>
+      <h2>📊 Supplier Price Trends</h2>
+      <p>Monitor supplier pricing trends and performance over time.</p>
 
-      <div className="supplier-cards">
-        {suppliers.map((supplier, idx) => {
-          const chartData = prepareChartData(supplier.products);
+      <div className="supplier-cards-wrapper scrollable">
+        {suppliers.map((supplier) => {
+          const chartData = prepareChartData(supplier.priceAnalytics);
 
           return (
-            <div key={idx} className="supplier-card">
-              <h3>{supplier.name}</h3>
-              <p><strong>Status:</strong> {supplier.status}</p>
-              <p><strong>Last Update:</strong> {supplier.lastUpdate}</p>
+            <div key={supplier.supplier_id} className={`supplier-card ${chartData.length === 0 ? "no-data" : ""}`}>
+              <div className="supplier-header">
+                <h3>{supplier.name}</h3>
+                <span className={`status ${supplier.status?.toLowerCase() || "unknown"}`}>
+                  {supplier.status || "N/A"}
+                </span>
+              </div>
 
-              <hr />
-              <p><strong>Price Analytics by Category:</strong></p>
+              <div className="stats-cards">
+                <span>Total Items: {supplier.summary?.total_items || 0}</span>
+                <span>Sent Files: {supplier.summary?.sent_files || 0}</span>
+                <span>Activity: {supplier.timeline?.length || 0} actions</span>
+                <span>Last Update: {supplier.lastUpdate ? new Date(supplier.lastUpdate).toLocaleString() : 'N/A'}</span>
+              </div>
 
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="category" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="highest" fill="#22c55e" />
-                  <Bar dataKey="average" fill="#3b82f6" />
-                  <Bar dataKey="lowest" fill="#f97316" />
-                </BarChart>
-              </ResponsiveContainer>
+              {chartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={250}>
+                  <BarChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
+                    <XAxis dataKey="category" tick={{ fontSize: 12 }} />
+                    <YAxis tick={{ fontSize: 12 }} tickFormatter={(value) => `₱${value.toLocaleString()}`} />
+                    <Tooltip formatter={(value) => `₱${Number(value).toLocaleString()}`} />
+                    <Legend verticalAlign="top" height={36} />
+                    <Bar dataKey="highest" fill="#16a34a" radius={[6,6,0,0]} />
+                    <Bar dataKey="average" fill="#2563eb" radius={[6,6,0,0]} />
+                    <Bar dataKey="lowest" fill="#ea580c" radius={[6,6,0,0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <p>No price analytics available for this supplier.</p>
+              )}
             </div>
           );
         })}
