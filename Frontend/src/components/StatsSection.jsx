@@ -26,9 +26,9 @@ const StatsSection = ({ stats }) => {
           </div>
 
           {/* Info */}
-          <div className="stat-info">
-            <h5 className="stat-label">{stat.label}</h5>
-            <p className={`stat-value ${typeof stat.value === "number" ? "numeric" : ""}`}>
+          <div className="stat-info1">
+            <h5 className="stat-card-label">{stat.label}</h5>
+            <p className={`stat-card-value ${typeof stat.value === "number" ? "numeric" : ""}`}>
               {stat.value}
             </p>
           </div>

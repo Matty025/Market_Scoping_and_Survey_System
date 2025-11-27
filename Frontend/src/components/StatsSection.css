@@ -35,15 +35,16 @@
 }
 
 /* Center the text info */
-.stat-info {
+.stat-info1 {
   display: flex;
   flex-direction: column;
   justify-content: center; /* vertically center the label + value */
   align-items: center; /* horizontally center the text inside stat-info */
   flex: 1; /* take remaining width */
+  color: #1e3a8a;
 }
 
-.stat-label {
+.stat-card-label {
   margin: 0;
   font-size: 0.65rem; /* Small font for label */
   font-weight: 600;
@@ -53,7 +54,7 @@
   text-align: center; /* center text */
 }
 
-.stat-value {
+.stat-card-value {
   margin: 0;
   font-size: 1.2rem; /* value font */
   font-weight: 700;

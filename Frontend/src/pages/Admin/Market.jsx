@@ -11,13 +11,17 @@ const Market = () => {
     category: "",
     supplier: "",
     date: "",
+    minPrice: "",
+    maxPrice: "",
   });
 
+  const [sortOption, setSortOption] = useState("");
   const [modalItem, setModalItem] = useState(null);
   const [categoryModalItem, setCategoryModalItem] = useState(null);
   const [bookmarks, setBookmarks] = useState([]);
   const [showBookmarks, setShowBookmarks] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   // Category filters
   const [mainCategories, setMainCategories] = useState([]);
@@ -28,6 +32,13 @@ const Market = () => {
   // Supplier + category data
   const [allSuppliers, setAllSuppliers] = useState([]);
   const [allCategories, setAllCategories] = useState([]);
+
+  // Price statistics
+  const [priceStats, setPriceStats] = useState({
+    min: 0,
+    max: 0,
+    avg: 0,
+  });
 
   // Debounce function
   const debounce = (func, delay) => {
@@ -50,7 +61,24 @@ const Market = () => {
             params: currentFilters,
           }
         );
-        setMarketItems(res.data || []);
+        const items = res.data || [];
+        setMarketItems(items);
+        
+        // Calculate price statistics
+        if (items.length > 0) {
+          const prices = items.map(item => parseFloat(item.price) || 0).filter(p => p > 0);
+          if (prices.length > 0) {
+            setPriceStats({
+              min: Math.min(...prices),
+              max: Math.max(...prices),
+              avg: prices.reduce((a, b) => a + b, 0) / prices.length,
+            });
+          } else {
+            setPriceStats({ min: 0, max: 0, avg: 0 });
+          }
+        } else {
+          setPriceStats({ min: 0, max: 0, avg: 0 });
+        }
       } catch (err) {
         console.error("Failed to fetch market data", err);
       } finally {
@@ -79,12 +107,6 @@ const Market = () => {
           }),
         ]);
 
-        // Debug: Log the raw response
-        console.log("Raw Suppliers Response:", suppliersRes.data);
-
-        // Map the backend response to match expected format
-        // Backend returns: {id, name, email, location}
-        // Frontend expects: {SupplierID, CompanyName}
         const mappedSuppliers = (suppliersRes.data || [])
           .filter((s) => s && s.id != null && s.name)
           .map((s) => ({
@@ -95,7 +117,6 @@ const Market = () => {
             Email: s.email,
           }));
         
-        console.log("Mapped Suppliers:", mappedSuppliers);
         setAllSuppliers(mappedSuppliers);
 
         const allCats = categoriesRes.data || [];
@@ -103,7 +124,6 @@ const Market = () => {
         setMainCategories(allCats.filter((c) => !c.ParentCategoryID));
       } catch (err) {
         console.error("Failed to fetch initial data", err);
-        console.error("Error details:", err.response?.data);
       } finally {
         setIsLoading(false);
       }
@@ -117,7 +137,6 @@ const Market = () => {
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
-    console.log(`Filter changed: ${name} = ${value}`); // Debug log
     setFilters((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -144,6 +163,21 @@ const Market = () => {
     setFilters((prev) => ({ ...prev, category: subCatId }));
   };
 
+  const clearFilters = () => {
+    setFilters({
+      search: "",
+      category: "",
+      supplier: "",
+      date: "",
+      minPrice: "",
+      maxPrice: "",
+    });
+    setSelectedMainCategory("");
+    setSelectedSubCategory("");
+    setSubCategoryOptions([]);
+    setSortOption("");
+  };
+
   const toggleBookmark = (item) => {
     if (bookmarks.find((b) => b.id === item.id)) {
       setBookmarks((prev) => prev.filter((b) => b.id !== item.id));
@@ -152,101 +186,254 @@ const Market = () => {
     }
   };
 
-  const displayedItems = showBookmarks ? bookmarks : marketItems;
+  // Apply client-side price range filtering and sorting
+  const getFilteredAndSortedItems = (items) => {
+    let filtered = [...items];
+
+    // Client-side price range filtering (in case backend doesn't handle it)
+    if (filters.minPrice) {
+      const minPrice = parseFloat(filters.minPrice);
+      filtered = filtered.filter(item => parseFloat(item.price) >= minPrice);
+    }
+    
+    if (filters.maxPrice) {
+      const maxPrice = parseFloat(filters.maxPrice);
+      filtered = filtered.filter(item => parseFloat(item.price) <= maxPrice);
+    }
+
+    // Apply sorting
+    if (sortOption) {
+      switch (sortOption) {
+        case "price-asc":
+          filtered.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
+          break;
+        case "price-desc":
+          filtered.sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
+          break;
+        case "name-asc":
+          filtered.sort((a, b) => a.name.localeCompare(b.name));
+          break;
+        case "name-desc":
+          filtered.sort((a, b) => b.name.localeCompare(a.name));
+          break;
+        case "date-newest":
+          filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
+          break;
+        case "date-oldest":
+          filtered.sort((a, b) => new Date(a.date) - new Date(b.date));
+          break;
+        default:
+          break;
+      }
+    }
+
+    return filtered;
+  };
+
+  const displayedItems = getFilteredAndSortedItems(showBookmarks ? bookmarks : marketItems);
+
+  // Count active filters (including sort)
+  const activeFiltersCount = Object.values(filters).filter(v => v !== "").length + (sortOption ? 1 : 0);
 
   return (
     <div className="market-container">
       <div className="market-header">
-        <h2>🛒 Market</h2>
+        <h2>🛒 Market Survey & Scoping</h2>
         <button
           className={`bookmark-view-btn ${showBookmarks ? "active" : ""}`}
           onClick={() => setShowBookmarks(!showBookmarks)}
         >
-          ⭐ {showBookmarks ? "View All Items" : "View Bookmarked"}
+          ⭐ {showBookmarks ? "View All Items" : `View Bookmarked (${bookmarks.length})`}
         </button>
       </div>
-      <p>Browse and survey available products from suppliers.</p>
+      <p>Browse, filter, and survey available products from suppliers.</p>
+
+      {/* PRICE STATISTICS - Only show when filters are active */}
+      {!isLoading && marketItems.length > 0 && activeFiltersCount > 0 && (
+        <div className="price-stats">
+          <div className="stat-item">
+            <span className="stat-label">Min Price:</span>
+            <span className="stat-value">₱{priceStats.min.toLocaleString()}</span>
+          </div>
+          <div className="stat-item">
+            <span className="stat-label">Max Price:</span>
+            <span className="stat-value">₱{priceStats.max.toLocaleString()}</span>
+          </div>
+          <div className="stat-item">
+            <span className="stat-label">Avg Price:</span>
+            <span className="stat-value">
+              ₱{isNaN(priceStats.avg) ? '0' : Math.round(priceStats.avg).toLocaleString()}
+            </span>
+          </div>
+          <div className="stat-item">
+            <span className="stat-label">Items Found:</span>
+            <span className="stat-value">{displayedItems.length}</span>
+          </div>
+        </div>
+      )}
 
       {/* FILTERS */}
-      <div className="market-filter-bar">
-        <input
-          type="text"
-          name="search"
-          placeholder="Search by product or supplier..."
-          value={filters.search}
-          onChange={handleFilterChange}
-          className="market-search-input"
-        />
+      <div className="market-filter-section">
+        <div className="filter-header">
+          <h3>🔍 Filters {activeFiltersCount > 0 && `(${activeFiltersCount} active)`}</h3>
+          <div className="filter-actions">
+            <button
+              className="toggle-filters-btn"
+              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+            >
+              {showAdvancedFilters ? "▲ Hide Advanced" : "▼ Show Advanced"}
+            </button>
+            {activeFiltersCount > 0 && (
+              <button className="clear-filters-btn" onClick={clearFilters}>
+                ✖ Clear All
+              </button>
+            )}
+          </div>
+        </div>
 
-        {/* MAIN CATEGORY */}
-        <select
-          name="mainCategory"
-          value={selectedMainCategory}
-          onChange={handleMainCategoryChange}
-          className="market-category-select"
-        >
-          <option value="">All Categories</option>
-          {mainCategories.map((cat) => (
-            <option key={`main-${cat.CategoryID}`} value={cat.CategoryID}>
-              {cat.CategoryName}
-            </option>
-          ))}
-        </select>
+        <div className="market-filter-bar">
+          {/* SEARCH */}
+          <input
+            type="text"
+            name="search"
+            placeholder="Search by product or supplier..."
+            value={filters.search}
+            onChange={handleFilterChange}
+            className="market-search-input"
+          />
 
-        {/* SUBCATEGORY */}
-        <select
-          name="category"
-          value={selectedSubCategory}
-          onChange={handleSubCategoryChange}
-          className="market-category-select"
-          disabled={!subCategoryOptions.length}
-        >
-          <option value="">All Subcategories</option>
-          {subCategoryOptions.map((subCat) => (
-            <option key={`sub-${subCat.CategoryID}`} value={subCat.CategoryID}>
-              {subCat.CategoryName}
-            </option>
-          ))}
-        </select>
+          {/* MAIN CATEGORY */}
+          <select
+            name="mainCategory"
+            value={selectedMainCategory}
+            onChange={handleMainCategoryChange}
+            className="market-category-select"
+          >
+            <option value="">All Categories</option>
+            {mainCategories.map((cat) => (
+              <option key={`main-${cat.CategoryID}`} value={cat.CategoryID}>
+                {cat.CategoryName}
+              </option>
+            ))}
+          </select>
 
-        {/* SUPPLIER - FIXED */}
-        <select
-          name="supplier"
-          value={filters.supplier}
-          onChange={handleFilterChange}
-          className="market-supplier-select"
-        >
-          <option value="">All Suppliers</option>
-          {allSuppliers.map((s) => (
-            <option key={`sup-${s.SupplierID}`} value={s.SupplierID}>
-              {s.CompanyName}
-            </option>
-          ))}
-        </select>
+          {/* SUBCATEGORY */}
+          <select
+            name="category"
+            value={selectedSubCategory}
+            onChange={handleSubCategoryChange}
+            className="market-category-select"
+            disabled={!subCategoryOptions.length}
+          >
+            <option value="">All Subcategories</option>
+            {subCategoryOptions.map((subCat) => (
+              <option key={`sub-${subCat.CategoryID}`} value={subCat.CategoryID}>
+                {subCat.CategoryName}
+              </option>
+            ))}
+          </select>
 
-        {/* DATE */}
-        <input
-          type="date"
-          name="date"
-          value={filters.date}
-          onChange={handleFilterChange}
-          className="market-date-input"
-        />
+          {/* SUPPLIER */}
+          <select
+            name="supplier"
+            value={filters.supplier}
+            onChange={handleFilterChange}
+            className="market-supplier-select"
+          >
+            <option value="">All Suppliers</option>
+            {allSuppliers.map((s) => (
+              <option key={`sup-${s.SupplierID}`} value={s.SupplierID}>
+                {s.CompanyName}
+              </option>
+            ))}
+          </select>
+
+          {/* SORT BY */}
+          <select
+            name="sort"
+            value={sortOption}
+            onChange={(e) => setSortOption(e.target.value)}
+            className="market-sort-select"
+          >
+            <option value="">Sort By</option>
+            <option value="price-asc">💰 Price: Low to High</option>
+            <option value="price-desc">💰 Price: High to Low</option>
+            <option value="name-asc">🔤 Name: A to Z</option>
+            <option value="name-desc">🔤 Name: Z to A</option>
+            <option value="date-newest">📅 Newest First</option>
+            <option value="date-oldest">📅 Oldest First</option>
+          </select>
+        </div>
+
+        {/* ADVANCED FILTERS */}
+        {showAdvancedFilters && (
+          <div className="advanced-filters">
+            <div className="filter-row">
+              {/* PRICE RANGE */}
+              <div className="filter-group price-filter">
+                <label>💰 Budget / Price Range</label>
+                <div className="price-range-inputs">
+                  <input
+                    type="number"
+                    name="minPrice"
+                    placeholder="Min ₱"
+                    value={filters.minPrice}
+                    onChange={handleFilterChange}
+                    className="price-input"
+                    min="0"
+                  />
+                  <span className="price-separator">—</span>
+                  <input
+                    type="number"
+                    name="maxPrice"
+                    placeholder="Max ₱"
+                    value={filters.maxPrice}
+                    onChange={handleFilterChange}
+                    className="price-input"
+                    min="0"
+                  />
+                </div>
+                <small className="filter-hint">
+                  Enter your budget range to find items within your price limit
+                </small>
+              </div>
+
+              {/* DATE */}
+              <div className="filter-group date-filter">
+                <label>📅 Updated Date</label>
+                <input
+                  type="date"
+                  name="date"
+                  value={filters.date}
+                  onChange={handleFilterChange}
+                  className="market-date-input"
+                />
+                <small className="filter-hint">
+                  Filter by when items were last updated
+                </small>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
-
-      {/* Debug info - Remove this after fixing */}
-      {allSuppliers.length === 0 && !isLoading && (
-        <p style={{ color: "orange", padding: "10px" }}>
-          ⚠️ No suppliers loaded. Check console for errors.
-        </p>
-      )}
 
       {/* PRODUCT GRID */}
       <div className="market-grid">
         {isLoading ? (
           <p className="no-items">Loading products...</p>
         ) : displayedItems.length === 0 ? (
-          <p className="no-items">No items found.</p>
+          <div className="no-items-container">
+            <p className="no-items">
+              {activeFiltersCount > 0 
+                ? "No items found matching your filters." 
+                : "No items available."}
+            </p>
+            {activeFiltersCount > 0 && (
+              <button className="clear-filters-btn" onClick={clearFilters}>
+                Clear Filters
+              </button>
+            )}
+          </div>
         ) : (
           displayedItems.map((item) => (
             <div
@@ -285,6 +472,14 @@ const Market = () => {
                 <p>
                   <strong>Supplier:</strong> {item.company}
                 </p>
+                {item.location && (
+                  <p>
+                    <strong>Location:</strong> {item.location}
+                  </p>
+                )}
+                <p>
+                  <strong>Unit:</strong> {item.unit}
+                </p>
                 <p className="item-updated">
                   <strong>Updated:</strong>{" "}
                   {new Date(item.date).toLocaleDateString("en-US", {
@@ -312,13 +507,13 @@ const Market = () => {
                     ? "Bookmarked"
                     : "Bookmark"}
                 </button>
-                </div>
+              </div>
             </div>
           ))
         )}
       </div>
 
-      {/* MODAL */}
+      {/* ITEM MODAL */}
       {modalItem && (
         <div className="market-modal" onClick={() => setModalItem(null)}>
           <div
@@ -380,7 +575,7 @@ const Market = () => {
               className="bookmark-btn modal-bookmark"
               onClick={() => toggleBookmark(modalItem)}
             >
-              ⭐ Add to Bookmark
+              ⭐ {bookmarks.find((b) => b.id === modalItem.id) ? "Remove from" : "Add to"} Bookmark
             </button>
           </div>
         </div>
