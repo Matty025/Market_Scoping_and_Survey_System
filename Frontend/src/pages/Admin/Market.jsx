@@ -14,6 +14,7 @@ const Market = () => {
   });
 
   const [modalItem, setModalItem] = useState(null);
+  const [categoryModalItem, setCategoryModalItem] = useState(null);
   const [bookmarks, setBookmarks] = useState([]);
   const [showBookmarks, setShowBookmarks] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -253,47 +254,65 @@ const Market = () => {
               className="market-card"
               onClick={() => setModalItem(item)}
             >
-              <h4>{item.name}</h4>
-              {item.description && (
-                <p className="item-description">{item.description}</p>
-              )}
-              {item.categories && (
-                <div className="category-tags">
-                  {item.categories.split(', ').map((cat, idx) => (
-                    <span key={idx} className="category-badge">
-                      {cat}
-                    </span>
-                  ))}
+              <div className="market-card-content">
+                <h4>{item.name}</h4>
+                {item.description && (
+                  <p className="item-description">{item.description}</p>
+                )}
+                {item.categories && (
+                  <div className="category-tags">
+                    {item.categories
+                      .split(", ")
+                      .slice(0, 2)
+                      .map((cat, idx) => (
+                        <span key={idx} className="category-badge">
+                          {cat}
+                        </span>
+                      ))}
+                    {item.categories.split(", ").length > 2 && (
+                      <button
+                        className="show-more-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCategoryModalItem(item);
+                        }}
+                      >
+                        Show More...
+                      </button>
+                    )}
+                  </div>
+                )}
+                <p>
+                  <strong>Supplier:</strong> {item.company}
+                </p>
+                <p className="item-updated">
+                  <strong>Updated:</strong>{" "}
+                  {new Date(item.date).toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  })}
+                </p>
+              </div>
+              <div className="market-card-footer">
+                <p className="item-price">
+                  <strong>₱{item.price.toLocaleString()}</strong>
+                </p>
+                <button
+                  className={`bookmark-btn ${
+                    bookmarks.find((b) => b.id === item.id) ? "active" : ""
+                  }`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleBookmark(item);
+                  }}
+                >
+                  ⭐{" "}
+                  {bookmarks.find((b) => b.id === item.id)
+                    ? "Bookmarked"
+                    : "Bookmark"}
+                </button>
                 </div>
-              )}
-              <p>
-                <strong>Supplier:</strong> {item.company}
-              </p>
-              <p className="item-updated">
-                <strong>Updated:</strong>{" "}
-                {new Date(item.date).toLocaleDateString("en-US", {
-                  year: "numeric",
-                  month: "short",
-                  day: "numeric",
-                })}
-              </p>
-              <p className="item-price">
-                <strong>₱{item.price.toLocaleString()}</strong>
-              </p>
-              <button
-                className={`bookmark-btn ${
-                  bookmarks.find((b) => b.id === item.id) ? "active" : ""
-                }`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleBookmark(item);
-                }}
-              >
-                ⭐{" "}
-                {bookmarks.find((b) => b.id === item.id)
-                  ? "Bookmarked"
-                  : "Bookmark"}
-              </button>
             </div>
           ))
         )}
@@ -363,6 +382,36 @@ const Market = () => {
             >
               ⭐ Add to Bookmark
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* CATEGORY MODAL */}
+      {categoryModalItem && (
+        <div
+          className="market-modal"
+          onClick={() => setCategoryModalItem(null)}
+        >
+          <div
+            className="market-modal-content"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              className="modal-close-btn"
+              onClick={() => setCategoryModalItem(null)}
+            >
+              ✖
+            </button>
+            <h2>Categories for {categoryModalItem.name}</h2>
+            <div className="category-tags modal-categories">
+              {categoryModalItem.categories
+                .split(", ")
+                .map((cat, idx) => (
+                  <span key={idx} className="category-badge">
+                    {cat}
+                  </span>
+                ))}
+            </div>
           </div>
         </div>
       )}
