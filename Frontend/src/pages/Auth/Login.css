@@ -1,4 +1,10 @@
 /* ===============================
+   PHILGEPS BLUE COLOR THEME
+   Primary: #0032A0 (PhilGEPS Blue)
+   Accent: #0047BB (Lighter Blue)
+================================*/
+
+/* ===============================
    LAYOUT WRAPPER
 ================================*/
 .login-container {
@@ -6,6 +12,7 @@
   height: 100vh;
   overflow: hidden;
   font-family: "Inter", sans-serif;
+  position: relative;
 }
 
 /* ===============================
@@ -13,161 +20,166 @@
 ================================*/
 .left-section {
   flex: 1;
-  background: url("https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRNnwE-Jir_0MWaqX3OElR1cr53cE4nTkF3bQ&s")
-    no-repeat center;
-  background-size: cover;
+  background: linear-gradient(135deg, #001a5c 0%, #0032A0 50%, #0047BB 100%);
   position: relative;
+  overflow: hidden;
 
-  /* 👇 Make text centered */
   display: flex;
   flex-direction: column;
-  justify-content: center; /* vertical */
-  align-items: center;     /* horizontal */
+  justify-content: center;
+  align-items: center;
 
   padding: 40px;
   color: #fff;
-  text-align: center; /* Center TEXT alignment too */
+  text-align: center;
 }
 
-/* Dark transparent gradient overlay */
+/* Animated floating orbs */
 .left-section::before {
   content: "";
   position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to bottom,
-    rgba(0, 0, 0, 0.7),
-    rgba(0, 0, 0, 0.4)
-  );
-  backdrop-filter: blur(6px);
+  top: 10%;
+  left: 15%;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(147, 197, 253, 0.25) 0%, transparent 70%);
+  border-radius: 50%;
+  animation: float-slow 15s ease-in-out infinite;
+  filter: blur(40px);
+  pointer-events: none;
+}
+
+/* Second floating orb */
+.left-section::after {
+  content: "";
+  position: absolute;
+  bottom: 15%;
+  right: 10%;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.2) 0%, transparent 70%);
+  border-radius: 50%;
+  animation: float-slow 20s ease-in-out infinite reverse;
+  filter: blur(60px);
+  pointer-events: none;
 }
 
 /* HERO TEXT */
 .left-section h1,
 .left-section h3 {
   position: relative;
-  z-index: 1;
-  text-shadow: 0 3px 18px rgba(0, 0, 0, 0.9);
+  z-index: 3;
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   animation: fade-up 1s ease-out forwards;
 }
 
 .left-section h1 {
-  font-size: 3rem;
+  font-size: 3.2rem;
   line-height: 1.2;
-  font-weight: 700;
-  margin-bottom: 12px;
+  font-weight: 800;
+  margin-bottom: 24px;
+  letter-spacing: -0.5px;
+  color: #ffffff;
 }
 
-/* Ensure subtext stays centered & width controlled */
 .left-section h3 {
-  font-size: 1.2rem;
-  max-width: 75%;
+  font-size: 1.25rem;
+  max-width: 85%;
   opacity: 0;
-  animation-delay: 0.2s;
+  animation-delay: 0.3s;
+  font-weight: 400;
+  line-height: 1.7;
+  color: #ffffff;
 }
 
 /* ===============================
-   RIGHT SECTION
+   RIGHT SECTION - GLASSMORPHISM
 ================================*/
 .right-section {
   flex: 1;
-  background: #ffffff;
+  background: linear-gradient(135deg, #f8fafc 0%, #e0f2fe 50%, #dbeafe 100%);
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 20px;
-}
-
-/* LOGIN CARD */
-.login-card {
-  width: 100%;
-  max-width: 360px;
   padding: 40px;
-  border-radius: 12px;
-  background: #ffffff;
-  border-top: 5px solid #3b82f6;
-  box-shadow: 0px 8px 25px rgba(0, 0, 0, 0.15);
-  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Large decorative orb - top right */
+.right-section::before {
+  content: "";
+  position: absolute;
+  top: -200px;
+  right: -200px;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(0, 50, 160, 0.12) 0%, transparent 70%);
+  border-radius: 50%;
+  filter: blur(100px);
+  animation: pulse-glow 8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* Medium decorative orb - bottom left */
+.right-section::after {
+  content: "";
+  position: absolute;
+  bottom: -150px;
+  left: -150px;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%);
+  border-radius: 50%;
+  filter: blur(80px);
+  animation: pulse-glow 10s ease-in-out infinite reverse;
+  pointer-events: none;
 }
 
 /* ===============================
-   ROLE TOGGLE BUTTONS
+   REMOVED - See LoginCard.css
 ================================*/
-.role-toggle {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
-}
-
-.role-toggle button {
-  flex: 1;
-  padding: 10px;
-  border: none;
-  border-radius: 8px;
-  background: #e5e7eb;
-  color: #333;
-  cursor: pointer;
-  transition: 0.3s;
-}
-
-.role-toggle button.active {
-  background: #2563eb;
-  color: white;
-}
-
-/* ===============================
-   INPUTS
-================================*/
-.input-icon {
-  display: flex;
-  align-items: center;
-  border: 2px solid #d1d5db;
-  border-radius: 8px;
-  padding: 12px;
-  margin-bottom: 15px;
-  background: #fff;
-}
-
-.input-icon svg {
-  margin-right: 10px;
-  color: #2563eb;
-}
-
-.input-icon input {
-  border: none;
-  outline: none;
-  flex: 1;
-  font-size: 15px;
-}
-
-/* LOGIN BUTTON */
-.login-btn {
-  width: 100%;
-  padding: 12px;
-  font-size: 17px;
-  border: none;
-  border-radius: 8px;
-  background: #2563eb;
-  color: white;
-  cursor: pointer;
-  transition: 0.25s;
-}
-
-.login-btn:hover {
-  background: #1e40af;
-}
 
 /* ===============================
    ANIMATIONS
 ================================*/
-@keyframes bg-zoom {
-  from { background-size: 130%; }
-  to { background-size: 145%; }
+@keyframes float-slow {
+  0%, 100% { 
+    transform: translate(0, 0) scale(1); 
+  }
+  33% { 
+    transform: translate(30px, -30px) scale(1.1); 
+  }
+  66% { 
+    transform: translate(-20px, 20px) scale(0.9); 
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { 
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
 }
 
 @keyframes fade-up {
-  from { opacity: 0; transform: translateY(18px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { 
+    opacity: 0; 
+    transform: translateY(30px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
 }
 
 /* ===============================

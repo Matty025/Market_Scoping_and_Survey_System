@@ -1,30 +1,91 @@
+/* ===============================
+   GLASSMORPHISM LOGIN CARD
+   PhilGEPS Blue Theme: #0032A0
+================================*/
+
 /* ===== Login Card Container ===== */
 .login-card {
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  
   padding: 50px 42px;
-  border-radius: 20px;
-  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.15);
+  border-radius: 24px;
+  box-shadow: 
+    0 8px 32px 0 rgba(0, 50, 160, 0.2),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.5);
+  
   text-align: center;
-  max-width: 380px;
+  max-width: 420px;
   width: 100%;
-  border-top: 6px solid #3b82f6;
-  transition: all 0.35s ease;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   box-sizing: border-box;
+  position: relative;
+  z-index: 10;
+}
+
+.login-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 24px;
+  padding: 2px;
+  background: linear-gradient(135deg, rgba(0, 50, 160, 0.3), rgba(0, 71, 187, 0.1));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
 }
 
 .login-card:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 15px 45px rgba(0, 0, 0, 0.2);
+  transform: translateY(-8px);
+  box-shadow: 
+    0 16px 48px 0 rgba(0, 50, 160, 0.3),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.6);
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+/* ===== Logo Image ===== */
+.logo-image {
+  width: 200px;
+  height: auto;
+  margin-bottom: 20px;
+  filter: drop-shadow(0 4px 12px rgba(0, 50, 160, 0.2));
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
 }
 
 /* ===== Title ===== */
 .login-title {
-  font-size: 28px;
+  font-size: 32px;
   font-weight: 700;
-  color: #1e293b;
-  margin-bottom: 30px;
+  color: #0032A0;
+  margin-bottom: 35px;
   font-family: "Poppins", sans-serif;
   letter-spacing: 0.5px;
+  text-shadow: 0 2px 8px rgba(0, 50, 160, 0.1);
+}
+
+/* ===== Error Message ===== */
+.error-message {
+  background: rgba(239, 68, 68, 0.15);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #b91c1c;
+  padding: 12px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 /* ===== Role Toggle Buttons ===== */
@@ -59,22 +120,27 @@
   transform: scale(1.06);
 }
 
-/* ===== Input Fields ===== */
+/* ===== Input Fields - Glassmorphism ===== */
 .input-icon {
   display: flex;
   align-items: center;
-  border: 2px solid #d1d5db;
-  border-radius: 10px;
-  padding: 12px 15px;
+  
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1.5px solid rgba(255, 255, 255, 0.6);
+  
+  border-radius: 12px;
+  padding: 14px 18px;
   margin-bottom: 20px;
-  background: #fff;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .input-icon svg {
-  color: #3b82f6;
-  margin-right: 10px;
+  color: #0032A0;
+  margin-right: 12px;
   font-size: 18px;
+  opacity: 0.8;
 }
 
 .input-icon input {
@@ -83,13 +149,28 @@
   flex: 1;
   font-size: 16px;
   font-family: "Poppins", sans-serif;
-  color: #374151;
+  color: #1e293b;
+  background: transparent;
+  font-weight: 500;
+}
+
+.input-icon input::placeholder {
+  color: rgba(30, 41, 59, 0.5);
+  font-weight: 400;
 }
 
 .input-icon:focus-within {
-  border-color: #3b82f6;
-  box-shadow: 0 0 12px rgba(59, 130, 246, 0.25);
-  transform: scale(1.01);
+  border-color: #0032A0;
+  background: rgba(255, 255, 255, 0.6);
+  box-shadow: 
+    0 0 0 4px rgba(0, 50, 160, 0.1),
+    0 4px 12px rgba(0, 50, 160, 0.15);
+  transform: translateY(-2px);
+}
+
+.input-icon:focus-within svg {
+  opacity: 1;
+  color: #0047BB;
 }
 
 /* ===== Remember Me & Forgot Password ===== */
@@ -97,20 +178,29 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 25px;
+  margin-bottom: 28px;
   font-size: 14px;
-  color: #475569;
+  color: #334155;
+  font-weight: 500;
 }
 
 .login-options label {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   cursor: pointer;
+  transition: color 0.3s ease;
+}
+
+.login-options label:hover {
+  color: #0032A0;
 }
 
 .login-options input[type="checkbox"] {
-  accent-color: #3b82f6;
+  accent-color: #0032A0;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
 }
 
 /* Text-only clickable links */
@@ -120,53 +210,105 @@
   border: none;
   color: #475569;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  transition: color 0.3s ease;
+  transition: all 0.3s ease;
   text-decoration: none;
   padding: 0;
+  position: relative;
+}
+
+.forgot-password::after,
+.register-link button::after {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: #0032A0;
+  transition: width 0.3s ease;
 }
 
 .forgot-password:hover,
 .register-link button:hover {
-  color: #3b82f6;
-  text-decoration: underline;
+  color: #0032A0;
 }
 
-/* ===== Login Button ===== */
+.forgot-password:hover::after,
+.register-link button:hover::after {
+  width: 100%;
+}
+
+/* ===== Login Button - Glassmorphism ===== */
 .login-btn {
   width: 100%;
-  padding: 13px;
+  padding: 15px;
   border: none;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  border-radius: 12px;
+  background: linear-gradient(135deg, #0032A0 0%, #0047BB 100%);
   color: #fff;
   font-size: 17px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 
+    0 4px 15px rgba(0, 50, 160, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  position: relative;
+  overflow: hidden;
+  font-family: "Poppins", sans-serif;
+  letter-spacing: 0.3px;
+}
+
+.login-btn::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.6s ease;
+}
+
+.login-btn:hover::before {
+  left: 100%;
 }
 
 .login-btn:hover {
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.3);
+  background: linear-gradient(135deg, #001a5c 0%, #0032A0 100%);
+  transform: translateY(-3px);
+  box-shadow: 
+    0 8px 25px rgba(0, 50, 160, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.login-btn:active {
+  transform: translateY(-1px);
+  box-shadow: 
+    0 4px 12px rgba(0, 50, 160, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.login-btn:disabled {
+  background: rgba(148, 163, 184, 0.5);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 /* ===== Registration Link (below button) ===== */
 .register-link {
-  margin-top: 20px;
+  margin-top: 24px;
   font-size: 14px;
   color: #475569;
+  font-weight: 500;
 }
 
-.register-link .register-btn-login {
-  color: #475569;
+.register-link button {
   font-weight: 600;
-}
-
-.register-link .register-btn-login:hover {
-  color: #3b82f6;
+  margin-left: 4px;
 }
 
 /* ===== Responsive Adjustments ===== */

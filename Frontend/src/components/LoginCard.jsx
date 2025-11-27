@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { FaEnvelope, FaLock } from "react-icons/fa";
 import { useAuth } from "./AuthContext"; // Import context
+import msssLogo from "../assets/MSSSlogo.png"; // Import the logo
 import "./LoginCard.css";
 import Toast from "./Toast";
 export default function LoginCard() {
@@ -86,8 +87,9 @@ export default function LoginCard() {
 
   return (
     <div className="login-card">
+      <img src={msssLogo} alt="MSSS Logo" className="logo-image" />
       <Toast type={toast.type} message={toast.message} visible={toast.visible} onClose={hideToast} />
-      <h1 className="login-title">Login</h1> {/* Simplified title */}
+      <h1 className="login-title">Welcome Back</h1>
 
       {errorMsg && <p className="error-message">{errorMsg}</p>}
 
@@ -97,7 +99,7 @@ export default function LoginCard() {
           <FaEnvelope />
           <input
             type="email"
-            placeholder="Email"
+            placeholder="Email Address"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -127,22 +129,14 @@ export default function LoginCard() {
         </div>
 
         <button type="submit" className="login-btn" disabled={isLoggingIn}>
-          {isLoggingIn ? "Logging in..." : "Login"}
+          {isLoggingIn ? "Signing In..." : "Sign In"}
         </button>
       </form>
 
       <p className="register-link">
-        Don’t have an account?{" "}
-        <button onClick={() => navigate("/register")}>Register</button>
+        Don't have an account?
+        <button onClick={() => navigate("/register")}>Create Account</button>
       </p>
-
-      {/* Debug Logout Button */}
-      <button
-        style={{ marginTop: "10px", fontSize: "0.8rem" }}
-        onClick={handleLogout}
-      >
-        Logout (Debug)
-      </button>
     </div>
   );
 }
