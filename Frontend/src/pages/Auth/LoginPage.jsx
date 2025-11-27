@@ -7,10 +7,9 @@ export default function LoginPage() {
     <div className="login-container">
       {/* Left Section with Background Image */}
       <div className="left-section">
-        <h1>Welcome to Market Research Scoping & Survey System</h1>
+        <h1>Market Scoping & Survey System</h1>
         <h3>
-          Efficiently analyze supplier trends and pricing for better procurement
-          decisions.
+          Analyze market data, track supplier pricing, and make smarter procurement decisions.
         </h3>
       </div>
 

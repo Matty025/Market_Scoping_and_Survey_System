@@ -18,7 +18,10 @@
   color: white;
   text-align: center;
   padding: 20px;
-}
+}*/
+
+
+
 
 .left-section::before {
   content: "";
@@ -34,6 +37,12 @@
 .left-section h3 {
   position: relative;
   z-index: 1;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.left-section h3 {
+  font-weight: 400; /* Makes the subheading a bit lighter than the main heading */
+  max-width: 80%; /* Prevents text from stretching too wide on large screens */
 }
 
 /* Right Section */
