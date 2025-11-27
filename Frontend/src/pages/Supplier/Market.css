@@ -266,4 +266,389 @@
   color: #6b7280;
   font-style: italic;
 }
+/* Loading State */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  gap: 1rem;
+}
 
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #22c55e;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Error State */
+.error-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  gap: 1rem;
+}
+
+.error-message {
+  color: #e74c3c;
+  font-size: 1.1rem;
+}
+
+.retry-btn {
+  padding: 0.5rem 1.5rem;
+  background: #22c55e;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.retry-btn:hover {
+  background: #16a34a;
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 8px;
+  padding: 2rem;
+  max-width: 600px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #166534;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 2rem;
+  cursor: pointer;
+  color: #999;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-btn:hover {
+  color: #333;
+}
+
+.close-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Upload Form */
+.upload-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.upload-instructions {
+  background: #f0fdf4;
+  padding: 1rem;
+  border-radius: 6px;
+  border: 1px solid #bbf7d0;
+}
+
+.upload-instructions p {
+  margin: 0 0 0.5rem 0;
+  color: #166534;
+  font-weight: 600;
+}
+
+.upload-instructions ul {
+  margin: 0.5rem 0 0 1.5rem;
+  padding: 0;
+  color: #166534;
+}
+
+.upload-instructions li {
+  margin: 0.25rem 0;
+}
+
+.file-input-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.file-input {
+  padding: 0.75rem;
+  border: 2px dashed #d1d5db;
+  border-radius: 6px;
+  cursor: pointer;
+  background: #fafafa;
+}
+
+.file-input:hover {
+  border-color: #22c55e;
+  background: #f0fdf4;
+}
+
+.file-selected {
+  color: #22c55e;
+  font-weight: 600;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+}
+
+.cancel-btn {
+  padding: 0.75rem 1.5rem;
+  background: #e5e7eb;
+  color: #374151;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.cancel-btn:hover:not(:disabled) {
+  background: #d1d5db;
+}
+
+.cancel-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.submit-btn {
+  padding: 0.75rem 1.5rem;
+  background: #22c55e;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.submit-btn:hover:not(:disabled) {
+  background: #16a34a;
+}
+
+.submit-btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+/* Enhanced Upload Instructions */
+.upload-instructions {
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 2px solid #bbf7d0;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.upload-instructions > p {
+  margin: 0 0 1rem 0;
+  color: #166534;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.instruction-section {
+  background: white;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border-radius: 6px;
+  border-left: 4px solid #22c55e;
+}
+
+.instruction-section h4 {
+  margin: 0 0 0.75rem 0;
+  color: #166534;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.instruction-section ul {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.instruction-section li {
+  margin: 0.5rem 0;
+  color: #374151;
+  line-height: 1.5;
+}
+
+.instruction-section li strong {
+  color: #166534;
+  font-weight: 600;
+}
+
+/* Warning Section */
+.instruction-warning {
+  background: #fef3c7;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border-radius: 6px;
+  border-left: 4px solid #f59e0b;
+}
+
+.instruction-warning h4 {
+  margin: 0 0 0.75rem 0;
+  color: #b45309;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.instruction-warning ul {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.instruction-warning li {
+  margin: 0.5rem 0;
+  color: #78350f;
+  line-height: 1.5;
+}
+
+.instruction-warning li strong {
+  color: #b45309;
+  font-weight: 700;
+}
+
+/* Example Section */
+.instruction-example {
+  background: white;
+  padding: 1rem;
+  border-radius: 6px;
+  border-left: 4px solid #3b82f6;
+}
+
+.instruction-example h4 {
+  margin: 0 0 0.75rem 0;
+  color: #1e40af;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+/* Example Table */
+.example-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  background: white;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.example-table thead {
+  background: #dbeafe;
+}
+
+.example-table th {
+  padding: 0.5rem;
+  text-align: left;
+  color: #1e40af;
+  font-weight: 600;
+  border-bottom: 2px solid #3b82f6;
+  white-space: nowrap;
+}
+
+.example-table td {
+  padding: 0.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  color: #374151;
+}
+
+.example-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.example-table tbody tr:hover {
+  background: #f3f4f6;
+}
+
+/* Scrollbar for upload instructions */
+.upload-instructions::-webkit-scrollbar {
+  width: 8px;
+}
+
+.upload-instructions::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.upload-instructions::-webkit-scrollbar-thumb {
+  background: #22c55e;
+  border-radius: 4px;
+}
+
+.upload-instructions::-webkit-scrollbar-thumb:hover {
+  background: #16a34a;
+}
+
+/* Make modal wider for better example table view */
+.modal-content {
+  max-width: 700px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .example-table {
+    font-size: 0.75rem;
+  }
+  
+  .example-table th,
+  .example-table td {
+    padding: 0.4rem;
+  }
+  
+  .instruction-section,
+  .instruction-warning,
+  .instruction-example {
+    padding: 0.75rem;
+  }
+}

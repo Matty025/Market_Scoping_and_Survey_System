@@ -1,6 +1,8 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./components/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { Toaster } from 'react-hot-toast'; // 💡 IMPORTED THE TOASTER
+
 // Auth pages
 import RegisterPage from "./pages/Auth/RegisterPage";
 import LoginPage from "./pages/Auth/LoginPage";
@@ -34,62 +36,69 @@ function AppContent() {
   const { userRole, logout } = useAuth();
 
   return (
-    <Routes>
-      {/* Auth Routes */}
-      <Route path="/" element={userRole ? <Navigate to={`/${userRole}/dashboard`} replace /> : <LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
+    <>
+      {/* 🚀 FIX: The Toaster component must be rendered high in the tree 
+          to listen to toast calls from anywhere in the application (like AddProductForm). 
+          We place it here, outside the Routes, but inside the AppContent. */}
+      <Toaster position="top-right" reverseOrder={false} />
 
-      {/* Admin Routes */}
-      <Route
-        path="/admin/*"
-        element={
-          <ProtectedRoute requiredRole="admin">
-            <AdminLayout onLogout={logout} />
-          </ProtectedRoute>
-        }
-      >
-        <Route path="dashboard" element={<Dashboard />} />
-        <Route path="manage-accounts" element={<ManageAccounts />} />
-        <Route path="market" element={<Market />} />
-        <Route path="market-suppliers" element={<MarketSuppliers />} />
-        <Route path="supplier-action-history" element={<SupplierActionHistory />} />
-        <Route path="reports" element={<Reports />} />
-        <Route path="settings" element={<Settings />} />
-      </Route>
+      <Routes>
+        {/* Auth Routes */}
+        <Route path="/" element={userRole ? <Navigate to={`/${userRole}/dashboard`} replace /> : <LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
 
-      {/* Supplier Routes */}
-      <Route
-        path="/supplier/*"
-        element={
-          <ProtectedRoute requiredRole="supplier">
-            <SupplierLayout onLogout={logout} />
-          </ProtectedRoute>
-        }
-      >
-        <Route path="dashboard" element={<SupplierDashboard />} />
-        <Route path="market" element={<SupplierMarket />} />
-        <Route path="upload-products" element={<SupplierUploadProducts />} />
-        <Route path="reports" element={<SupplierReports />} />
-        <Route path="profile" element={<SupplierProfile />} />
-      </Route>
+        {/* Admin Routes */}
+        <Route
+          path="/admin/*"
+          element={
+            <ProtectedRoute requiredRole="admin">
+              <AdminLayout onLogout={logout} />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="manage-accounts" element={<ManageAccounts />} />
+          <Route path="market" element={<Market />} />
+          <Route path="market-suppliers" element={<MarketSuppliers />} />
+          <Route path="supplier-action-history" element={<SupplierActionHistory />} />
+          <Route path="reports" element={<Reports />} />
+          <Route path="settings" element={<Settings />} />
+        </Route>
 
-      {/* Buyer Routes */}
-      <Route
-        path="/buyer/*"
-        element={
-          <ProtectedRoute requiredRole="buyer">
-            <BuyerLayout onLogout={logout} />
-          </ProtectedRoute>
-        }
-      >
-        <Route path="dashboard" element={<BuyerDashboard />} />
-        <Route path="market" element={<BuyerMarket />} />
-        <Route path="market-suppliers" element={<BuyerMarketSuppliers />} />
-      </Route>
+        {/* Supplier Routes */}
+        <Route
+          path="/supplier/*"
+          element={
+            <ProtectedRoute requiredRole="supplier">
+              <SupplierLayout onLogout={logout} />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="dashboard" element={<SupplierDashboard />} />
+          <Route path="market" element={<SupplierMarket />} />
+          <Route path="upload-products" element={<SupplierUploadProducts />} />
+          <Route path="reports" element={<SupplierReports />} />
+          <Route path="profile" element={<SupplierProfile />} />
+        </Route>
 
-      {/* Catch-All */}
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        {/* Buyer Routes */}
+        <Route
+          path="/buyer/*"
+          element={
+            <ProtectedRoute requiredRole="buyer">
+              <BuyerLayout onLogout={logout} />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="dashboard" element={<BuyerDashboard />} />
+          <Route path="market" element={<BuyerMarket />} />
+          <Route path="market-suppliers" element={<BuyerMarketSuppliers />} />
+        </Route>
+
+        {/* Catch-All */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
   );
 }
 

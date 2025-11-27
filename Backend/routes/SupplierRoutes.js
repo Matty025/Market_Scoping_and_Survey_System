@@ -331,48 +331,92 @@ router.post('/items', protect, async (req, res) => {
 
   
 // GET /items - list items for logged-in supplier, optional search q
+// GET /items - list items for logged-in supplier, optional search q AND filter
+
+// GET /items - list items for logged-in supplier, with search, category filter, and pagination
 router.get('/items', protect, async (req, res) => {
-  try {
-    if (!req.user || !req.user.role || req.user.role.toLowerCase() !== 'supplier') {
-      return res.status(403).json({ message: 'Only suppliers may list items' });
+    try {
+        if (!req.user || !req.user.role || req.user.role.toLowerCase() !== 'supplier') {
+            return res.status(403).json({ message: 'Only suppliers may list items' });
+        }
+        const userId = req.user.userID;
+        const userQ = await pool.query('SELECT "SupplierID" FROM "Users" WHERE "UserID" = $1', [userId]);
+        const supplierId = userQ.rows[0]?.SupplierID;
+        if (!supplierId) return res.status(404).json({ message: 'Supplier profile not found' });
+
+        const q = req.query.q || '';
+        const categoryStatus = req.query.categoryStatus; 
+        
+        // Pagination parameters
+        const limit = 50; 
+        const page = parseInt(req.query.page, 10) || 1; 
+        const offset = (page - 1) * limit; 
+
+        // 1. Base query setup
+        const searchQ = `%${q.trim().toLowerCase()}%`;
+        const params = [supplierId, searchQ];
+        let whereClauses = [`i."SupplierID" = $1`, `LOWER(i."Name") LIKE $2`];
+        
+        // 2. Add Category Filter Logic
+        let categoryFilterClause = '';
+        if (categoryStatus && categoryStatus.toLowerCase() === 'none') {
+            // Find items that DO NOT have an entry in ItemCategories (i.e., missing categories)
+            categoryFilterClause = `AND i."ItemID" NOT IN (SELECT "ItemID" FROM "ItemCategories")`;
+        } else if (categoryStatus && parseInt(categoryStatus, 10)) {
+            // Filter by a specific CategoryID
+            categoryFilterClause = `AND i."ItemID" IN (SELECT "ItemID" FROM "ItemCategories" WHERE "CategoryID" = ${parseInt(categoryStatus, 10)})`;
+        }
+        
+        // 3. Query for the TOTAL COUNT (needed for pagination UI)
+        // We must include all filtering conditions in the count query.
+        const countQuery = `
+            SELECT COUNT(i."ItemID") 
+            FROM "Items" i
+            WHERE i."SupplierID" = $1 AND LOWER(i."Name") LIKE $2 
+            ${categoryFilterClause};
+        `;
+        const countResult = await pool.query(countQuery, params);
+        const totalCount = parseInt(countResult.rows[0].count, 10);
+        
+        // 4. Construct the main Item listing query
+        const baseQuery = `
+            SELECT
+                i."ItemID" as id, 
+                i."Name" as name, 
+                i."Description" as description, 
+                i."Price" as price, 
+                i."Stock" as stock, 
+                i."Unit" as unit, 
+                i."Location" as location, 
+                i."DatePosted" as date,
+                -- Aggregate categories
+                COALESCE(ARRAY_AGG(DISTINCT c."CategoryID") FILTER (WHERE c."CategoryID" IS NOT NULL), '{}') as categories,
+                COALESCE(STRING_AGG(DISTINCT c."CategoryName", ', ') , 'N/A') as "categoryNames"
+            FROM "Items" i
+            LEFT JOIN "ItemCategories" ic ON i."ItemID" = ic."ItemID"
+            LEFT JOIN "Categories" c ON ic."CategoryID" = c."CategoryID"
+            WHERE ${whereClauses.join(' AND ')}
+            ${categoryFilterClause}
+            GROUP BY i."ItemID"
+            ORDER BY i."DatePosted" DESC
+            LIMIT ${limit} OFFSET ${offset};
+        `;
+        
+        const { rows } = await pool.query(baseQuery, params);
+
+        // 5. Return the comprehensive response
+        res.json({
+            items: rows,
+            totalItems: totalCount,
+            currentPage: page,
+            pageSize: limit
+        });
+        
+    } catch (err) {
+        console.error('Error listing items:', err);
+        res.status(500).json({ message: 'Server error listing items', error: err.message });
     }
-    const userId = req.user.userID;
-    const userQ = await pool.query('SELECT "SupplierID" FROM "Users" WHERE "UserID" = $1', [userId]);
-    const supplierId = userQ.rows[0]?.SupplierID;
-    if (!supplierId) return res.status(404).json({ message: 'Supplier profile not found' });
-
-    const q = req.query.q || '';
-    const searchQ = `%${q.trim().toLowerCase()}%`;
-    const query = `
-      SELECT
-        i."ItemID" as id, 
-        i."Name" as name, 
-        i."Description" as description, 
-        i."Price" as price, 
-        i."Stock" as stock, 
-        i."Unit" as unit, 
-        i."Location" as location, 
-        i."DatePosted" as date,
-        -- Aggregate Category IDs into an array
-        COALESCE(ARRAY_AGG(DISTINCT ic."CategoryID") FILTER (WHERE ic."CategoryID" IS NOT NULL), '{}') as categories,
-        -- Aggregate Category Names into a single string
-        COALESCE(STRING_AGG(DISTINCT c."CategoryName", ', '), 'N/A') as "categoryNames"
-      FROM "Items" i
-      LEFT JOIN "ItemCategories" ic ON i."ItemID" = ic."ItemID"
-      LEFT JOIN "Categories" c ON ic."CategoryID" = c."CategoryID"
-      WHERE i."SupplierID" = $1 AND LOWER(i."Name") LIKE $2
-      GROUP BY i."ItemID"
-      ORDER BY i."DatePosted" DESC
-      LIMIT 50;
-    `;
-    const { rows } = await pool.query(query, [supplierId, searchQ]);
-    res.json(rows);
-  } catch (err) {
-    console.error('Error listing items:', err);
-    res.status(500).json({ message: 'Server error listing items', error: err.message });
-  }
 });
-
 // GET /categories - list categories assigned to the logged-in supplier
 router.get('/categories', protect, async (req, res) => {
   try {
@@ -559,6 +603,217 @@ router.delete('/uploads/:id', protect, async (req, res) => {
   } catch (err) {
     console.error('Error deleting upload:', err);
     res.status(500).json({ message: 'Server error while deleting upload.', error: err.message });
+  }
+});
+
+// COMPLETE UPDATED POST /uploads ROUTE
+// Replace the entire POST '/uploads' route in your SupplierRoutes.js with this:
+
+router.post('/uploads', protect, upload.single('file'), async (req, res) => {
+  console.log('[SupplierRoutes] POST /uploads hit');
+  const file = req.file;
+  let uploadLogId;
+
+  if (!file) {
+    return res.status(400).json({ message: 'File is required' });
+  }
+
+  try {
+    // 1. Authenticate and get SupplierID
+    if (!req.user || !req.user.role || req.user.role.toLowerCase() !== 'supplier') {
+      return res.status(403).json({ message: 'Only suppliers may upload product files' });
+    }
+    const userId = req.user.userID;
+    const userQ = await pool.query('SELECT "SupplierID" FROM "Users" WHERE "UserID" = $1', [userId]);
+    const supplierId = userQ.rows[0]?.SupplierID;
+    if (!supplierId) return res.status(404).json({ message: 'Supplier profile not found' });
+
+    // 2. Log the upload attempt with 'PROCESSING' status
+    const logResult = await pool.query(
+      `INSERT INTO "SupplierUploads" ("SupplierID", "FilePath", "FileName", "Status") VALUES ($1, $2, $3, 'PROCESSING') RETURNING "UploadID"`,
+      [supplierId, file.path, file.originalname]
+    );
+    uploadLogId = logResult.rows[0].UploadID;
+
+    // 3. Find and read the correct sheet from the Excel file
+    const workbook = xlsx.readFile(file.path);
+    let products = [];
+    let sheetFound = false;
+    const requiredHeaders = ['name', 'price', 'unit'];
+
+    console.log('[UPLOAD_DEBUG] Workbook sheets found:', workbook.SheetNames);
+    for (const sheetName of workbook.SheetNames) {
+      const worksheet = workbook.Sheets[sheetName];
+      const sheetDataAsJson = xlsx.utils.sheet_to_json(worksheet);
+
+      if (sheetDataAsJson.length > 0) {
+        const firstRowKeys = Object.keys(sheetDataAsJson[0]).map(k => k.toLowerCase().trim());
+        console.log(`[UPLOAD_DEBUG] Checking sheet "${sheetName}". Headers found:`, firstRowKeys);
+        
+        const hasRequiredHeaders = requiredHeaders.every(rh => firstRowKeys.some(frk => frk.includes(rh)));
+
+        if (hasRequiredHeaders) {
+          products = sheetDataAsJson;
+          sheetFound = true;
+          console.log(`[UPLOAD_SUCCESS] Found valid product data in sheet: "${sheetName}". Processing ${products.length} rows.`);
+          break;
+        }
+      }
+    }
+
+    if (!sheetFound) {
+      throw new Error('Upload failed: Could not find a sheet with the required columns (Name, Price, Unit).');
+    }
+
+    // 4. Process and save products with tracking
+    const client = await pool.connect();
+    
+    // --- TRACKING VARIABLES FOR DETAILED FEEDBACK ---
+    let processedCount = 0;
+    let skippedCount = 0;
+    const skippedCategories = new Set();
+    const missingCategoryDetails = [];
+    
+    try {
+      await client.query('BEGIN');
+
+      // Pre-fetch all categories for matching
+      const allCategoriesResult = await client.query('SELECT "CategoryID", "CategoryName" FROM "Categories"');
+      const allCategories = allCategoriesResult.rows.map(c => ({
+        id: c.CategoryID,
+        name: c.CategoryName.toLowerCase()
+      }));
+
+      if (products.length > 0) console.log('[UPLOAD_DEBUG] First product row data:', products[0]);
+
+      for (const product of products) {
+        // --- COLUMN MAPPING (Case-Insensitive) ---
+        const getVal = (obj, keys) => {
+          const lowerCaseObjKeys = Object.keys(obj).reduce((acc, k) => {
+            acc[k.toLowerCase().trim()] = obj[k];
+            return acc;
+          }, {});
+          for (const key of keys) {
+            if (lowerCaseObjKeys[key.toLowerCase()] !== undefined) return lowerCaseObjKeys[key.toLowerCase()];
+          }
+          return undefined;
+        };
+
+        const name = getVal(product, ['Names', 'Name', 'Product Name', 'Item Name', 'Item']);
+        const description = getVal(product, ['Description']);
+        const price = parseFloat(getVal(product, ['Price', 'Cost']));
+        const unit = getVal(product, ['Unit', 'Unit of Measure']);
+        const stock = parseFloat(getVal(product, ['Stock', 'Quantity', 'Qty'])) || 0;
+        const location = getVal(product, ['Location']);
+        const categoryName = getVal(product, ['Category', 'CategoryName']);
+
+        // Skip rows with missing required fields
+        if (!name || isNaN(price) || !unit) {
+          console.error(`[UPLOAD_SKIP] Skipping row. Reason: Missing required fields. Parsed values -> Name: ${name}, Price: ${price}, Unit: ${unit}`);
+          skippedCount++;
+          continue;
+        }
+
+        // Insert item with UploadID for tracking
+        const itemInsertResult = await client.query(
+          `INSERT INTO "Items" ("SupplierID", "Name", "Description", "Price", "Stock", "Unit", "Location", "UploadID") 
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING "ItemID"`,
+          [supplierId, name, description, price, stock, unit, location, uploadLogId]
+        );
+        const newItemId = itemInsertResult.rows[0].ItemID;
+        processedCount++;
+
+        // --- ENHANCED CATEGORY HANDLING WITH FEEDBACK ---
+        if (categoryName && typeof categoryName === 'string' && newItemId) {
+          const foundCategoryIds = new Set();
+          
+          // Split by comma only (preserves ampersands, hyphens, etc.)
+          const categoryNamesFromCell = categoryName.split(',').map(c => c.trim()).filter(Boolean);
+
+          for (const namePart of categoryNamesFromCell) {
+            const lowerCaseNamePart = namePart.toLowerCase();
+            
+            // Exact match only (case-insensitive)
+            const matchedCat = allCategories.find(c => c.name === lowerCaseNamePart);
+            
+            if (matchedCat) {
+              foundCategoryIds.add(matchedCat.id);
+              console.log(`[UPLOAD] ✓ Matched category: "${namePart}" -> ID: ${matchedCat.id}`);
+            } else {
+              // Track missing categories for user feedback
+              skippedCategories.add(namePart);
+              missingCategoryDetails.push({ item: name, category: namePart });
+              console.warn(`[UPLOAD] ✗ Category "${namePart}" for item "${name}" was not found in the database and was skipped.`);
+            }
+          }
+
+          // Insert all valid category IDs
+          for (const categoryId of foundCategoryIds) {
+            if (categoryId) {
+              await client.query(
+                'INSERT INTO "ItemCategories" ("ItemID", "CategoryID") VALUES ($1, $2) ON CONFLICT DO NOTHING',
+                [newItemId, categoryId]
+              );
+            }
+          }
+        }
+      }
+
+      await client.query('COMMIT');
+
+      // Update upload log with processed count
+      await client.query(
+        `UPDATE "SupplierUploads" SET "Status" = 'COMPLETED', "RowCount" = $1, "ProcessedAt" = NOW() WHERE "UploadID" = $2`,
+        [processedCount, uploadLogId]
+      );
+
+      // --- BUILD DETAILED RESPONSE ---
+      let responseMessage = `Successfully processed ${processedCount} product${processedCount !== 1 ? 's' : ''}.`;
+      const warnings = [];
+
+      if (skippedCount > 0) {
+        warnings.push(`${skippedCount} row${skippedCount !== 1 ? 's were' : ' was'} skipped due to missing required fields (Name, Price, or Unit).`);
+      }
+
+      if (skippedCategories.size > 0) {
+        warnings.push(`${skippedCategories.size} category name${skippedCategories.size !== 1 ? 's' : ''} not found in database: "${Array.from(skippedCategories).join('", "')}". Items were created but these categories were not assigned.`);
+      }
+
+      // Return comprehensive response
+      res.status(201).json({ 
+        message: responseMessage,
+        uploadId: uploadLogId,
+        summary: {
+          totalRows: products.length,
+          processed: processedCount,
+          skipped: skippedCount,
+          skippedCategories: Array.from(skippedCategories),
+          missingCategoryDetails: missingCategoryDetails.length > 0 ? missingCategoryDetails : null
+        },
+        warnings: warnings.length > 0 ? warnings : null
+      });
+
+    } catch (transactionError) {
+      await client.query('ROLLBACK');
+      throw transactionError;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error('Upload error:', err);
+
+    // Mark upload as failed
+    if (uploadLogId) {
+      await pool.query(`UPDATE "SupplierUploads" SET "Status" = 'FAILED' WHERE "UploadID" = $1`, [uploadLogId]);
+    }
+    res.status(500).json({ message: 'Server error while processing file', error: err.message });
+  } finally {
+    // Clean up temporary file
+    if (file) {
+      fs.unlink(file.path, (unlinkErr) => {
+        if (unlinkErr) console.error('Failed to delete temporary file:', file.path);
+      });
+    }
   }
 });
 

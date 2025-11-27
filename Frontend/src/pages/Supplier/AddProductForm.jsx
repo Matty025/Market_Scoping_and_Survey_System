@@ -1,375 +1,321 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useAuth } from "../../components/AuthContext";
-import Toast from "../../components/Toast";
-import "./AddProductForm.css";
+// 💡 FIX 1: Import the standard toast utility object from the library
+import toast from 'react-hot-toast'; 
+// NOTE: You must REMOVE the import for your local Toast component if it existed: 
+// import Toast from "../../components/Toast";
+import "./AddProductForm.css"; // Assuming you have styles
 
-const backendBase = "http://localhost:3001";
-const units = [
-  "pc",
-  "kg",
-  "g",
-  "pack",
-  "box",
-  "case",
-  "unit",
-  "L",
-  "mL",
-  "m",
-  "cm",
-];
+const API_URL = import.meta.env?.VITE_API_URL || 'http://localhost:3001';
 
-export default function AddProductForm({ onClose, onCreated, productToEdit }) {
+const AddProductForm = ({ editing, onClose, onCreated }) => {
   const { token } = useAuth();
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [price, setPrice] = useState('');
-  const [stock, setStock] = useState('');
-  const [unit, setUnit] = useState(units[0]); // Use the predefined list
-  const [location, setLocation] = useState('');
-  const [selectedCategories, setSelectedCategories] = useState([]);
-  const [allCategories, setAllCategories] = useState([]);
-  const [categoryOpen, setCategoryOpen] = useState(false);
-  const [categoryFilter, setCategoryFilter] = useState('');
-  const [matches, setMatches] = useState([]);
-  const [checking, setChecking] = useState(false);
-  const [toast, setToast] = useState({ visible: false, message: "", type: "info" });
-  const [isEditMode, setIsEditMode] = useState(false);
-  const categoryRef = useRef(null);
+  
+  const [formData, setFormData] = useState({
+    name: "",
+    description: "",
+    price: "",
+    stock: "",
+    unit: "",
+    location: "",
+    categories: [] // This will store category IDs
+  });
 
+  const [availableCategories, setAvailableCategories] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [fetchingCategories, setFetchingCategories] = useState(true);
+
+  // Fetch available categories
   useEffect(() => {
-    const isEditing = !!productToEdit;
-    setIsEditMode(isEditing);
-
-    // --- CONSOLIDATED SETUP LOGIC ---
-    // 1. Fetch the correct set of categories based on the mode.
-    fetchCategories(isEditing);
-
-    // 2. If we are editing, populate the form fields with the product's data.
-    if (isEditing) {
-      setName(productToEdit.name || '');
-      setDescription(productToEdit.description || '');
-      setPrice(productToEdit.price || '');
-      setStock(productToEdit.stock || '');
-      setUnit(productToEdit.unit || units[0]);
-      setLocation(productToEdit.location || '');
-      setSelectedCategories(productToEdit.categories || []);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, productToEdit]); // This effect runs only when the component loads or the product to edit changes.
-
-  const fetchCategories = async (isEditing) => {
-    if (!token) return;
-    try {
-      // --- ADJUSTMENT: Fetch ALL categories if in edit mode, otherwise fetch only supplier's categories ---
-      // This ensures we can always display the name of a category, even if it's not in the supplier's current list.
-      const endpoint = isEditing
-        ? `${backendBase}/api/admin/categories` // Endpoint that returns ALL categories
-        : `${backendBase}/api/supplier-files/categories`; // Endpoint for supplier-specific categories
-
-      const categoriesRes = await axios.get(endpoint, { headers: { Authorization: `Bearer ${token}` } });
-
-      if (Array.isArray(categoriesRes.data) && categoriesRes.data.length > 0) {
-        // This formatting works for both endpoints
-        const formattedCategories = categoriesRes.data.map((c) => ({
-          id: c.CategoryID, name: c.CategoryName 
-        }));
-        setAllCategories(formattedCategories);
-      } else {
-        setAllCategories([]);
-        setToast({ visible: true, message: 'No categories assigned to your supplier profile.', type: 'info' });
-      }
-    } catch (err) {
-      console.error('Failed to fetch categories', err);
-      setToast({ visible: true, message: `Failed to load categories: ${err.message}`, type: 'error' });
-    }
-  };
-
-  const toggleCategory = (id) => {
-    setSelectedCategories((prev) => (prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]));
-  };
-
-  const filteredCategories = allCategories.filter((c) => c.name.toLowerCase().includes(categoryFilter.toLowerCase()));
-
-  useEffect(() => {
-    const onDocClick = (e) => {
-      if (categoryRef.current && !categoryRef.current.contains(e.target)) {
-        setCategoryOpen(false);
+    const fetchCategories = async () => {
+      try {
+        setFetchingCategories(true);
+        const res = await axios.get(
+          `${API_URL}/api/supplier-files/categories`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        setAvailableCategories(res.data || []);
+      } catch (err) {
+        console.error("Error fetching categories:", err);
+        // 💡 FIX 2: Call toast.error() directly
+        toast.error("Failed to load categories");
+      } finally {
+        setFetchingCategories(false);
       }
     };
-    document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
-  }, []);
+
+    if (token) {
+      fetchCategories();
+    }
+  }, [token]);
+
+  // Populate form when editing
+  useEffect(() => {
+    if (editing) {
+      setFormData({
+        name: editing.name || "",
+        description: editing.description || "",
+        price: editing.price || "",
+        stock: editing.stock || "",
+        unit: editing.unit || "",
+        location: editing.location || "",
+        // Use the categories array (which contains IDs) from the backend
+        categories: editing.categories || []
+      });
+    }
+  }, [editing]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleCategoryChange = (categoryId) => {
+    const id = parseInt(categoryId);
+    setFormData(prev => ({
+      ...prev,
+      categories: prev.categories.includes(id)
+        ? prev.categories.filter(c => c !== id)
+        : [...prev.categories, id]
+    }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!token) return setToast({ visible: true, message: 'Not authenticated', type: 'error' });
 
-    // --- ENHANCED VALIDATION BLOCK ---
-    const priceValue = parseFloat(price);
-    const stockValue = parseFloat(stock);
-
-    if (!name.trim() || !location.trim() || !price || !stock || !unit) {
-      return setToast({ visible: true, message: 'Please fill out all required fields (*).', type: 'error' });
+    // Validation
+    if (!formData.name.trim()) {
+      // 💡 FIX 3: Call toast.error() directly
+      toast.error("Product name is required");
+      return;
     }
-    // --- NEW VALIDATION: CHECK FOR CATEGORIES ---
-    if (selectedCategories.length === 0) {
-      return setToast({ visible: true, message: 'Please select at least one category for the product.', type: 'error' });
+    if (!formData.unit.trim()) {
+      // 💡 FIX 4: Call toast.error() directly
+      toast.error("Unit is required");
+      return;
     }
-    if (isNaN(priceValue) || priceValue < 0) {
-      return setToast({ visible: true, message: 'Price must be a valid, non-negative number.', type: 'error' });
+    if (formData.price && parseFloat(formData.price) < 0) {
+      // 💡 FIX 5: Call toast.error() directly
+      toast.error("Price cannot be negative");
+      return;
     }
-    if (isNaN(stockValue) || stockValue < 0) {
-      return setToast({ visible: true, message: 'Stock must be a valid, non-negative number.', type: 'error' });
+    if (formData.stock && parseFloat(formData.stock) < 0) {
+      // 💡 FIX 6: Call toast.error() directly
+      toast.error("Stock cannot be negative");
+      return;
     }
-    // Check if stock is a whole number (not a float/double)
-    if (stockValue % 1 !== 0) {
-      return setToast({ visible: true, message: 'Stock must be a whole number (e.g., 100), not a decimal.', type: 'error' });
-    }
-    // --- END OF VALIDATION BLOCK ---
 
     try {
-      // Use the validated numeric values
-      const payload = { name, description, price: priceValue, stock: stockValue, unit, location, categories: selectedCategories };
+      setLoading(true);
 
-      if (isEditMode) {
-        // --- UPDATE LOGIC ---
-        await axios.put(`${backendBase}/api/supplier-files/items/${productToEdit.id}`, payload, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setToast({ visible: true, message: 'Item updated successfully!', type: 'success' });
+      const payload = {
+        name: formData.name.trim(),
+        description: formData.description.trim() || null,
+        price: parseFloat(formData.price) || 0,
+        stock: parseFloat(formData.stock) || 0,
+        unit: formData.unit.trim(),
+        location: formData.location.trim() || null,
+        categories: formData.categories // Send array of category IDs
+      };
+
+      if (editing) {
+        // Update existing product
+        await axios.put(
+          `${API_URL}/api/supplier-files/items/${editing.id}`,
+          payload,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        // 💡 FIX 7: Call toast.success() directly
+        toast.success("Product updated successfully");
       } else {
-        // --- CREATE LOGIC ---
-        const res = await axios.post(`${backendBase}/api/supplier-files/items`, payload, { headers: { Authorization: `Bearer ${token}` } });
-        setToast({ visible: true, message: 'Item created successfully!', type: 'success' });
+        // Create new product
+        await axios.post(
+          `${API_URL}/api/supplier-files/items`,
+          payload,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        // 💡 FIX 8: Call toast.success() directly
+        toast.success("Product created successfully");
       }
 
-      onCreated && onCreated(); // Notify parent to refetch data
-      onClose && onClose();
+      onCreated(); // Refresh the product list
+      onClose(); // Close the modal
     } catch (err) {
-      console.error('Form submission failed', err);
-      setToast({ visible: true, message: `Action failed: ${err.response?.data?.message || err.message}`, type: 'error' });
+      console.error("Error saving product:", err);
+      const errorMsg = err.response?.data?.message || "Failed to save product";
+      // 💡 FIX 9: Call toast.error() directly
+      toast.error(errorMsg);
+    } finally {
+      setLoading(false);
     }
   };
 
-return (
-  <div className="modal-overlay">
-    <div className="modal-content enhanced-modal">
-
-      {/* HEADER */}
-      <div className="modal-header">
-        <h3>{isEditMode ? 'Edit Product' : 'Add New Product'}</h3>
-        <button aria-label="Close" className="close-button" onClick={onClose}>
-          &times;
-        </button>
-      </div>
-
-      {/* FORM */}
-      <form onSubmit={handleSubmit} className="add-product-form">
-
-        {/* NAME */}
-        <div className="form-group">
-          <label htmlFor="ap-name">
-            Name * <span className="info">ⓘ</span>
-          </label>
-          <input
-            id="ap-name"
-            placeholder="e.g. Cement Type 1 (40kg)"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-          />
-          <small className="helper-text">
-            Enter the exact product name as shown on packaging.
-          </small>
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>{editing ? "Edit Product" : "Add New Product"}</h2>
+          <button 
+            className="close-btn" 
+            onClick={onClose}
+            disabled={loading}
+          >
+            ×
+          </button>
         </div>
 
-       {/* DESCRIPTION */}
-<div className="form-group">
-  <label htmlFor="ap-description">
-    Description <span className="info">ⓘ</span>
-  </label>
-
-  <textarea
-    id="ap-description"
-    placeholder="Enter product details like brand, model, material, color, etc."
-    value={description}
-    onChange={(e) => setDescription(e.target.value)}
-  />
-
-  <small className="helper-text">
-    Provide any additional details about the product.
-  </small>
-</div>
-
-
-        {/* LOCATION (NEW - from Items Table) */}
-        <div className="form-group">
-          <label htmlFor="ap-location">
-            Location * <span className="info">ⓘ</span>
-          </label>
-
-          <input
-            id="ap-location"
-            placeholder="e.g. Malolos"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            required
-          />
-
-          <small className="helper-text">
-            Where this item is available or where it ships from.
-          </small>
-        </div>
-
-        {/* PRICE - STOCK - UNIT */}
-        <div className="form-row">
+        <form onSubmit={handleSubmit} className="product-form">
+          {/* Product Name */}
           <div className="form-group">
-            <label htmlFor="ap-price">Price *</label>
+            <label htmlFor="name">
+              Product Name <span className="required">*</span>
+            </label>
             <input
-              id="ap-price"
-              type="number"
-              step="0.01"
-              placeholder="e.g. 250.00"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
+              type="text"
+              id="name"
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
+              placeholder="Enter product name"
+              disabled={loading}
               required
             />
-            <small className="helper-text">Unit price of the product.</small>
           </div>
 
+          {/* Description */}
           <div className="form-group">
-            <label htmlFor="ap-stock">Stock *</label>
-            <input
-              id="ap-stock"
-              type="number"
-              step="1"
-              placeholder="e.g. 100"
-              value={stock}
-              onChange={(e) => setStock(e.target.value)}
-              required
+            <label htmlFor="description">Description</label>
+            <textarea
+              id="description"
+              name="description"
+              value={formData.description}
+              onChange={handleChange}
+              placeholder="Enter product description"
+              rows="3"
+              disabled={loading}
             />
-            <small className="helper-text">How many items are available.</small>
           </div>
 
+          {/* Price and Stock Row */}
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="price">Price (₱)</label>
+              <input
+                type="number"
+                id="price"
+                name="price"
+                value={formData.price}
+                onChange={handleChange}
+                placeholder="0.00"
+                step="0.01"
+                min="0"
+                disabled={loading}
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="stock">Stock</label>
+              <input
+                type="number"
+                id="stock"
+                name="stock"
+                value={formData.stock}
+                onChange={handleChange}
+                placeholder="0"
+                min="0"
+                disabled={loading}
+              />
+            </div>
+          </div>
+
+          {/* Unit and Location Row */}
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="unit">
+                Unit <span className="required">*</span>
+              </label>
+              <input
+                type="text"
+                id="unit"
+                name="unit"
+                value={formData.unit}
+                onChange={handleChange}
+                placeholder="e.g., kg, pcs, box"
+                disabled={loading}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="location">Location</label>
+              <input
+                type="text"
+                id="location"
+                name="location"
+                value={formData.location}
+                onChange={handleChange}
+                placeholder="Enter location"
+                disabled={loading}
+              />
+            </div>
+          </div>
+
+          {/* Categories */}
           <div className="form-group">
-            <label htmlFor="ap-unit">Unit *</label>
-            <select
-              id="ap-unit"
-              value={unit}
-              onChange={(e) => setUnit(e.target.value)}
-              required
-            >
-              {units.map((unit) => (
-                <option key={unit} value={unit}>
-                  {unit}
-                </option>
-              ))}
-            </select>
-            <small className="helper-text">
-              Example: bag, kg, piece, box, set, pack.
-            </small>
-          </div>
-        </div>
-
-        {/* CATEGORIES */}
-        <div className="form-group">
-          <label>
-            Categories (choose any) <span className="info">ⓘ</span>
-          </label>
-
-          <div className="multi-select enhanced" ref={categoryRef}>
-            <button
-              type="button"
-              className="ms-control"
-              onClick={() => setCategoryOpen((s) => !s)}
-              aria-haspopup="listbox"
-              aria-expanded={categoryOpen}
-            >
-              <div className="ms-chips">
-                {selectedCategories.length === 0 && (
-                  <span className="ms-placeholder">Select categories...</span>
-                )}
-
-                {selectedCategories.map((id) => {
-                  // --- FIX: Correctly find the category object by its 'id' property ---
-                  const item = allCategories.find((c) => c.id === id); 
-                  return (
-                    <span key={id} className="ms-chip">
-                      {item ? item.name : id}
-                      <button
-                        type="button"
-                        className="ms-chip-remove"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleCategory(id);
-                        }}
-                      >
-                        ×
-                      </button>
-                    </span>
-                  );
-                })}
-              </div>
-              <span className="ms-caret">▾</span>
-            </button>
-
-            {categoryOpen && (
-              <div className="ms-dropdown" role="listbox">
-                <div className="ms-search">
-                  <input
-                    placeholder="Search categories..."
-                    value={categoryFilter}
-                    onChange={(e) => setCategoryFilter(e.target.value)}
-                  />
-                </div>
-
-                <div className="ms-list">
-                  {filteredCategories.length === 0 ? (
-                    <div className="ms-empty">No categories found</div>
-                  ) : (
-                    filteredCategories.map((c) => (
-                      <label key={c.id} className="ms-item">
-                        <input
-                          type="checkbox"
-                          checked={selectedCategories.includes(c.id)}
-                          onChange={() => toggleCategory(c.id)}
-                        />
-                        <span className="ms-item-name">{c.name}</span>
-                      </label>
-                    ))
-                  )}
-                </div>
+            <label>Categories</label>
+            {fetchingCategories ? (
+              <p className="loading-text">Loading categories...</p>
+            ) : availableCategories.length === 0 ? (
+              <p className="no-categories">No categories available</p>
+            ) : (
+              <div className="categories-grid">
+                {availableCategories.map((cat) => (
+                  <label key={cat.CategoryID} className="category-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={formData.categories.includes(cat.CategoryID)}
+                      onChange={() => handleCategoryChange(cat.CategoryID)}
+                      disabled={loading}
+                    />
+                    <span>{cat.CategoryName}</span>
+                  </label>
+                ))}
               </div>
             )}
           </div>
 
-          <small className="helper-text">
-            Select all categories this product belongs to.
-          </small>
-        </div>
-
-        {/* ACTIONS */}
-        <div className="form-actions">
-          <button type="button" className="btn-secondary" onClick={onClose}>
-            Cancel
-          </button>
-          <button type="submit" className="btn-primary">
-            {isEditMode ? 'Save Changes' : 'Create Product'}
-          </button>
-        </div>
-      </form>
-
-      {/* TOAST */}
-      <Toast
-        visible={toast.visible}
-        type={toast.type}
-        message={toast.message}
-        onClose={() => setToast({ ...toast, visible: false })}
-      />
+          {/* Form Actions */}
+          <div className="form-actions">
+            <button
+              type="button"
+              className="cancel-btn"
+              onClick={onClose}
+              disabled={loading}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="submit-btn"
+              disabled={loading}
+            >
+              {loading ? "Saving..." : editing ? "Update Product" : "Add Product"}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
-
-}
+export default AddProductForm;
