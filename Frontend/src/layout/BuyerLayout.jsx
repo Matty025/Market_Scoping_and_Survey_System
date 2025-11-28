@@ -1,13 +1,22 @@
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import AdminNavbar from "../components/AdminNavbar";
 import Footer from "../components/Footer";
 import "./BuyerLayout.css"; // Reuse admin layout styles (ensure this file exists or copy from AdminLayout.css)
 
-const BuyerLayout = () => {  // <-- Fixed: Component name now matches export
+const BuyerLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("sidebarCollapsed");
+      if (stored !== null) {
+        setIsSidebarOpen(!(stored === "true"));
+      }
+    } catch {}
+  }, []);
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
@@ -17,8 +26,8 @@ const BuyerLayout = () => {  // <-- Fixed: Component name now matches export
       <Sidebar isCollapsed={!isSidebarOpen} onToggle={toggleSidebar} role="buyer" />
 
       <div className="admin-main">
-        {/* Reuse AdminNavbar but pass a buyer-specific title */}
-        <AdminNavbar title="Buyer" />
+        {/* Reuse AdminNavbar but pass a buyer-specific title and toggle */}
+        <AdminNavbar title="Buyer" onToggle={toggleSidebar} isCollapsed={!isSidebarOpen} />
 
         <div className="admin-content">
           <Outlet />
@@ -27,7 +36,6 @@ const BuyerLayout = () => {  // <-- Fixed: Component name now matches export
         <Footer />
       </div>
 
-      {/* Optional overlay to close sidebar when clicked */}
       {isSidebarOpen && <div className="sidebar-overlay" onClick={toggleSidebar}></div>}
     </div>
   );

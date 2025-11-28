@@ -1,22 +1,23 @@
 /* Base toast container */
 .toast {
   position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%); /* Center in the viewport */
+  top: 16px;
+  right: 16px;
+  transform: none;
   min-width: 250px;
   max-width: 90%;
-  padding: 1rem 1.5rem;
+  padding: 0.875rem 1.25rem;
   border-radius: 8px;
   color: #fff;
   font-weight: 600;
   font-family: "Poppins", sans-serif;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.2);
   display: flex;
   align-items: center;
   justify-content: space-between;
   z-index: 9999;
-  animation: fadeInOut 0.5s ease-in-out;
+  opacity: 0;
+  animation: toastFadeIn 160ms ease forwards;
 }
 
 /* Toast types */
@@ -55,10 +56,8 @@
   padding: 0;
 }
 
-/* Fade in/out animation */
-@keyframes fadeInOut {
-  0% { opacity: 0; transform: translate(-50%, -60%); }
-  10% { opacity: 1; transform: translate(-50%, -50%); }
-  90% { opacity: 1; transform: translate(-50%, -50%); }
-  100% { opacity: 0; transform: translate(-50%, -60%); }
+/* Fade in only to avoid blinking */
+@keyframes toastFadeIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
 }

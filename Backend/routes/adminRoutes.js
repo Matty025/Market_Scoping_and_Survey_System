@@ -6,14 +6,13 @@ const { protect } = require("./authMiddleware");
 const pool = require("../db.js");
 const archiver = require("archiver");
 const fs = require("fs");
+
 // --- Multer Configuration for File Uploads ---
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    // Make sure this 'uploads' directory exists in your Backend folder
     cb(null, "uploads/");
   },
   filename: function (req, file, cb) {
-    // Create a unique filename to avoid conflicts
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
     cb(null, file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname));
   },
@@ -25,16 +24,132 @@ const upload = multer({ storage: storage });
 // @route   GET /api/admin/announcements
 // @access  Private (Admin)
 router.get("/announcements", protect, async (req, res) => {
-  // Optional: Add role check from req.user if needed
   if (req.user.role.toLowerCase() !== 'admin') {
     return res.status(403).json({ message: "Access denied. Admins only." });
   }
 
   try {
-    const result = await pool.query(
-      'SELECT "FileID" as id, "Title" as title, "Description" as description, "FilePath" as "filePath", "DatePosted" as posted, "EndDate" as end FROM "ProcurementFiles" ORDER BY "DatePosted" DESC'
-    );
-    res.json(result.rows);
+    const { search, categoryId, from, to, supplierName, supplierId } = req.query;
+
+    let limit = parseInt(req.query.limit, 10);
+    if (Number.isNaN(limit) || limit <= 0) {
+      limit = 50;
+    }
+    limit = Math.min(limit, 100);
+
+    let page = parseInt(req.query.page, 10);
+    if (Number.isNaN(page) || page <= 0) {
+      page = 1;
+    }
+    const offset = (page - 1) * limit;
+
+    const params = [];
+    const where = [];
+
+    // Text search over Title/Description
+    if (search) {
+      params.push(`%${String(search).toLowerCase()}%`);
+      where.push(`(LOWER(pf."Title") LIKE $${params.length} OR LOWER(pf."Description") LIKE $${params.length})`);
+    }
+
+    // Date range on DatePosted
+    if (from) {
+      params.push(from);
+      where.push(`pf."DatePosted"::date >= $${params.length}::date`);
+    }
+    if (to) {
+      params.push(to);
+      where.push(`pf."DatePosted"::date <= $${params.length}::date`);
+    }
+
+    // Category filter
+    if (categoryId) {
+      params.push(parseInt(categoryId, 10));
+      where.push(`pf."FileID" IN (
+        SELECT pfc."FileID" FROM "ProcurementFileCategories" pfc WHERE pfc."CategoryID" = $${params.length}
+      )`);
+    }
+
+    // Supplier filter (by id preferred, fallback to name with case/space insensitivity)
+    if (supplierId) {
+      const sid = parseInt(supplierId, 10);
+      if (!Number.isNaN(sid)) {
+        params.push(sid);
+        where.push(`pf."FileID" IN (
+          SELECT DISTINCT sf."FileID"
+          FROM "SupplierFiles" sf
+          WHERE sf."SupplierID" = $${params.length}
+        )`);
+      }
+    } else if (supplierName && supplierName !== 'All') {
+      params.push(String(supplierName));
+      where.push(`pf."FileID" IN (
+        SELECT DISTINCT sf."FileID" 
+        FROM "SupplierFiles" sf
+        JOIN "Suppliers" s ON sf."SupplierID" = s."SupplierID"
+        WHERE TRIM(LOWER(s."CompanyName")) = TRIM(LOWER($${params.length}))
+      )`);
+    }
+
+    let baseQuery = `
+      SELECT
+        pf."FileID" as id,
+        pf."Title" as title,
+        pf."Description" as description,
+        pf."FilePath" as "filePath",
+        pf."DatePosted" as posted,
+        pf."EndDate" as end,
+        pf."SendType" as "sendType",
+        CASE WHEN pf."EndDate" IS NOT NULL AND pf."EndDate" < NOW() THEN TRUE ELSE FALSE END AS "isExpired",
+        COALESCE(string_agg(DISTINCT c."CategoryName", ', ' ORDER BY c."CategoryName"), '') as categories,
+        COALESCE(array_agg(DISTINCT s2."CompanyName") FILTER (WHERE s2."CompanyName" IS NOT NULL), ARRAY[]::text[]) as suppliers,
+        COUNT(DISTINCT sr."ResponseID") AS "responseCount",
+        COUNT(*) OVER() AS "totalCount"
+      FROM "ProcurementFiles" pf
+      LEFT JOIN "ProcurementFileCategories" pfc ON pfc."FileID" = pf."FileID"
+      LEFT JOIN "Categories" c ON c."CategoryID" = pfc."CategoryID"
+      LEFT JOIN "SupplierFiles" sf ON sf."FileID" = pf."FileID"
+      LEFT JOIN "SupplierResponses" sr ON sr."SupplierFileID" = sf."SupplierFileID"
+      LEFT JOIN "Suppliers" s2 ON s2."SupplierID" = sf."SupplierID"
+    `;
+
+    if (where.length > 0) {
+      baseQuery += ` WHERE ${where.join(' AND ')}`;
+    }
+
+    const limitParamIndex = params.length + 1;
+    const offsetParamIndex = params.length + 2;
+
+    baseQuery += `
+      GROUP BY pf."FileID"
+      ORDER BY pf."DatePosted" DESC
+      LIMIT $${limitParamIndex}
+      OFFSET $${offsetParamIndex}
+    `;
+
+    params.push(limit, offset);
+
+    const { rows } = await pool.query(baseQuery, params);
+
+    const totalCountRaw = rows.length > 0 ? (rows[0].totalCount ?? rows[0].totalcount ?? 0) : 0;
+    const totalCount = parseInt(totalCountRaw, 10) || 0;
+
+    const normalizedRows = rows.map((row) => {
+      const { totalCount: _tc, totalcount: _tcLower, ...rest } = row;
+      return {
+        ...rest,
+        categories: rest.categories || '',
+        sendType: rest.sendType || null,
+        suppliers: Array.isArray(rest.suppliers) ? rest.suppliers : []
+      };
+    });
+
+    res.json({
+      items: normalizedRows,
+      total: totalCount,
+      page,
+      limit
+    });
   } catch (err) {
     console.error("Error fetching announcements:", err.message);
     res.status(500).json({ message: "Server error" });
@@ -49,8 +164,7 @@ router.post("/announcements", protect, upload.single("file"), async (req, res) =
     return res.status(403).json({ message: "Access denied. Admins only." });
   }
 
-  // suppliers will be a JSON string array like '["1", "3"]'
-  const { title, description, categoryId, end } = req.body;
+  const { title, description, categoryId, end, sendType } = req.body;
   const suppliers = req.body.suppliers ? JSON.parse(req.body.suppliers) : [];
   const targetCategories = req.body.categories ? JSON.parse(req.body.categories) : [];
 
@@ -58,6 +172,7 @@ router.post("/announcements", protect, upload.single("file"), async (req, res) =
 
   console.log(`[Announcements POST] user=${req.user?.userID} role=${req.user?.role}`);
   console.log(`[Announcements POST] title=${title} categoryId=${categoryId} end=${end}`);
+  console.log(`[Announcements POST] sendType=${sendType}`);
   console.log(`[Announcements POST] suppliers(raw)=${req.body.suppliers} parsed=${JSON.stringify(suppliers)}`);
   console.log(`[Announcements POST] categories(raw)=${req.body.categories} parsed=${JSON.stringify(targetCategories)}`);
   console.log(`[Announcements POST] file=${req.file ? req.file.filename : 'none'}`);
@@ -70,20 +185,23 @@ router.post("/announcements", protect, upload.single("file"), async (req, res) =
   try {
     await client.query("BEGIN");
 
-    // 1. Insert into ProcurementFiles (omit CategoryID if table doesn't have that column)
-    // Some DB schemas for ProcurementFiles do not include a CategoryID column — insert only the known columns.
+    // Insert into ProcurementFiles with SendType
     const procurementFileQuery = `
-      INSERT INTO "ProcurementFiles" ("Title", "Description", "FilePath", "EndDate")
-      VALUES ($1, $2, $3, $4) RETURNING "FileID";
+      INSERT INTO "ProcurementFiles" ("Title", "Description", "FilePath", "EndDate", "SendType", "DatePosted")
+      VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING "FileID";
     `;
-    const procurementResult = await client.query(procurementFileQuery, [title, description, filePath, end || null]);
+    const procurementResult = await client.query(procurementFileQuery, [
+      title, 
+      description, 
+      filePath, 
+      end || null,
+      sendType || 'category'
+    ]);
     const newFileId = procurementResult.rows[0].FileID;
 
-    // 2. Determine which suppliers to notify
+    // Determine which suppliers to notify
     let supplierIdsToNotify = [];
     if (targetCategories && targetCategories.length > 0) {
-      // Find suppliers based on the categories of items they offer
-      // UPDATED: Now uses the new, more direct SupplierCategories table.
       const findSuppliersQuery = `
         SELECT "SupplierID" FROM "SupplierCategories"
         WHERE "CategoryID" = ANY($1::int[]);
@@ -91,19 +209,15 @@ router.post("/announcements", protect, upload.single("file"), async (req, res) =
       const { rows } = await client.query(findSuppliersQuery, [targetCategories]);
       supplierIdsToNotify = rows.map(r => r.SupplierID);
     } else if (suppliers && suppliers.length > 0) {
-      // Use the manually selected list of suppliers
       supplierIdsToNotify = suppliers.filter(id => id !== 'all');
     }
 
-    // Ensure supplier IDs are integers (Postgres expects int[])
     supplierIdsToNotify = supplierIdsToNotify.map(id => parseInt(id, 10)).filter(n => !Number.isNaN(n));
-    // Remove duplicates so a supplier only receives one SupplierFiles row
     supplierIdsToNotify = Array.from(new Set(supplierIdsToNotify));
     console.log(`[Announcements] Unique supplier IDs to notify: ${supplierIdsToNotify.length}`);
 
-    // 2a. Link the created procurement file to selected categories (if any)
+    // Link file to categories
     if (targetCategories && Array.isArray(targetCategories) && targetCategories.length > 0) {
-      // Ensure category IDs are integers
       const categoryIds = targetCategories.map(id => parseInt(id, 10)).filter(n => !Number.isNaN(n));
       if (categoryIds.length > 0) {
         const insertFileCategoriesQuery = `
@@ -117,17 +231,14 @@ router.post("/announcements", protect, upload.single("file"), async (req, res) =
       }
     }
 
-    // 3. Insert into SupplierFiles for each targeted supplier
+    // Insert into SupplierFiles
     if (supplierIdsToNotify.length > 0) {
-      // Use DISTINCT in the SELECT so duplicate supplier IDs in the provided array
-      // don't cause a conflict between rows of the same INSERT statement.
       const supplierFileInsertQuery = `
         INSERT INTO "SupplierFiles" ("SupplierID", "FileID", "Status")
         SELECT DISTINCT t.supplier_id, $1::int, 'PENDING'
         FROM UNNEST($2::int[]) AS t(supplier_id)
         ON CONFLICT ("SupplierID", "FileID") DO NOTHING;
       `;
-      // Use a single query to insert all rows at once for efficiency
       await client.query(supplierFileInsertQuery, [newFileId, supplierIdsToNotify]);
       console.log(`[Announcements] Sent announcement ${newFileId} to ${supplierIdsToNotify.length} suppliers.`);
     } else {
@@ -145,6 +256,70 @@ router.post("/announcements", protect, upload.single("file"), async (req, res) =
   }
 });
 
+// @desc    Delete a procurement announcement
+// @route   DELETE /api/admin/announcements/:id
+// @access  Private (Admin)
+router.delete("/announcements/:id", protect, async (req, res) => {
+  if (req.user.role.toLowerCase() !== 'admin') {
+    return res.status(403).json({ message: "Access denied. Admins only." });
+  }
+
+  const fileId = parseInt(req.params.id, 10);
+  if (Number.isNaN(fileId)) {
+    return res.status(400).json({ message: "Invalid announcement id." });
+  }
+
+  const client = await pool.connect();
+  let filePathOnDisk = null;
+
+  try {
+    await client.query("BEGIN");
+
+    const fileRes = await client.query(
+      'SELECT "FilePath" FROM "ProcurementFiles" WHERE "FileID" = $1',
+      [fileId]
+    );
+
+    if (fileRes.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Announcement not found." });
+    }
+
+    const storedPath = fileRes.rows[0].FilePath;
+    if (storedPath) {
+      filePathOnDisk = path.isAbsolute(storedPath)
+        ? storedPath
+        : path.join(__dirname, "..", storedPath);
+    }
+
+    await client.query(
+      'DELETE FROM "SupplierResponses" WHERE "SupplierFileID" IN (SELECT "SupplierFileID" FROM "SupplierFiles" WHERE "FileID" = $1)',
+      [fileId]
+    );
+    await client.query('DELETE FROM "SupplierFiles" WHERE "FileID" = $1', [fileId]);
+    await client.query('DELETE FROM "ProcurementFileCategories" WHERE "FileID" = $1', [fileId]);
+    await client.query('DELETE FROM "ProcurementFiles" WHERE "FileID" = $1', [fileId]);
+
+    await client.query("COMMIT");
+
+    if (filePathOnDisk && fs.existsSync(filePathOnDisk)) {
+      fs.unlink(filePathOnDisk, (err) => {
+        if (err) {
+          console.warn(`[Announcements] Failed to delete file on disk: ${filePathOnDisk}`, err);
+        }
+      });
+    }
+
+    res.json({ message: "Announcement deleted successfully." });
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("Error deleting announcement:", err);
+    res.status(500).json({ message: "Server error while deleting announcement." });
+  } finally {
+    client.release();
+  }
+});
+
 // @desc    Get all suppliers
 // @route   GET /api/admin/suppliers
 // @access  Private (Admin)
@@ -154,7 +329,6 @@ router.get("/suppliers", protect, async (req, res) => {
   }
 
   try {
-    // This query joins Suppliers, Users, and counts items to match frontend expectations.
     const suppliersQuery = `
       SELECT
         s."SupplierID" as id,
@@ -222,7 +396,6 @@ router.get("/categories", protect, async (req, res) => {
   }
 
   try {
-    // Order by ParentCategoryID first, THEN by CategoryID to ensure stable nesting
     const result = await pool.query(`
       SELECT "CategoryID", "CategoryName", "ParentCategoryID"
       FROM "Categories"
@@ -232,25 +405,21 @@ router.get("/categories", protect, async (req, res) => {
     const categories = [];
     const categoryMap = {};
 
-    // STEP 1 — Create base objects with Subcategories array
     result.rows.forEach(row => {
       categoryMap[row.CategoryID] = {
         CategoryID: row.CategoryID,
         CategoryName: row.CategoryName,
         ParentCategoryID: row.ParentCategoryID,
-        Subcategories: []     // Always included
+        Subcategories: []
       };
     });
 
-    // STEP 2 — Nest subcategories under parents
     result.rows.forEach(row => {
       if (row.ParentCategoryID && categoryMap[row.ParentCategoryID]) {
-        // It IS a subcategory → attach to parent
         categoryMap[row.ParentCategoryID].Subcategories.push(
           categoryMap[row.CategoryID]
         );
       } else {
-        // It's a main category → push to root
         categories.push(categoryMap[row.CategoryID]);
       }
     });
@@ -262,6 +431,28 @@ router.get("/categories", protect, async (req, res) => {
   }
 });
 
+// @desc    Get mapping of procurement FileID to categories
+// @route   GET /api/admin/file-categories
+// @access  Private (Admin)
+router.get("/file-categories", protect, async (req, res) => {
+  try {
+    if (req.user.role.toLowerCase() !== "admin") {
+      return res.status(403).json({ message: "Access denied. Admins only." });
+    }
+
+    const q = `
+      SELECT pfc."FileID", pfc."CategoryID", c."CategoryName"
+      FROM "ProcurementFileCategories" pfc
+      JOIN "Categories" c ON c."CategoryID" = pfc."CategoryID"
+      ORDER BY pfc."FileID" ASC, pfc."CategoryID" ASC
+    `;
+    const { rows } = await pool.query(q);
+    res.json(rows);
+  } catch (err) {
+    console.error("Error fetching file-categories:", err.message);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
 // Admin: list users (optional ?status=)
 router.get('/users', protect, async (req, res) => {
@@ -341,16 +532,13 @@ router.get("/announcements/:id/responses", protect, async (req, res) => {
 // @desc    Get all market items with advanced filtering for Admin
 // @route   GET /api/admin/market-items
 // @access  Private (Admin)
-// @desc    Get all market items with advanced filtering for Admin
-// @route   GET /api/admin/market-items
-// @access  Private (Admin)
 router.get("/market-items", protect, async (req, res) => {
   try {
     if (req.user.role.toLowerCase() !== "admin") {
       return res.status(403).json({ message: "Access denied. Admins only." });
     }
 
-    const { search, category, supplier, date } = req.query; // single date filter
+    const { search, category, supplier, date } = req.query;
 
     const queryParams = [];
     const whereClauses = [];
@@ -373,7 +561,6 @@ router.get("/market-items", protect, async (req, res) => {
       LEFT JOIN "Categories" c ON ic."CategoryID" = c."CategoryID"
     `;
 
-    // Search filter
     if (search) {
       queryParams.push(`%${search.toLowerCase()}%`);
       whereClauses.push(
@@ -381,13 +568,11 @@ router.get("/market-items", protect, async (req, res) => {
       );
     }
 
-    // Supplier filter
     if (supplier) {
       queryParams.push(supplier);
       whereClauses.push(`i."SupplierID" = $${queryParams.length}`);
     }
 
-    // Single date filter (match items updated on that day)
     if (date) {
       queryParams.push(date);
       queryParams.push(date);
@@ -396,7 +581,6 @@ router.get("/market-items", protect, async (req, res) => {
       );
     }
 
-    // Category filter by ID with recursive subcategories
     if (category) {
       queryParams.push(category);
       whereClauses.push(`
@@ -437,46 +621,6 @@ router.get("/market-items", protect, async (req, res) => {
     res.status(500).json({ message: "Server error while fetching market items." });
   }
 });
-
-
-// GET /api/admin/suppliers - FIXED VERSION
-router.get("/suppliers", protect, async (req, res) => {
-  try {
-    if (req.user.role.toLowerCase() !== "admin") {
-      return res.status(403).json({ message: "Access denied. Admins only." });
-    }
-
-    // Make sure we're selecting directly from Suppliers table
-    // WITHOUT any aliases that would lowercase the fields
-    const query = `
-      SELECT 
-        "SupplierID",
-        "CompanyName",
-        "Address",
-        "ContactNumber",
-        "HasPhilgeps",
-        "HasSECRegistration",
-        "HasBusinessPermit",
-        "HasTaxClearance",
-        "DateCreated",
-        "DateUpdated"
-      FROM "Suppliers"
-      ORDER BY "CompanyName" ASC
-    `;
-
-    const { rows } = await pool.query(query);
-    
-    // Debug: Log what we're actually returning
-    console.log("Suppliers being returned:", rows);
-    
-    res.json(rows);
-  } catch (err) {
-    console.error("Error fetching suppliers:", err);
-    res.status(500).json({ message: "Server error while fetching suppliers." });
-  }
-});
-
-
 
 // @desc    Get all actions from ActionHistory for Admin view
 // @route   GET /api/admin/action-history
@@ -523,7 +667,6 @@ router.get("/action-history", protect, async (req, res) => {
 // @route   GET /api/admin/suppliers/:supplierId/history
 // @access  Private (Admin)
 router.get("/suppliers/:supplierId/history", protect, async (req, res) => {
-  // Ensure the user is an admin before proceeding
   if (req.user.role.toLowerCase() !== 'admin') {
     return res.status(403).json({ message: "Access denied. Admins only." });
   }
@@ -535,9 +678,6 @@ router.get("/suppliers/:supplierId/history", protect, async (req, res) => {
   }
 
   try {
-    // This query joins ActionHistory with Users to get the user's name
-    // and filters by the supplierId from the URL parameter.
-    // UPDATED: Now includes a LEFT JOIN on Items to get the product name.
     const historyQuery = `
       SELECT
         ah."HistoryID" as "historyId",
@@ -563,7 +703,9 @@ router.get("/suppliers/:supplierId/history", protect, async (req, res) => {
   }
 });
 
-// 📂 Download ALL supplier quotations for an announcement
+// @desc    Download ALL supplier quotations for an announcement
+// @route   GET /api/admin/announcements/:id/download-all
+// @access  Private (Admin)
 router.get("/announcements/:id/download-all", protect, async (req, res) => {
   if (req.user.role.toLowerCase() !== "admin") {
     return res.status(403).json({ message: "Admins only" });
@@ -572,7 +714,6 @@ router.get("/announcements/:id/download-all", protect, async (req, res) => {
   const announcementId = req.params.id;
 
   try {
-    // Get all supplier response file paths
     const query = `
       SELECT
         s."CompanyName",
@@ -588,7 +729,6 @@ router.get("/announcements/:id/download-all", protect, async (req, res) => {
       return res.status(404).json({ message: "No quotations found." });
     }
 
-    // Prepare ZIP stream
     res.setHeader("Content-Type", "application/zip");
     res.setHeader(
       "Content-Disposition",
@@ -598,7 +738,6 @@ router.get("/announcements/:id/download-all", protect, async (req, res) => {
     const archive = archiver("zip");
     archive.pipe(res);
 
-    // Add each file
     rows.forEach((row) => {
       const filePath = path.join(__dirname, "..", row.ResponseFilePath);
 
@@ -614,7 +753,8 @@ router.get("/announcements/:id/download-all", protect, async (req, res) => {
     console.error("ZIP creation error:", err);
     res.status(500).json({ message: "Error generating ZIP" });
   }
-})
+});
+
 // @desc    Get dashboard statistics
 // @route   GET /api/admin/stats
 // @access  Private (Admin)
@@ -637,55 +777,33 @@ router.get("/stats", protect, async (req, res) => {
     try {
       await client.query("BEGIN");
 
-      // Total suppliers
       const totalSuppliersRes = await client.query(`SELECT COUNT(*) AS count FROM "Suppliers"`);
       totalSuppliers = parseInt(totalSuppliersRes.rows[0].count, 10) || 0;
-      console.log("totalSuppliers query result:", totalSuppliersRes.rows[0]);
 
-      // Total products
       const totalProductsRes = await client.query(`SELECT COUNT(*) AS count FROM "Items"`);
       totalProducts = parseInt(totalProductsRes.rows[0].count, 10) || 0;
-      console.log("totalProducts query result:", totalProductsRes.rows[0]);
 
-      // Active announcements
       const activeAnnouncementsRes = await client.query(`
         SELECT COUNT(*) AS count FROM "ProcurementFiles" WHERE "DatePosted" <= NOW()
       `);
       activeAnnouncements = parseInt(activeAnnouncementsRes.rows[0].count, 10) || 0;
-      console.log("activeAnnouncements query result:", activeAnnouncementsRes.rows[0]);
 
-      // Pending and answered responses
       const responsesRes = await client.query(`
         SELECT
-          SUM(CASE WHEN "Status" = 'PENDING' THEN 1 ELSE 0 END) AS pending,
-          SUM(CASE WHEN "Status" = 'ANSWERED' THEN 1 ELSE 0 END) AS answered
+          SUM(CASE WHEN UPPER("Status") = 'PENDING' THEN 1 ELSE 0 END) AS pending,
+          SUM(CASE WHEN UPPER("Status") = 'ANSWERED' THEN 1 ELSE 0 END) AS answered
         FROM "SupplierFiles"
       `);
       pendingResponses = parseInt(responsesRes.rows[0].pending, 10) || 0;
       answeredResponses = parseInt(responsesRes.rows[0].answered, 10) || 0;
-      console.log("responses query result:", responsesRes.rows[0]);
 
-      // Total categories (from "Categories" table)
       const totalCategoriesRes = await client.query(`SELECT COUNT(*) AS count FROM "Categories"`);
       totalCategories = parseInt(totalCategoriesRes.rows[0].count, 10) || 0;
-      console.log("totalCategories query result:", totalCategoriesRes.rows[0]);
 
-      // Pending accounts (from "Users" where "AccountStatus" = 'PENDING')
       const pendingAccountsRes = await client.query(`SELECT COUNT(*) AS count FROM "Users" WHERE "AccountStatus" = 'PENDING'`);
       pendingAccounts = parseInt(pendingAccountsRes.rows[0].count, 10) || 0;
-      console.log("pendingAccounts query result:", pendingAccountsRes.rows[0]);
 
       await client.query("COMMIT");
-
-      console.log("Final stats object:", {
-        totalSuppliers,
-        totalProducts,
-        activeAnnouncements,
-        pendingResponses,
-        answeredResponses,
-        totalCategories,
-        pendingAccounts
-      });
 
       res.json({
         totalSuppliers,
@@ -699,7 +817,6 @@ router.get("/stats", protect, async (req, res) => {
     } catch (err) {
       await client.query("ROLLBACK");
       console.error("Stats transaction error:", err);
-      // Even on error, send partial data if available
       res.json({
         totalSuppliers,
         totalProducts,
@@ -717,7 +834,5 @@ router.get("/stats", protect, async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-
-
 
 module.exports = router;

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import AdminNavbar from "../components/AdminNavbar";
@@ -6,7 +6,17 @@ import Footer from "../components/Footer";
 import "./AdminLayout.css";
 
 const AdminLayout = () => {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);  // Assuming false means collapsed (closed)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // Initialize from persisted sidebar state
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("sidebarCollapsed");
+      if (stored !== null) {
+        setIsSidebarOpen(!(stored === "true"));
+      }
+    } catch {}
+  }, []);
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
@@ -15,7 +25,7 @@ const AdminLayout = () => {
       <Sidebar isCollapsed={!isSidebarOpen} onToggle={toggleSidebar} role="admin" />  
 
       <div className="admin-main">
-        <AdminNavbar />  
+        <AdminNavbar onToggle={toggleSidebar} isCollapsed={!isSidebarOpen} />  
         <div className="admin-content">
           <Outlet />
         </div>

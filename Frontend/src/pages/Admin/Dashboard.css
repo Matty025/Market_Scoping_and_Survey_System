@@ -1,3 +1,29 @@
+.dashboard-filters {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+}
+
+.filters-left { display: flex; align-items: center; gap: 0.5rem; }
+.filters-right { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+
+.filter-input, .filter-select, .filter-date {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 767px) {
+  .dashboard-filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .filters-right { justify-content: flex-start; }
+}
 /* ===== General Dashboard Container ===== */
 .dashboard-container, .supplier-dashboard {
   padding: 2rem;
@@ -23,11 +49,13 @@
 
 /* ===== Header Section ===== */
 .dashboard-header, .supplier-header {
-  background-color: #ffffff;
+  background: rgba(255, 255, 255, 0.18);
   padding: 1rem 1.5rem;
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.35);
+  box-shadow: 0 8px 30px rgba(31, 41, 55, 0.12);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .dashboard-header h2, .supplier-header h2 {
@@ -90,30 +118,126 @@
 /* ===== Announcements ===== */
 .announcements-container {
   display: grid;
-  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
   margin-top: 1rem;
 }
 
+@media (max-width: 640px) {
+  .announcements-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pagination-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.pagination-info {
+  font-size: 0.9rem;
+  color: #4b5563;
+}
+
+.pagination-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.pagination-button {
+  padding: 8px 14px;
+  background-color: #3b82f6;
+  color: #ffffff;
+  border-radius: 6px;
+  border: none;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.2s;
+}
+
+.pagination-button:hover:not(:disabled) {
+  background-color: #2563eb;
+  transform: translateY(-1px);
+}
+
+.pagination-button:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.pagination-page {
+  font-size: 0.9rem;
+  color: #374151;
+}
+
+.delete-btn {
+  margin-top: 0.75rem;
+  align-self: flex-start;
+  padding: 6px 12px;
+  background-color: #ef4444;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.2s;
+}
+
+.delete-btn:hover:not(:disabled) {
+  background-color: #dc2626;
+  transform: translateY(-1px);
+}
+
+.delete-btn:disabled {
+  background-color: #f87171;
+  cursor: not-allowed;
+}
+
 .announcement-card, .post-card {
-  background-color: #ffffff;
+  background: rgba(255, 255, 255, 0.22);
   padding: 12px 14px;
-  border-radius: 10px;
-  border: 1px solid #e5e7eb;
-  transition: box-shadow 0.2s, border-color 0.2s, transform 0.2s;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.35);
+  transition: box-shadow 0.2s, border-color 0.2s, transform 0.2s, background 0.2s;
   cursor: pointer;
   position: relative;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .announcement-card:hover, .post-card:hover {
-  box-shadow: 0 4px 10px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 10px 20px rgba(59, 130, 246, 0.15);
   border-color: #3b82f6;
+  background: rgba(255, 255, 255, 0.3);
   transform: translateY(-2px);
+}
+
+.announcement-card.expired {
+  border-color: #fca5a5;
+  background: rgba(254, 242, 242, 0.35);
+}
+
+.announcement-card.expired:hover {
+  border-color: #ef4444;
+  background: rgba(254, 226, 226, 0.6);
 }
 
 .announcement-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.announcement-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .announcement-header h4, .post-title {
@@ -194,6 +318,10 @@
   border-radius: 9999px;
   font-size: 0.65rem;
   font-weight: 600;
+}
+
+.badge-expired {
+  background-color: #ef4444;
 }
 
 /* ===== Dropdown/Category Styles ===== */

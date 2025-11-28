@@ -1,188 +1,189 @@
-/* Frontend/src/components/Sidebar.css */
+/* Sidebar.css — cleaned and enhanced */
 
-/* Base sidebar */
 .sidebar {
-  width: 240px;
-  background-color: #111827; /* Darker, more modern blue-gray */
-  color: #ffffff;
-  height: 100vh;
   position: fixed;
   top: 0;
   left: 0;
   display: flex;
   flex-direction: column;
-  transition: width 0.3s ease;
-  overflow: hidden;
-  padding: 20px;
+  width: 260px;
+  min-width: 260px;
+  height: 100vh;
+  background: #0f172a; /* slate-900 */
+  color: #e2e8f0; /* slate-200 */
+  border-right: 1px solid rgba(255,255,255,0.08);
+  transition: width 200ms ease, min-width 200ms ease;
+  padding: 16px 12px;
   box-sizing: border-box;
   z-index: 1000;
 }
 
-/* Collapsed sidebar (desktop) */
 .sidebar.collapsed {
-  width: 50px;
-  padding: 20px 10px;
-  overflow: visible; /* allow logo to overflow if needed */
+  width: 72px;
+  min-width: 72px;
 }
 
-/* Header (Logo + Title) */
+.sidebar-toggle-btn { display: none; }
+
+.sidebar-toggle-btn:focus-visible { box-shadow: none; }
+
+/* Keep centered when collapsed */
+.sidebar.collapsed .sidebar-toggle-btn { display: none; }
+
+/* Mobile: tuck the button slightly inwards */
+@media (max-width: 767px) {
+  .sidebar-toggle-btn {
+    display: none; /* use navbar toggle on mobile */
+  }
+}
+
+.toggle-icon {
+  transition: transform 200ms ease;
+}
+
+.toggle-icon.rotated {
+  transform: rotate(180deg);
+}
+
 .sidebar-header {
+  padding: 12px 8px 8px 8px;
   display: flex;
+  justify-content: center;
   align-items: center;
-  justify-content: flex-start; /* Align to the left */
-  margin-bottom: 20px;
-  overflow: visible;
 }
 
 .sidebar-title {
   display: flex;
   align-items: center;
-  gap: 12px;
-  font-size: 1.2rem; /* Slightly smaller for a cleaner look */
-  font-weight: bold;
-  white-space: nowrap;
+  justify-content: center;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 600;
+  width: 100%;
 }
 
-/* Logo */
 .sidebar-logo-sdo {
-  width: 160px !important;
-  height: 160px !important;
-  object-fit: contain;
-  flex-shrink: 0;
-  min-width: 160px;
-  min-height: 160px;
-  transition: width 0.3s ease, height 0.3s ease;
+  width: 140px;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+  transition: opacity 200ms ease, transform 200ms ease;
 }
 
-/* Navigation */
 .sidebar-nav {
   display: flex;
-  flex-grow: 1; /* Allow nav to take up available space */
   flex-direction: column;
-  margin-top: 30px;
+  padding: 8px 4px;
+  gap: 4px;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .sidebar-link {
-  color: #ffffff;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #cbd5e1;
   text-decoration: none;
-  margin: 12px 0;
-  font-size: 16px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  transition: color 0.2s ease, background-color 0.2s ease;
-  padding: 8px 6px;
-  border-radius: 6px;
+  padding: 10px 10px;
+  border-radius: 8px;
+  transition: background 150ms ease, color 150ms ease;
+  width: 100%; /* full clickable area */
+  box-sizing: border-box;
 }
 
-.sidebar-link:hover,
+.sidebar-link:hover {
+  background: rgba(255,255,255,0.06);
+  color: #ffffff;
+}
+
 .sidebar-link.active {
+  background: rgba(59,130,246,0.15);
   color: #ffffff;
-  background-color: #3b82f6; /* Professional blue for active/hover */
 }
 
-/* Keep icon width consistent; hide labels when collapsed */
-.sidebar-link span[aria-hidden] {
-  min-width: 20px;
-  text-align: center;
-}
-.sidebar.collapsed .sidebar-link span + span {
-  display: none;
-}
-
-/* Toggle button */
-.sidebar-toggle-btn {
+.sidebar-link.active::before {
+  content: "";
   position: absolute;
-  top: 10px;
-  right: 10px;
-  background: none;
-  border: none;
-  color: #ffffff;
-  font-size: 20px;
-  cursor: pointer;
-  padding: 6px;
-  border-radius: 6px;
-  transition: background 0.3s ease, transform 0.2s ease;
-  z-index: 10;
-}
-.sidebar-toggle-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  transform: scale(1.05);
+  left: -6px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 3px;
+  background: #3b82f6;
 }
 
-/* Arrow rotation */
-.toggle-icon {
-  transition: transform 0.3s ease;
-}
-.toggle-icon.rotated {
-  transform: rotate(180deg);
-}
-
-/* Footer */
-.sidebar-footer {
-  margin-top: auto;
-  padding: 10px 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+.sidebar-link-icon {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
   flex-shrink: 0;
 }
 
-/* Logout button */
+.sidebar-footer {
+  margin-top: auto;
+  padding: 8px 4px 4px 4px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  background: linear-gradient(to top, rgba(15,23,42,0.95), rgba(15,23,42,0.6));
+}
+
 .sidebar-logout-btn {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
-  background: none;
-  border: none;
-  color: #ff6b6b;
-  font-size: 16px;
-  text-decoration: none;
-  padding: 12px 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 0;
+  background: transparent;
+  color: #cbd5e1;
   cursor: pointer;
-  transition: color 0.2s ease, background 0.2s ease;
-  border-radius: 6px;
+  transition: background 150ms ease, color 150ms ease;
 }
+
 .sidebar-logout-btn:hover {
-  color: #ff5252;
-  background: rgba(255, 107, 107, 0.1);
+  background: rgba(239,68,68,0.15);
+  color: #ffffff;
 }
 
-/* Active link emphasis */
-.sidebar-link.active {
-  font-weight: 600;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+/* Collapsed: hide labels, keep icons centered */
+.sidebar.collapsed .sidebar-link {
+  justify-content: center;
+}
+.sidebar.collapsed .sidebar-link span:not(.sidebar-link-icon) {
+  display: none;
+}
+.sidebar.collapsed .sidebar-footer {
+  padding: 8px 4px;
 }
 
-/* Responsive widths */
-
-/* Large tablets / iPad Mini (~768px - 1024px) */
+/* Responsive */
 @media (max-width: 1024px) and (min-width: 768px) {
   .sidebar {
-    width: 200px !important;
-    padding: 20px !important;
+    width: 220px;
+    min-width: 220px;
+    padding: 14px 10px;
   }
   .sidebar.collapsed {
-    width: 50px !important;
-  }
-  .sidebar-logo-sdo {
-    width: 160px !important;
-    height: 160px !important;
+    width: 64px;
+    min-width: 64px;
   }
 }
 
-/* Small tablets / mobile (<768px) */
 @media (max-width: 767px) {
   .sidebar {
-    width: 160px !important;
-    padding: 15px !important;
+    position: fixed;
+    width: 190px;
+    min-width: 190px;
+    padding: 12px 10px;
   }
   .sidebar.collapsed {
-    width: 50px !important;
+    width: 56px;
+    min-width: 56px;
   }
-  .sidebar-logo-sdo {
-    width: 160px !important;
-    height: 160px !important;
+  .sidebar-toggle-btn {
+    top: 8px;
+    right: 8px;
   }
 }

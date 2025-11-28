@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import "./AnnouncementForm.css";
 import axios from "axios";
 import { useAuth } from "./AuthContext";
+import Toast from "./Toast";
 
 const AnnouncementForm = ({ onSubmit, onCancel }) => {
   const { token } = useAuth();
@@ -23,6 +24,18 @@ const AnnouncementForm = ({ onSubmit, onCancel }) => {
     end: "",
     file: null
   });
+
+  const [submitting, setSubmitting] = useState(false);
+  const [toast, setToast] = useState({ visible: false, type: "info", message: "" });
+
+  // Compute today's date string for min attribute (YYYY-MM-DD)
+  const todayStr = useMemo(() => {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  }, []);
 
   // ==========================
   // FETCH CATEGORIES & SUPPLIERS
@@ -97,7 +110,7 @@ const AnnouncementForm = ({ onSubmit, onCancel }) => {
     setForm({ ...form, file: e.target.files[0] });
   };
 
-  // ✅ NEW: Handle parent category selection - auto-select all children
+  // ✅ Handle parent category selection - auto-select all children
   const handleParentCategoryChange = (parent, isChecked) => {
     let updated = [...form.categories];
 
@@ -168,11 +181,65 @@ const AnnouncementForm = ({ onSubmit, onCancel }) => {
   // =====================
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSubmit(form);
+
+    // Basic validations with toasts
+    if (!form.title.trim()) {
+      setToast({ visible: true, type: "warning", message: "Please enter a title." });
+      return;
+    }
+    if (!form.description.trim()) {
+      setToast({ visible: true, type: "warning", message: "Please enter a description." });
+      return;
+    }
+    if (!form.end) {
+      setToast({ visible: true, type: "warning", message: "Please select an end date." });
+      return;
+    }
+    const endDate = new Date(form.end);
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    if (endDate < today) {
+      setToast({ visible: true, type: "error", message: "End date cannot be in the past." });
+      return;
+    }
+
+    // When sending by category, require categories
+    if (form.sendType === "category" && form.categories.length === 0) {
+      setToast({ visible: true, type: "info", message: "Select at least one category." });
+      return;
+    }
+
+    if (form.sendType === "supplier" && form.suppliers.length === 0) {
+      setToast({ visible: true, type: "info", message: "Select at least one supplier." });
+      return;
+    }
+
+    if (form.file && form.file.type !== "application/pdf") {
+      setToast({ visible: true, type: "error", message: "Only PDF files are allowed." });
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      // Delegate success toast to caller (Dashboard) after API succeeds
+      onSubmit(form);
+    } catch (err) {
+      setToast({ visible: true, type: "error", message: "Failed to submit announcement." });
+    } finally {
+      // Keep disabled momentarily to prevent double clicks
+      setTimeout(() => setSubmitting(false), 600);
+    }
   };
 
   return (
     <form className="announcement-form" onSubmit={handleSubmit}>
+      <Toast
+        type={toast.type}
+        message={toast.message}
+        visible={toast.visible}
+        onClose={() => setToast({ ...toast, visible: false })}
+        duration={2500}
+      />
       <h3>📝 Procurement Announcement</h3>
 
       <label>Title</label>
@@ -195,7 +262,62 @@ const AnnouncementForm = ({ onSubmit, onCancel }) => {
         required
       />
 
-      <label>Send To</label>
+      {/* ✅ CATEGORIES - Only required when sending by category */}
+      {form.sendType === "category" && (
+        <>
+          <label>Categories <span style={{ color: "red" }}>*</span></label>
+          <p style={{ fontSize: "12px", color: "#666", marginTop: "-5px", marginBottom: "10px" }}>
+            Select categories to send this announcement to
+          </p>
+          <div ref={dropdownRef} className="dropdown-container">
+            <div className="dropdown-selected" onClick={() => setDropdownOpen(!dropdownOpen)}>
+              {form.categories.length > 0
+                ? `${form.categories.length} categories selected`
+                : "Select Categories"}
+              <span className="dropdown-arrow">{dropdownOpen ? "▲" : "▼"}</span>
+            </div>
+
+            {dropdownOpen && (
+              <div className="dropdown-menu-CR">
+                {categoryOptions.map((parent) => (
+                  <div key={`parent-${parent.CategoryID}`}>
+                    {/* ✅ Parent Category - Selects all children when checked */}
+                    <label className="dropdown-item parent-item">
+                      <input
+                        type="checkbox"
+                        checked={form.categories.includes(parent.CategoryID)}
+                        onChange={(e) => handleParentCategoryChange(parent, e.target.checked)}
+                      />
+                      <strong>📁 {parent.CategoryName}</strong>
+                    </label>
+
+                    {/* ✅ Child Categories - Individual selection */}
+                    {parent.children && parent.children.length > 0 && (
+                      <div className="children-container">
+                        {parent.children.map((child) => (
+                          <label key={`child-${child.CategoryID}`} className="dropdown-item child-category">
+                            <input
+                              type="checkbox"
+                              checked={form.categories.includes(child.CategoryID)}
+                              onChange={(e) => handleCategoryChange(child, e.target.checked)}
+                            />
+                            └─ {child.CategoryName}
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      <label style={{ marginTop: "20px" }}>Send To</label>
+      <p style={{ fontSize: "12px", color: "#666", marginTop: "-5px", marginBottom: "10px" }}>
+        Choose how to distribute this announcement
+      </p>
       <div className="send-type-options">
         <label>
           <input
@@ -205,7 +327,7 @@ const AnnouncementForm = ({ onSubmit, onCancel }) => {
             checked={form.sendType === "category"}
             onChange={handleChange}
           />
-          Category
+          Send to all suppliers in selected categories
         </label>
 
         <label>
@@ -216,57 +338,11 @@ const AnnouncementForm = ({ onSubmit, onCancel }) => {
             checked={form.sendType === "supplier"}
             onChange={handleChange}
           />
-          Supplier
+          Send to specific suppliers
         </label>
       </div>
 
-      {/* ✅ FIXED CATEGORY DROPDOWN */}
-      {form.sendType === "category" && (
-        <div ref={dropdownRef} className="dropdown-container">
-          <div className="dropdown-selected" onClick={() => setDropdownOpen(!dropdownOpen)}>
-            {form.categories.length > 0
-              ? `${form.categories.length} categories selected`
-              : "Select Categories"}
-            <span className="dropdown-arrow">{dropdownOpen ? "▲" : "▼"}</span>
-          </div>
-
-          {dropdownOpen && (
-            <div className="dropdown-menu-CR">
-              {categoryOptions.map((parent) => (
-                <div key={`parent-${parent.CategoryID}`}>
-                  {/* ✅ Parent Category - Selects all children when checked */}
-                  <label className="dropdown-item parent-item">
-                    <input
-                      type="checkbox"
-                      checked={form.categories.includes(parent.CategoryID)}
-                      onChange={(e) => handleParentCategoryChange(parent, e.target.checked)}
-                    />
-                    <strong>📁 {parent.CategoryName}</strong>
-                  </label>
-
-                  {/* ✅ Child Categories - Individual selection */}
-                  {parent.children && parent.children.length > 0 && (
-                    <div className="children-container">
-                      {parent.children.map((child) => (
-                        <label key={`child-${child.CategoryID}`} className="dropdown-item child-category">
-                          <input
-                            type="checkbox"
-                            checked={form.categories.includes(child.CategoryID)}
-                            onChange={(e) => handleCategoryChange(child, e.target.checked)}
-                          />
-                          └─ {child.CategoryName}
-                        </label>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* SUPPLIER DROPDOWN - UNCHANGED */}
+      {/* SUPPLIER DROPDOWN - Only shows when sendType is supplier */}
       {form.sendType === "supplier" && (
         <div ref={supplierDropdownRef} className="dropdown-container">
           <div
@@ -306,6 +382,7 @@ const AnnouncementForm = ({ onSubmit, onCancel }) => {
             name="end"
             value={form.end}
             onChange={handleChange}
+            min={todayStr}
             required
           />
         </div>
@@ -315,7 +392,7 @@ const AnnouncementForm = ({ onSubmit, onCancel }) => {
       <input type="file" accept="application/pdf" onChange={handleFileChange} />
 
       <div className="form-actions">
-        <button type="submit" className="save-btn">Post</button>
+        <button type="submit" className="save-btn" disabled={submitting}>{submitting ? "Posting..." : "Post"}</button>
         <button type="button" className="cancel-btn" onClick={onCancel}>
           Cancel
         </button>

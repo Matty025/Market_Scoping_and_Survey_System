@@ -1,5 +1,5 @@
 // src/layout/SupplierLayout.jsx
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import AdminNavbar from "../components/AdminNavbar";
@@ -9,6 +9,15 @@ import "./SupplierLayout.css"; // reuse admin layout styles
 const SupplierLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("sidebarCollapsed");
+      if (stored !== null) {
+        setIsSidebarOpen(!(stored === "true"));
+      }
+    } catch {}
+  }, []);
+
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
   return (
@@ -17,8 +26,8 @@ const SupplierLayout = () => {
       <Sidebar isCollapsed={!isSidebarOpen} onToggle={toggleSidebar} role="supplier" />
 
       <div className="admin-main">
-        {/* Reuse AdminNavbar but pass a title */}
-        <AdminNavbar title="Supplier" />
+        {/* Reuse AdminNavbar but pass a title and toggle */}
+        <AdminNavbar title="Supplier" onToggle={toggleSidebar} isCollapsed={!isSidebarOpen} />
 
         <div className="admin-content">
           <Outlet />

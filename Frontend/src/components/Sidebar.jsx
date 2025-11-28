@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useMemo } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { 
   FaChevronLeft, FaSignOutAlt, FaTachometerAlt, FaShoppingCart, 
@@ -7,8 +7,15 @@ import {
 import logo from "../assets/Logo.png";
 import "./Sidebar.css";
 
-const Sidebar = ({ isCollapsed = false, onToggle = () => {}, role = "admin" }) => {
+const Sidebar = ({ isCollapsed = false, onToggle = () => {}, role }) => {
   const navigate = useNavigate();
+
+  // Derive role from session storage if not provided
+  const effectiveRole = useMemo(() => {
+    if (role) return role;
+    const stored = sessionStorage.getItem("userRole");
+    return stored || "admin";
+  }, [role]);
 
   const handleLogout = () => {
     if (window.confirm("Are you sure you want to logout?")) {
@@ -21,8 +28,26 @@ const Sidebar = ({ isCollapsed = false, onToggle = () => {}, role = "admin" }) =
     }
   };
 
+  // Persist collapse state across reloads
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("sidebarCollapsed");
+      const parsed = stored === "true";
+      if (stored !== null && parsed !== isCollapsed) {
+        onToggle(parsed);
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("sidebarCollapsed", String(isCollapsed));
+    } catch {}
+  }, [isCollapsed]);
+
   const navLinks =
-    role === "supplier"
+    effectiveRole === "supplier"
       ? [
           { to: "/supplier/dashboard", label: "Dashboard", icon: <FaTachometerAlt /> },
           { to: "/supplier/market", label: "Market", icon: <FaShoppingCart /> },
@@ -30,7 +55,7 @@ const Sidebar = ({ isCollapsed = false, onToggle = () => {}, role = "admin" }) =
           { to: "/supplier/reports", label: "Reports", icon: <FaChartLine /> },
           { to: "/supplier/profile", label: "Profile", icon: <FaUser /> },
         ]
-      : role === "buyer"
+      : effectiveRole === "buyer"
       ? [
           { to: "/buyer/dashboard", label: "Dashboard", icon: <FaTachometerAlt /> },
           { to: "/buyer/market", label: "Market", icon: <FaShoppingCart /> },
@@ -50,9 +75,16 @@ const Sidebar = ({ isCollapsed = false, onToggle = () => {}, role = "admin" }) =
     <aside className={`sidebar ${isCollapsed ? "collapsed" : ""}`}>
       <button
         className="sidebar-toggle-btn"
-        onClick={onToggle}
+        onClick={() => onToggle(!isCollapsed)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onToggle(!isCollapsed);
+          }
+        }}
         title={isCollapsed ? "Open Sidebar" : "Close Sidebar"}
         aria-label="Toggle sidebar"
+        aria-expanded={!isCollapsed}
       >
         <FaChevronLeft className={`toggle-icon ${isCollapsed ? "rotated" : ""}`} />
       </button>
@@ -77,6 +109,7 @@ const Sidebar = ({ isCollapsed = false, onToggle = () => {}, role = "admin" }) =
             className={({ isActive }) =>
               `sidebar-link ${isActive ? "active" : ""}`
             }
+            title={isCollapsed ? link.label : undefined}
           >
             <span className="sidebar-link-icon">{link.icon}</span>
             {!isCollapsed && <span style={{ marginLeft: 8 }}>{link.label}</span>}
