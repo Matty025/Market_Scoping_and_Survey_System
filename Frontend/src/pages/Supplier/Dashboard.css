@@ -1,28 +1,51 @@
 /* General Dashboard Styling */
 .supplier-dashboard {
-  padding: 2rem;
-  background-color: #f4f7fa;
+  padding: 2.5rem;
+  background: linear-gradient(135deg, #fbfdff 0%, #f4f8ff 45%, #ffffff 100%);
   min-height: 100vh;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: #2c3e50;
 }
 
 /* Header Section */
 .supplier-header {
-  margin-bottom: 2.5rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid #dde3ea;
+  margin-bottom: 2.75rem;
+  padding: 1.5rem 1.75rem;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(210, 218, 231, 0.6);
+  box-shadow: 0 18px 32px -28px rgba(79, 114, 205, 0.35);
+  backdrop-filter: blur(6px);
 }
 
 .supplier-header h2 {
-  font-size: 2rem;
-  font-weight: 600;
-  color: #2c3e50;
-  margin-bottom: 0.5rem;
+  font-size: 2.1rem;
+  font-weight: 700;
+  color: #1e2a44;
+  margin-bottom: 0.35rem;
 }
 
 .supplier-header p {
   font-size: 1rem;
-  color: #576c7f;
+  color: #4c5f78;
+  margin-bottom: 0.75rem;
+}
+
+.supplier-header-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+  color: #516174;
+}
+
+.supplier-header-meta span {
+  background: linear-gradient(120deg, #eef4ff, #dde8ff);
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid rgba(158, 177, 223, 0.5);
+  box-shadow: 0 6px 14px -12px rgba(46, 91, 255, 0.65);
 }
 
 /* Loading, Error, and Empty State Messages */
@@ -37,34 +60,137 @@
 
 .supplier-dashboard > p {
   text-align: center;
-  font-size: 1.1rem;
-  color: #576c7f;
+  font-size: 1.05rem;
+  color: #5b6d82;
   margin-top: 3rem;
+}
+
+.supplier-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  margin-bottom: 1.75rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(210, 218, 231, 0.65);
+  border-radius: 14px;
+  box-shadow: 0 16px 35px -28px rgba(94, 118, 192, 0.28);
+}
+
+.supplier-filters input,
+.supplier-filters select {
+  padding: 0.65rem 0.9rem;
+  border: 1px solid #c5cfe0;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  background: rgba(246, 248, 255, 0.85);
+  min-width: 210px;
+  color: #33415c;
+  transition: border 0.2s ease, box-shadow 0.2s ease;
+}
+
+.supplier-filters input:focus,
+.supplier-filters select:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+}
+
+.clear-filters-btn {
+  padding: 0.6rem 1.1rem;
+  border-radius: 10px;
+  border: 1px solid #b9c6df;
+  background: linear-gradient(135deg, #edf2ff, #e2ebff);
+  color: #2f4470;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.clear-filters-btn:hover {
+  background: linear-gradient(135deg, #e0e9ff, #d6e2ff);
+  border-color: #98b2f5;
+}
+
+.failed-posting-detail {
+  color: #a8322a;
+  font-weight: 600;
 }
 
 /* Grid container for cards */
 .posts-container {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 1.5rem;
+  gap: 1.75rem;
 }
 
 /* Individual Card Styling */
 .post-card {
-  background-color: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-  padding: 1.5rem;
+  position: relative;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.97);
+  border-radius: 16px;
+  box-shadow: 0 22px 42px -30px rgba(34, 60, 138, 0.28);
+  padding: 1.65rem;
   cursor: pointer;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
   display: flex;
   flex-direction: column;
-  border: 1px solid #e8edf3;
+  border: 1px solid rgba(224, 230, 244, 0.9);
 }
 
 .post-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+  transform: translateY(-6px);
+  box-shadow: 0 26px 46px -30px rgba(55, 95, 185, 0.33);
+}
+
+.post-card.failed-posting {
+  border-color: rgba(249, 184, 174, 0.7);
+  background: linear-gradient(135deg, rgba(255, 248, 246, 0.98), rgba(255, 240, 238, 0.95));
+  cursor: not-allowed;
+}
+
+.post-card.failed-posting:hover {
+  transform: none;
+  box-shadow: 0 22px 42px -30px rgba(34, 60, 138, 0.28);
+}
+
+.post-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.post-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1.5px solid transparent;
+  pointer-events: none;
+  transition: border 0.25s ease;
+}
+
+.post-card.upcoming::before {
+  border-color: rgba(46, 204, 113, 0.35);
+}
+
+.post-card.due-soon::before {
+  border-color: rgba(243, 156, 18, 0.35);
+}
+
+.post-card.due-today::before {
+  border-color: rgba(243, 156, 18, 0.5);
+}
+
+.post-card.overdue::before {
+  border-color: rgba(231, 76, 60, 0.45);
+}
+
+.post-card.answered::before {
+  border-color: rgba(46, 204, 113, 0.35);
 }
 
 /* Card Content */
@@ -78,7 +204,7 @@
 .post-date {
   font-size: 0.875rem;
   color: #7f8c8d;
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
 }
 
 .post-description {
@@ -86,7 +212,7 @@
   color: #576c7f;
   line-height: 1.5;
   flex-grow: 1; /* Pushes the status badge to the bottom */
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.25rem;
 }
 
 /* Status Badge Styling */
@@ -98,6 +224,7 @@
   font-weight: 700;
   text-transform: uppercase;
   align-self: flex-start; /* Aligns badge to the start of the flex container */
+  letter-spacing: 0.04em;
 }
 
 .status-badge.pending {
@@ -110,8 +237,121 @@
   color: #27ae60;
 }
 
+.status-badge.failed {
+  background: linear-gradient(135deg, #fff3ef, #ffe7e3);
+  color: #ba4d3f;
+  border: 1px solid rgba(232, 155, 137, 0.55);
+  box-shadow: 0 8px 20px -16px rgba(186, 77, 63, 0.4);
+}
+
 /* Add a default for any other status */
-.status-badge:not(.pending):not(.answered) {
+.status-badge:not(.pending):not(.answered):not(.failed) {
   background-color: #ecf0f1;
   color: #7f8c8d;
+}
+
+.due-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  width: fit-content;
+  gap: 0.35rem;
+}
+
+.due-chip.overdue,
+.due-chip.failed-posting {
+  background: #fdecea;
+  color: #c0392b;
+  border: 1px solid #f5b1a6;
+}
+
+.due-chip.due-today,
+.due-chip.due-soon {
+  background: #fff6e6;
+  color: #b9770e;
+  border: 1px solid #f8d3a2;
+}
+
+.due-chip.upcoming {
+  background: #ecf9f1;
+  color: #1f7a47;
+  border: 1px solid #b8e2c9;
+}
+
+.due-chip.no-deadline {
+  background: #eef2f7;
+  color: #66758a;
+  border: 1px solid #dde3ea;
+}
+
+.due-chip.overdue::before {
+  content: "⚠";
+  font-size: 0.9rem;
+}
+
+.due-chip.due-today::before,
+.due-chip.due-soon::before {
+  content: "⏳";
+  font-size: 0.9rem;
+}
+
+.due-chip.upcoming::before {
+  content: "📅";
+  font-size: 0.9rem;
+}
+
+.due-chip.no-deadline::before {
+  content: "🗂";
+  font-size: 0.9rem;
+}
+
+.post-categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: auto;
+}
+
+.category-pill {
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #eef3ff, #e6edff);
+  color: #31476d;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid rgba(177, 191, 224, 0.5);
+}
+
+.category-pill.more {
+  background: #dfe7f5;
+  border-color: #c5d4f3;
+  color: #354a75;
+}
+
+@media (max-width: 768px) {
+  .supplier-dashboard {
+    padding: 1.5rem;
+  }
+
+  .supplier-filters input,
+  .supplier-filters select {
+    min-width: 100%;
+  }
+
+  .supplier-filters {
+    flex-direction: column;
+  }
+
+  .supplier-header-meta {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .posts-container {
+    grid-template-columns: 1fr;
+  }
 }

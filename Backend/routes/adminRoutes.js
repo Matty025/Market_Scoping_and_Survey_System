@@ -7,6 +7,31 @@ const pool = require("../db.js");
 const archiver = require("archiver");
 const fs = require("fs");
 
+const FALLBACK_CATEGORY_NAME = "Uncategorized";
+
+const parseBooleanQuery = (value) => {
+  if (typeof value !== "string") {
+    return false;
+  }
+  const normalized = value.trim().toLowerCase();
+  return ["1", "true", "yes", "on"].includes(normalized);
+};
+
+const ensureFallbackCategory = async (client) => {
+  const existing = await client.query(
+    'SELECT "CategoryID" FROM "Categories" WHERE LOWER("CategoryName") = LOWER($1) LIMIT 1',
+    [FALLBACK_CATEGORY_NAME]
+  );
+  if (existing.rows.length > 0) {
+    return existing.rows[0].CategoryID;
+  }
+  const inserted = await client.query(
+    'INSERT INTO "Categories" ("CategoryName") VALUES ($1) RETURNING "CategoryID"',
+    [FALLBACK_CATEGORY_NAME]
+  );
+  return inserted.rows[0].CategoryID;
+};
+
 // --- Multer Configuration for File Uploads ---
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -397,9 +422,18 @@ router.get("/categories", protect, async (req, res) => {
 
   try {
     const result = await pool.query(`
-      SELECT "CategoryID", "CategoryName", "ParentCategoryID"
-      FROM "Categories"
-      ORDER BY "ParentCategoryID" NULLS FIRST, "CategoryID" ASC
+      SELECT
+        c."CategoryID",
+        c."CategoryName",
+        c."ParentCategoryID",
+        COALESCE(icounts."ItemCount", 0) AS "ItemCount"
+      FROM "Categories" c
+      LEFT JOIN (
+        SELECT "CategoryID", COUNT(*) AS "ItemCount"
+        FROM "ItemCategories"
+        GROUP BY "CategoryID"
+      ) AS icounts ON icounts."CategoryID" = c."CategoryID"
+      ORDER BY c."ParentCategoryID" NULLS FIRST, c."CategoryID" ASC
     `);
 
     const categories = [];
@@ -410,6 +444,7 @@ router.get("/categories", protect, async (req, res) => {
         CategoryID: row.CategoryID,
         CategoryName: row.CategoryName,
         ParentCategoryID: row.ParentCategoryID,
+        ItemCount: Number(row.ItemCount ?? 0),
         Subcategories: []
       };
     });
@@ -428,6 +463,256 @@ router.get("/categories", protect, async (req, res) => {
   } catch (err) {
     console.error("Error fetching categories:", err.message);
     res.status(500).json({ message: "Server error" });
+  }
+});
+
+// @desc    Create a new procurement category
+// @route   POST /api/admin/categories
+// @access  Private (Admin)
+router.post("/categories", protect, async (req, res) => {
+  if (req.user.role.toLowerCase() !== "admin") {
+    return res.status(403).json({ message: "Access denied. Admins only." });
+  }
+
+  const { name, parentCategoryId } = req.body;
+  const trimmedName = typeof name === "string" ? name.trim() : "";
+  if (!trimmedName) {
+    return res.status(400).json({ message: "Category name is required." });
+  }
+
+  let parentId = null;
+  if (parentCategoryId !== null && parentCategoryId !== undefined && parentCategoryId !== "") {
+    const parsed = Number(parentCategoryId);
+    if (Number.isNaN(parsed)) {
+      return res.status(400).json({ message: "Parent category id must be numeric." });
+    }
+    parentId = parsed;
+
+    try {
+      const parentCheck = await pool.query('SELECT "CategoryID" FROM "Categories" WHERE "CategoryID" = $1', [parentId]);
+      if (parentCheck.rows.length === 0) {
+        return res.status(400).json({ message: "Parent category not found." });
+      }
+    } catch (err) {
+      console.error("Error validating parent category:", err.message);
+      return res.status(500).json({ message: "Server error" });
+    }
+  }
+
+  try {
+    const insertQuery = `
+      INSERT INTO "Categories" ("CategoryName", "ParentCategoryID")
+      VALUES ($1, $2)
+      RETURNING "CategoryID", "CategoryName", "ParentCategoryID"
+    `;
+    const { rows } = await pool.query(insertQuery, [trimmedName, parentId]);
+    res.status(201).json({ category: rows[0] });
+  } catch (err) {
+    if (err.code === "23505") {
+      return res.status(409).json({ message: "Category name already exists." });
+    }
+    console.error("Error creating category:", err.message);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// @desc    Update an existing procurement category
+// @route   PUT /api/admin/categories/:id
+// @access  Private (Admin)
+router.put("/categories/:id", protect, async (req, res) => {
+  if (req.user.role.toLowerCase() !== "admin") {
+    return res.status(403).json({ message: "Access denied. Admins only." });
+  }
+
+  const categoryId = Number(req.params.id);
+  if (!Number.isInteger(categoryId)) {
+    return res.status(400).json({ message: "Valid category id is required." });
+  }
+
+  const { name, parentCategoryId } = req.body;
+  const trimmedName = typeof name === "string" ? name.trim() : "";
+  if (!trimmedName) {
+    return res.status(400).json({ message: "Category name is required." });
+  }
+
+  let parentId = null;
+  if (parentCategoryId !== null && parentCategoryId !== undefined && parentCategoryId !== "") {
+    const parsed = Number(parentCategoryId);
+    if (Number.isNaN(parsed)) {
+      return res.status(400).json({ message: "Parent category id must be numeric." });
+    }
+    parentId = parsed;
+  }
+
+  if (parentId === categoryId) {
+    return res.status(400).json({ message: "A category cannot be its own parent." });
+  }
+
+  try {
+    const existing = await pool.query('SELECT "CategoryID", "ParentCategoryID" FROM "Categories" WHERE "CategoryID" = $1', [categoryId]);
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ message: "Category not found." });
+    }
+
+    if (parentId !== null) {
+      const parentCheck = await pool.query('SELECT "CategoryID", "ParentCategoryID" FROM "Categories" WHERE "CategoryID" = $1', [parentId]);
+      if (parentCheck.rows.length === 0) {
+        return res.status(400).json({ message: "Parent category not found." });
+      }
+
+      let ancestorId = parentCheck.rows[0].ParentCategoryID;
+      while (ancestorId) {
+        if (ancestorId === categoryId) {
+          return res.status(400).json({ message: "Cannot assign a descendant as parent." });
+        }
+        const ancestorRes = await pool.query('SELECT "ParentCategoryID" FROM "Categories" WHERE "CategoryID" = $1', [ancestorId]);
+        if (ancestorRes.rows.length === 0) break;
+        ancestorId = ancestorRes.rows[0].ParentCategoryID;
+      }
+    }
+
+    const updateQuery = `
+      UPDATE "Categories"
+      SET "CategoryName" = $1,
+          "ParentCategoryID" = $2
+      WHERE "CategoryID" = $3
+      RETURNING "CategoryID", "CategoryName", "ParentCategoryID"
+    `;
+    const { rows } = await pool.query(updateQuery, [trimmedName, parentId, categoryId]);
+    res.json({ category: rows[0] });
+  } catch (err) {
+    if (err.code === "23505") {
+      return res.status(409).json({ message: "Category name already exists." });
+    }
+    console.error("Error updating category:", err.message);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// @desc    Delete a procurement category
+// @route   DELETE /api/admin/categories/:id
+// @access  Private (Admin)
+router.delete("/categories/:id", protect, async (req, res) => {
+  if (req.user.role.toLowerCase() !== "admin") {
+    return res.status(403).json({ message: "Access denied. Admins only." });
+  }
+
+  const categoryId = Number(req.params.id);
+  if (!Number.isInteger(categoryId)) {
+    return res.status(400).json({ message: "Valid category id is required." });
+  }
+
+  const forceDelete = parseBooleanQuery(req.query.force);
+  const fallbackParam = req.query.fallbackCategoryId;
+  let fallbackCategoryId = null;
+  let reassignedItems = 0;
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const existing = await client.query(
+      'SELECT "CategoryID" FROM "Categories" WHERE "CategoryID" = $1',
+      [categoryId]
+    );
+    if (existing.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Category not found." });
+    }
+
+    const childCheck = await client.query(
+      'SELECT 1 FROM "Categories" WHERE "ParentCategoryID" = $1 LIMIT 1',
+      [categoryId]
+    );
+    if (childCheck.rows.length > 0) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ message: "Remove or reassign subcategories before deleting this category." });
+    }
+
+    const procurementUsage = await client.query(
+      'SELECT 1 FROM "ProcurementFileCategories" WHERE "CategoryID" = $1 LIMIT 1',
+      [categoryId]
+    );
+    if (procurementUsage.rows.length > 0) {
+      await client.query("ROLLBACK");
+      return res
+        .status(400)
+        .json({ message: "Category is linked to procurement files. Remove those links first." });
+    }
+
+    const supplierUsage = await client.query(
+      'SELECT 1 FROM "SupplierCategories" WHERE "CategoryID" = $1 LIMIT 1',
+      [categoryId]
+    );
+    if (supplierUsage.rows.length > 0) {
+      await client.query("ROLLBACK");
+      return res
+        .status(400)
+        .json({ message: "Category is linked to suppliers. Remove those links first." });
+    }
+
+    const itemUsageRes = await client.query(
+      'SELECT COUNT(*)::int AS count FROM "ItemCategories" WHERE "CategoryID" = $1',
+      [categoryId]
+    );
+    const itemUsageCount = itemUsageRes.rows[0]?.count ?? 0;
+
+    if (itemUsageCount > 0) {
+      if (!forceDelete) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({
+          message: "Category is linked to items. Reassign them or resend the request with force=true to move items into a fallback category.",
+        });
+      }
+
+      if (fallbackParam !== undefined && fallbackParam !== null && fallbackParam !== "") {
+        const parsedFallback = Number(fallbackParam);
+        if (!Number.isInteger(parsedFallback)) {
+          await client.query("ROLLBACK");
+          return res.status(400).json({ message: "Fallback category id must be numeric." });
+        }
+        fallbackCategoryId = parsedFallback;
+      } else {
+        fallbackCategoryId = await ensureFallbackCategory(client);
+      }
+
+      if (fallbackCategoryId === categoryId) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ message: "Fallback category must be different from the category being deleted." });
+      }
+
+      const fallbackExists = await client.query(
+        'SELECT "CategoryID" FROM "Categories" WHERE "CategoryID" = $1',
+        [fallbackCategoryId]
+      );
+      if (fallbackExists.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ message: "Fallback category not found." });
+      }
+
+      const reassignment = await client.query(
+        'UPDATE "ItemCategories" SET "CategoryID" = $1 WHERE "CategoryID" = $2 RETURNING "ItemID"',
+        [fallbackCategoryId, categoryId]
+      );
+      reassignedItems = reassignment.rowCount ?? 0;
+    }
+
+    await client.query('DELETE FROM "Categories" WHERE "CategoryID" = $1', [categoryId]);
+    await client.query("COMMIT");
+
+    return res.json({
+      message: "Category deleted.",
+      force: forceDelete,
+      fallbackCategoryId,
+      reassignedItems,
+    });
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("Error deleting category:", err.message);
+    return res.status(500).json({ message: "Server error while deleting category." });
+  } finally {
+    client.release();
   }
 });
 

@@ -1,17 +1,26 @@
 import React, { useState } from "react";
 import "./FileCardModal.css";
 
-const FileCardModal = ({ file, onClose, onSubmit }) => {
+const FileCardModal = ({ file, onClose, onSubmit, onRequireFile, isSubmitting, canSubmit = true }) => {
   const [uploadFile, setUploadFile] = useState(null);
 
-  const handleSubmit = () => {
-    if (!uploadFile) {
-      alert("Please upload your answered PDF.");
+  const handleSubmit = async () => {
+    if (!canSubmit) {
       return;
     }
-    onSubmit(file, uploadFile);
-    setUploadFile(null);
+    if (!uploadFile) {
+      onRequireFile?.();
+      return;
+    }
+    const success = await onSubmit(file, uploadFile);
+    if (success) {
+      setUploadFile(null);
+    }
   };
+
+  const statusLabel = file.statusDisplay || file.Status || "Pending";
+  const badgeClass = (file.statusClass || statusLabel.toLowerCase()).replace(/\s+/g, "-");
+  const sanitizedPath = file.filePath ? file.filePath.replace(/\\/g, "/") : null;
 
   return (
     <div className="modal-backdrop">
@@ -38,29 +47,40 @@ const FileCardModal = ({ file, onClose, onSubmit }) => {
             </span>
           )}
         </div>
-        <span className={`status-badge ${file.Status.toLowerCase()}`}>
-          {file.Status}
+        <span className={`status-badge ${badgeClass}`}>
+          {statusLabel}
         </span>
+
+        {!canSubmit && (
+          <p className="submission-locked">Submission period has ended. You can still view the announcement PDF.</p>
+        )}
 
         <input
           type="file"
           accept="application/pdf"
           onChange={(e) => setUploadFile(e.target.files[0])}
+          disabled={!canSubmit}
         />
 
         <div className="modal-buttons">
-          <a
-            href={`http://localhost:3001/${file.filePath.replace(/\\/g, '/')}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="download-btn"
-          >
-            📄 View PDF
-          </a>
-          <button className="submit-btn" onClick={handleSubmit}>
-            Submit PDF
+          {sanitizedPath ? (
+            <a
+              href={`http://localhost:3001/${sanitizedPath}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="download-btn"
+            >
+              📄 View PDF
+            </a>
+          ) : (
+            <button type="button" className="download-btn" disabled>
+              PDF Unavailable
+            </button>
+          )}
+          <button type="button" className="submit-btn" onClick={handleSubmit} disabled={!canSubmit || isSubmitting}>
+            {!canSubmit ? "Submission Closed" : isSubmitting ? "Submitting..." : "Submit PDF"}
           </button>
-          <button className="close-btn-FC" onClick={onClose}>
+          <button type="button" className="close-btn-FC" onClick={onClose}>
             Cancel
           </button>
         </div>

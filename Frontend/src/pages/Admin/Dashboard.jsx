@@ -10,6 +10,7 @@ import { FaUsers, FaBoxOpen, FaCheckCircle, FaClock, FaClipboardList, FaTag, FaU
 import "./Dashboard.css";
 
 const PAGE_SIZE = 50;
+const PARENT_CATEGORY_NAMES = new Set(["GOODS", "INFRASTRUCTURE PROJECTS", "CONSULTING SERVICES"]);
 
 const parseAnnouncementsResponse = (payload) => {
   if (Array.isArray(payload)) {
@@ -131,7 +132,7 @@ const CategoryModal = ({ categories, onClose }) => {
   );
 };
 
-const AnnouncementCard = ({ announcement, onShowCategories, onShowSuppliers, onDelete, isDeleting }) => {
+const AnnouncementCard = ({ announcement, onShowCategories, onShowSuppliers }) => {
   const rawCats = announcement.categories || announcement.categoryDisplay || announcement.category || "";
   const isSupplierSpecific = announcement.sendType === "supplier" || announcement.SendType === "supplier";
   const supplierNames = Array.isArray(announcement.suppliers) ? announcement.suppliers : [];
@@ -142,22 +143,25 @@ const AnnouncementCard = ({ announcement, onShowCategories, onShowSuppliers, onD
   const isExpired = Boolean(announcement.isExpired ?? announcement.isexpired ?? false);
   const cardClassName = isExpired ? "announcement-card expired" : "announcement-card";
   
-  console.log('Announcement Card Debug:', {
-    id: announcement.id,
-    title: announcement.title,
-    sendType: announcement.sendType || announcement.SendType,
-    isSupplierSpecific,
-    rawCats,
-    categoryDisplay: announcement.categoryDisplay,
-    responseCount,
-    hasResponses,
-    isExpired
-  });
-  
+  const seenCategories = new Set();
   const catsArr = isSupplierSpecific ? [] : String(rawCats)
     .split(",")
     .map((s) => s.trim())
-    .filter((s) => s.length > 0 && s.toLowerCase() !== "uncategorized" && s.toLowerCase() !== "supplier-specific");
+    .filter((s) => s.length > 0)
+    .filter((s) => {
+      const upper = s.toUpperCase();
+      if (upper === "UNCATEGORIZED" || upper === "SUPPLIER-SPECIFIC") {
+        return false;
+      }
+      if (PARENT_CATEGORY_NAMES.has(upper)) {
+        return false;
+      }
+      if (seenCategories.has(upper)) {
+        return false;
+      }
+      seenCategories.add(upper);
+      return true;
+    });
 
   const firstTwoSuppliers = supplierNames.slice(0, 2);
   const remainingSuppliers = Math.max(0, supplierNames.length - firstTwoSuppliers.length);
@@ -168,7 +172,7 @@ const AnnouncementCard = ({ announcement, onShowCategories, onShowSuppliers, onD
         <h4>{announcement.title}</h4>
         <div className="announcement-header-right">
           {isExpired && (
-            <span className="badge badge-expired">Expired</span>
+            <span className="badge badge-expired">Failed Posting</span>
           )}
           {isSupplierSpecific ? (
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -227,19 +231,6 @@ const AnnouncementCard = ({ announcement, onShowCategories, onShowSuppliers, onD
       </p>
       {(announcement.file?.name || announcement.fileName) && (
         <p>📎 {announcement.file?.name || announcement.fileName}</p>
-      )}
-      {isExpired && (
-        <button
-          type="button"
-          className="delete-btn"
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete?.(announcement);
-          }}
-          disabled={isDeleting}
-        >
-          {isDeleting ? "Deleting..." : "Delete"}
-        </button>
       )}
     </div>
   );
@@ -312,7 +303,6 @@ const Dashboard = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalAnnouncements, setTotalAnnouncements] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -525,6 +515,9 @@ const Dashboard = () => {
     data.append("title", formData.title);
     data.append("description", formData.description);
     data.append("file", formData.file);
+    if (formData.end) {
+      data.append("end", formData.end);
+    }
 
     if (formData.categories && formData.categories.length > 0) {
       data.append("categories", JSON.stringify(formData.categories));
@@ -542,7 +535,6 @@ const Dashboard = () => {
       const response = await axios.post("http://localhost:3001/api/admin/announcements", data, {
         headers: { "Content-Type": "multipart/form-data", Authorization: `Bearer ${token}` },
       });
-      console.log("✅ Posted announcement response:", response.data);
       setShowModal(false);
       setToast({ visible: true, type: "success", message: "Announcement posted successfully" });
       setCurrentPage(1);
@@ -561,7 +553,6 @@ const Dashboard = () => {
       const response = await axios.get(`http://localhost:3001/api/admin/announcements/${announcement.id}/responses`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      console.log(`Responses for announcement ${announcement.id}:`, response.data);
       setResponses(response.data);
     } catch (error) {
       console.error("❌ Failed to fetch responses:", error);
@@ -581,39 +572,6 @@ const Dashboard = () => {
   const handleShowSuppliers = (suppliers) => {
     setModalSuppliers(suppliers);
     setShowSupplierModal(true);
-  };
-
-  const handleDeleteAnnouncement = async (announcement) => {
-    if (!token || !announcement?.id) return;
-
-    const shouldDelete = typeof window === "undefined"
-      ? true
-      : window.confirm(`Delete "${announcement.title}"? This cannot be undone.`);
-
-    if (!shouldDelete) {
-      return;
-    }
-
-    setDeletingId(announcement.id);
-
-    try {
-      await axios.delete(`http://localhost:3001/api/admin/announcements/${announcement.id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setToast({ visible: true, type: "success", message: "Announcement deleted successfully" });
-
-      if (announcements.length === 1 && currentPage > 1) {
-        setCurrentPage((prev) => Math.max(1, prev - 1));
-      } else {
-        setRefreshKey((key) => key + 1);
-      }
-    } catch (err) {
-      console.error("❌ Failed to delete announcement:", err);
-      const message = err.response?.data?.message || "Failed to delete announcement.";
-      setToast({ visible: true, type: "error", message });
-    } finally {
-      setDeletingId(null);
-    }
   };
 
   const totalPages = Math.max(1, Math.ceil((totalAnnouncements || 0) / PAGE_SIZE));
@@ -726,8 +684,6 @@ const Dashboard = () => {
                   announcement={ann}
                   onShowCategories={handleShowCategories}
                   onShowSuppliers={handleShowSuppliers}
-                  onDelete={handleDeleteAnnouncement}
-                  isDeleting={deletingId === ann.id}
                 />
               </div>
             ))}

@@ -111,6 +111,13 @@
   background-color: #f4f7fa;
 }
 
+.modal-container input[type="file"][disabled] {
+  border-color: #e3e6eb;
+  color: #9aa5b1;
+  background-color: #f7f9fb;
+  cursor: not-allowed;
+}
+
 /* Style for the file input button text */
 .modal-container input[type="file"]::file-selector-button {
   background-color: #3498db;
@@ -126,6 +133,11 @@
 
 .modal-container input[type="file"]::file-selector-button:hover {
   background-color: #2980b9;
+}
+
+.modal-container input[type="file"][disabled]::file-selector-button {
+  background-color: #cbd5e1;
+  cursor: not-allowed;
 }
 
 /* Button Container */
@@ -165,6 +177,24 @@
   box-shadow: 0 4px 10px rgba(39, 174, 96, 0.2);
 }
 
+.submit-btn[disabled] {
+  background-color: #a7d7bd;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.submission-locked {
+  padding: 0.75rem 1rem;
+  background-color: #fdecea;
+  border: 1px solid #f5b1a6;
+  border-radius: 8px;
+  color: #c0392b;
+  font-weight: 600;
+  margin: 0;
+  margin-top: 0.25rem;
+}
+
 /* Download Button */
 .download-btn {
   background-color: #e8edf3;
@@ -173,6 +203,12 @@
 
 .download-btn:hover {
   background-color: #dce4ec;
+}
+
+.modal-buttons .download-btn[disabled] {
+  background-color: #eef1f6;
+  color: #94a3b8;
+  cursor: not-allowed;
 }
 
 /* Close Button (Secondary) */

@@ -51,10 +51,18 @@ router.get("/", protect, async (req, res) => {
         pf."Description", 
         pf."FilePath" as "filePath",
         pf."DatePosted" as "datePosted",
-        pf."EndDate" as "endDate"
+        pf."EndDate" as "endDate",
+        CASE WHEN pf."EndDate" IS NOT NULL AND pf."EndDate" < NOW() THEN TRUE ELSE FALSE END AS "isExpired",
+        COALESCE(
+          array_to_string(array_agg(DISTINCT c."CategoryName" ORDER BY c."CategoryName"), ', '),
+          ''
+        ) AS "categories"
       FROM "SupplierFiles" sf
       JOIN "ProcurementFiles" pf ON sf."FileID" = pf."FileID"
+      LEFT JOIN "ProcurementFileCategories" pfc ON pfc."FileID" = pf."FileID"
+      LEFT JOIN "Categories" c ON c."CategoryID" = pfc."CategoryID"
       WHERE sf."SupplierID" = $1
+      GROUP BY sf."SupplierFileID", sf."Status", sf."DateSent", pf."FileID", pf."Title", pf."Description", pf."FilePath", pf."DatePosted", pf."EndDate"
       ORDER BY sf."DateSent" DESC;
     `;
     const assignedFiles = await pool.query(filesQuery, [supplierId]);
