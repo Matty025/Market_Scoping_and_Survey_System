@@ -22,7 +22,7 @@ import SupplierLayout from "./layout/SupplierLayout";
 import SupplierDashboard from "./pages/Supplier/Dashboard";
 import SupplierMarket from "./pages/Supplier/Market";
 import SupplierProfile from "./pages/Supplier/Profile";
-import SupplierReports from "./pages/Supplier/Reports";
+import SupplierItemHealth from "./pages/Supplier/ItemHealth";
 import SupplierUploadProducts from "./pages/Supplier/UploadProducts";
 
 // Buyer layout and pages
@@ -77,7 +77,7 @@ function AppContent() {
           <Route path="dashboard" element={<SupplierDashboard />} />
           <Route path="market" element={<SupplierMarket />} />
           <Route path="upload-products" element={<SupplierUploadProducts />} />
-          <Route path="reports" element={<SupplierReports />} />
+          <Route path="item-health" element={<SupplierItemHealth />} />
           <Route path="profile" element={<SupplierProfile />} />
         </Route>
 

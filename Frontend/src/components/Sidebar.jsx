@@ -52,7 +52,7 @@ const Sidebar = ({ isCollapsed = false, onToggle = () => {}, role }) => {
           { to: "/supplier/dashboard", label: "Dashboard", icon: <FaTachometerAlt /> },
           { to: "/supplier/market", label: "Market", icon: <FaShoppingCart /> },
           { to: "/supplier/upload-products", label: "Upload Products", icon: <FaUpload /> },
-          { to: "/supplier/reports", label: "Reports", icon: <FaChartLine /> },
+          { to: "/supplier/item-health", label: "Item Health", icon: <FaChartLine /> },
           { to: "/supplier/profile", label: "Profile", icon: <FaUser /> },
         ]
       : effectiveRole === "buyer"

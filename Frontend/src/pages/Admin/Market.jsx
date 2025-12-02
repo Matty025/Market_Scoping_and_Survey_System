@@ -1,7 +1,51 @@
 import React, { useState, useEffect, useCallback } from "react";
+import dayjs from "dayjs";
 import "./Market.css";
 import axios from "axios";
 import { useAuth } from "../../components/AuthContext";
+
+const computeEffectiveStatus = (rawValue) => {
+  if (rawValue === undefined || rawValue === null || rawValue === "") {
+    return {
+      hasDate: false,
+      label: "No Effective Date",
+      message: "No Effective Date",
+      className: "market-effective none",
+      badgeClass: "badge-none",
+      formattedDate: null,
+      isExpired: false,
+    };
+  }
+
+  const effectiveDate = dayjs(rawValue);
+  if (!effectiveDate.isValid()) {
+    return {
+      hasDate: false,
+      label: "Invalid Date",
+      message: "Unable to parse the effective until value provided by the supplier.",
+      className: "market-effective none",
+      badgeClass: "badge-none",
+      formattedDate: null,
+      isExpired: false,
+    };
+  }
+
+  const today = dayjs().startOf("day");
+  const daysRemaining = effectiveDate.startOf("day").diff(today, "day");
+  const isExpired = daysRemaining <= 0;
+
+  return {
+    hasDate: true,
+    label: isExpired ? (daysRemaining === 0 ? "Expired Today" : "Past Effective") : "Effective",
+    message: isExpired
+      ? `Past effective since ${effectiveDate.format("MMM D, YYYY")}`
+      : `Effective until ${effectiveDate.format("MMM D, YYYY")}`,
+    className: `market-effective ${isExpired ? "expired" : "active"}`,
+    badgeClass: isExpired ? "badge-expired" : "badge-active",
+    formattedDate: effectiveDate.format("MMM D, YYYY"),
+    isExpired,
+  };
+};
 
 const Market = () => {
   const { token } = useAuth();
@@ -232,6 +276,22 @@ const Market = () => {
 
   const displayedItems = getFilteredAndSortedItems(showBookmarks ? bookmarks : marketItems);
 
+  const modalEffectiveStatus = modalItem ? computeEffectiveStatus(modalItem.effectiveUntil) : null;
+  const modalCategories =
+    modalItem && modalItem.categories
+      ? modalItem.categories
+          .split(",")
+          .map((cat) => cat.trim())
+          .filter(Boolean)
+      : [];
+  const categoryModalCategories =
+    categoryModalItem && categoryModalItem.categories
+      ? categoryModalItem.categories
+          .split(",")
+          .map((cat) => cat.trim())
+          .filter(Boolean)
+      : [];
+
   // Count active filters (including sort)
   const activeFiltersCount = Object.values(filters).filter(v => v !== "").length + (sortOption ? 1 : 0);
 
@@ -435,81 +495,93 @@ const Market = () => {
             )}
           </div>
         ) : (
-          displayedItems.map((item) => (
-            <div
-              key={item.id}
-              className="market-card"
-              onClick={() => setModalItem(item)}
-            >
-              <div className="market-card-content">
-                <h4>{item.name}</h4>
-                {item.description && (
-                  <p className="item-description">{item.description}</p>
-                )}
-                {item.categories && (
-                  <div className="category-tags">
-                    {item.categories
-                      .split(", ")
-                      .slice(0, 2)
-                      .map((cat, idx) => (
-                        <span key={idx} className="category-badge">
-                          {cat}
-                        </span>
-                      ))}
-                    {item.categories.split(", ").length > 2 && (
-                      <button
-                        className="show-more-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setCategoryModalItem(item);
-                        }}
-                      >
-                        Show More...
-                      </button>
-                    )}
-                  </div>
-                )}
-                <p>
-                  <strong>Supplier:</strong> {item.company}
-                </p>
-                {item.location && (
+          displayedItems.map((item) => {
+            const effectiveStatus = computeEffectiveStatus(item.effectiveUntil);
+            const priceValue = Number(item.price ?? 0);
+            const categories = (item.categories || "")
+              .split(",")
+              .map((cat) => cat.trim())
+              .filter(Boolean);
+            const previewCategories = categories.slice(0, 2).join(", ");
+            const hasAdditionalCategories = categories.length > 2;
+
+            return (
+              <div
+                key={item.id}
+                className="market-card"
+                onClick={() => setModalItem(item)}
+              >
+                <div className="market-card-content">
+                  <h4>{item.name}</h4>
+                  {item.description && (
+                    <p className="item-description">{item.description}</p>
+                  )}
+                  {categories.length > 0 && (
+                    <p className="item-categories">
+                      <strong>Categories:</strong>{" "}
+                      <span className="category-list-text">{previewCategories}</span>
+                      {hasAdditionalCategories && (
+                        <button
+                          type="button"
+                          className="show-more-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setCategoryModalItem(item);
+                          }}
+                        >
+                          View all
+                        </button>
+                      )}
+                    </p>
+                  )}
                   <p>
-                    <strong>Location:</strong> {item.location}
+                    <strong>Supplier:</strong> {item.company}
                   </p>
-                )}
-                <p>
-                  <strong>Unit:</strong> {item.unit}
-                </p>
-                <p className="item-updated">
-                  <strong>Updated:</strong>{" "}
-                  {new Date(item.date).toLocaleDateString("en-US", {
-                    year: "numeric",
-                    month: "short",
-                    day: "numeric",
-                  })}
-                </p>
+                  {item.location && (
+                    <p>
+                      <strong>Location:</strong> {item.location}
+                    </p>
+                  )}
+                  <p>
+                    <strong>Unit:</strong> {item.unit}
+                  </p>
+                  <p className="item-updated">
+                    <strong>Updated:</strong>{" "}
+                    {new Date(item.date).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </p>
+                </div>
+                <div className="market-card-footer">
+                  <div className={effectiveStatus.className}>
+                    <span className={`market-effective-pill ${effectiveStatus.badgeClass}`}>
+                      {effectiveStatus.label}
+                    </span>
+                    <span className="market-effective-message">{effectiveStatus.message}</span>
+                  </div>
+                  <p className="item-price">
+                    <strong>₱{priceValue.toLocaleString()}</strong>
+                  </p>
+                  <button
+                    className={`bookmark-btn ${
+                      bookmarks.find((b) => b.id === item.id) ? "active" : ""
+                    }`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleBookmark(item);
+                    }}
+                  >
+                    ⭐{" "}
+                    {bookmarks.find((b) => b.id === item.id)
+                      ? "Bookmarked"
+                      : "Bookmark"}
+                  </button>
+                </div>
               </div>
-              <div className="market-card-footer">
-                <p className="item-price">
-                  <strong>₱{item.price.toLocaleString()}</strong>
-                </p>
-                <button
-                  className={`bookmark-btn ${
-                    bookmarks.find((b) => b.id === item.id) ? "active" : ""
-                  }`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleBookmark(item);
-                  }}
-                >
-                  ⭐{" "}
-                  {bookmarks.find((b) => b.id === item.id)
-                    ? "Bookmarked"
-                    : "Bookmark"}
-                </button>
-              </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 
@@ -532,16 +604,12 @@ const Market = () => {
                 <strong>Description:</strong> {modalItem.description}
               </p>
             )}
-            {modalItem.categories && (
+            {modalCategories.length > 0 && (
               <div className="modal-info-row">
                 <strong>Categories:</strong>
-                <div className="category-tags modal-categories">
-                  {modalItem.categories.split(', ').map((cat, idx) => (
-                    <span key={idx} className="category-badge">
-                      {cat}
-                    </span>
-                  ))}
-                </div>
+                <p className="modal-categories-text">
+                  {modalCategories.join(", ")}
+                </p>
               </div>
             )}
             <p>
@@ -561,7 +629,7 @@ const Market = () => {
               <strong>Unit:</strong> {modalItem.unit}
             </p>
             <p>
-              <strong>Price:</strong> ₱{modalItem.price.toLocaleString()}
+              <strong>Price:</strong> ₱{Number(modalItem.price ?? 0).toLocaleString()}
             </p>
             <p>
               <strong>Stock:</strong> {modalItem.stock}
@@ -569,6 +637,14 @@ const Market = () => {
             {modalItem.location && (
               <p>
                 <strong>Location:</strong> {modalItem.location}
+              </p>
+            )}
+            {modalEffectiveStatus && (
+              <p>
+                <strong>Effective Window:</strong>{" "}
+                {modalEffectiveStatus.hasDate
+                  ? `${modalEffectiveStatus.formattedDate} — ${modalEffectiveStatus.message}`
+                  : modalEffectiveStatus.message}
               </p>
             )}
             <button
@@ -598,15 +674,15 @@ const Market = () => {
               ✖
             </button>
             <h2>Categories for {categoryModalItem.name}</h2>
-            <div className="category-tags modal-categories">
-              {categoryModalItem.categories
-                .split(", ")
-                .map((cat, idx) => (
-                  <span key={idx} className="category-badge">
-                    {cat}
-                  </span>
+            {categoryModalCategories.length > 0 ? (
+              <ul className="modal-category-list">
+                {categoryModalCategories.map((cat, idx) => (
+                  <li key={idx}>{cat}</li>
                 ))}
-            </div>
+              </ul>
+            ) : (
+              <p className="modal-categories-text">No categories listed.</p>
+            )}
           </div>
         </div>
       )}

@@ -234,6 +234,82 @@
   background-color: #fee2e2;
 }
 
+.effective-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.effective-badge-active {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.effective-badge-warning {
+  background-color: #fef3c7;
+  color: #b45309;
+}
+
+.effective-badge-expired {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.detail-item.effective-until {
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.detail-item.effective-until span:first-child {
+  margin-top: 2px;
+}
+
+.effective-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.effective-text {
+  font-size: 0.82rem;
+  color: #4b5563;
+}
+
+.effective-text.subtle {
+  color: #6b7280;
+  font-style: italic;
+}
+
+.expired-banner,
+.expiring-banner {
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 0.85rem;
+  margin-bottom: 12px;
+}
+
+.expired-banner {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.expiring-banner {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.product-card-expired {
+  border-color: #fca5a5;
+  box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.35), 0 4px 12px rgba(185, 28, 28, 0.15);
+}
+
+.product-card-expiring {
+  border-color: #fcd34d;
+  box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.35), 0 4px 12px rgba(217, 119, 6, 0.1);
+}
+
 .card-categories .tags-container {
   display: flex;
   flex-wrap: wrap;

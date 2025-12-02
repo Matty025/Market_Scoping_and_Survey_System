@@ -838,6 +838,7 @@ router.get("/market-items", protect, async (req, res) => {
         i."Unit" AS unit,
         i."Location" AS location,
         i."DateUpdated" AS date,
+        i."EffectiveUntil" AS "effectiveUntil",
         s."CompanyName" AS company,
         STRING_AGG(c."CategoryName", ', ') AS categories
       FROM "Items" i
@@ -889,7 +890,7 @@ router.get("/market-items", protect, async (req, res) => {
     }
 
     baseQuery += `
-      GROUP BY i."ItemID", s."CompanyName"
+      GROUP BY i."ItemID", s."CompanyName", i."EffectiveUntil"
       ORDER BY i."DateUpdated" DESC
     `;
 

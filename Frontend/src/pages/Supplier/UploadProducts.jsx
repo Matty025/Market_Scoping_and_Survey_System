@@ -104,7 +104,11 @@ const UploadProducts = () => {
       <div className="upload-section">
         <input id="fileUpload" type="file" accept=".csv, .xlsx" onChange={handleFileChange} />
         <button className="upload-btn" onClick={handleSubmit}>Upload</button>
-        <p className="note">Supported formats: <strong>.csv</strong>, <strong>.xlsx</strong></p>
+        <p className="note">
+          Supported formats: <strong>.csv</strong>, <strong>.xlsx</strong>. For the optional
+          <code>Effective Until</code> column, enter calendar dates in <strong>YYYY-MM-DD</strong>
+          format (example: <code>2025-12-05</code>).
+        </p>
       </div>
 
       <section className="upload-history">

@@ -307,6 +307,85 @@
   color: var(--philgeps-secondary);
 }
 
+.market-effective {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(148, 163, 184, 0.12);
+  color: #475569;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.market-effective.active {
+  background: rgba(34, 197, 94, 0.16);
+  color: #166534;
+  border-color: rgba(34, 197, 94, 0.28);
+}
+
+.market-effective.expired {
+  background: rgba(248, 113, 113, 0.2);
+  color: #991b1b;
+  border-color: rgba(248, 113, 113, 0.35);
+}
+
+.market-effective.none {
+  background: rgba(148, 163, 184, 0.18);
+  color: #475569;
+}
+
+.market-effective-pill {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.32);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.market-effective-pill.badge-active {
+  background: rgba(34, 197, 94, 0.22);
+  border-color: rgba(22, 101, 52, 0.3);
+  color: #166534;
+}
+
+.market-effective-pill.badge-expired {
+  background: rgba(248, 113, 113, 0.28);
+  border-color: rgba(185, 28, 28, 0.35);
+  color: #991b1b;
+}
+
+.market-effective-pill.badge-none {
+  background: rgba(148, 163, 184, 0.25);
+  border-color: rgba(71, 85, 105, 0.25);
+  color: #475569;
+}
+
+.market-effective-message {
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+@media (max-width: 900px) {
+  .market-effective {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .market-effective-pill {
+    margin-bottom: 2px;
+  }
+
+  .market-effective-message {
+    font-size: 0.85rem;
+  }
+}
+
 .market-card .item-price {
   font-size: 1.4rem;
   font-weight: 800;
@@ -319,87 +398,45 @@
   border-radius: 8px;
 }
 
-/* ========== CATEGORY BADGES - PHILGEPS THEME ========== */
-.category-tags {
+/* ========== CATEGORY TEXT ========== */
+.item-categories {
+  margin: 10px 0 12px;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin: 12px 0;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.item-categories strong {
+  color: var(--text-primary);
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.category-list-text {
+  font-weight: 600;
+  color: var(--philgeps-primary);
 }
 
 .show-more-btn {
   background: none;
   border: none;
-  color: var(--text-muted);
+  color: var(--philgeps-primary);
   cursor: pointer;
   font-size: 0.8rem;
   font-weight: 600;
-  padding: 2px 4px;
-  text-decoration: none;
-  border-radius: 4px;
-  transition: all 0.2s ease;
+  margin-left: 6px;
+  padding: 0;
+  text-decoration: underline;
+  transition: color 0.2s ease;
 }
 
 .show-more-btn:hover {
-  background-color: #DBEAFE; /* Light blue background on hover */
-  color: var(--philgeps-primary); /* PhilGEPS blue text on hover */
+  color: var(--philgeps-secondary);
   text-decoration: underline;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-}
-
-.category-badge {
-  display: inline-block;
-  padding: 6px 12px;
-  border-radius: 8px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
-}
-
-/* PhilGEPS-inspired color palette */
-.category-badge:nth-child(6n + 1) {
-  background: linear-gradient(135deg, #DBEAFE 0%, #BFDBFE 100%);
-  color: var(--philgeps-primary);
-  border: 1.5px solid #93C5FD;
-}
-
-.category-badge:nth-child(6n + 2) {
-  background: linear-gradient(135deg, #D1FAE5 0%, #A7F3D0 100%);
-  color: #065F46;
-  border: 1.5px solid #6EE7B7;
-}
-
-.category-badge:nth-child(6n + 3) {
-  background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
-  color: #92400E;
-  border: 1.5px solid #FCD34D;
-}
-
-.category-badge:nth-child(6n + 4) {
-  background: linear-gradient(135deg, #E0E7FF 0%, #C7D2FE 100%);
-  color: #3730A3;
-  border: 1.5px solid #A5B4FC;
-}
-
-.category-badge:nth-child(6n + 5) {
-  background: linear-gradient(135deg, #FCE7F3 0%, #FBCFE8 100%);
-  color: #9F1239;
-  border: 1.5px solid #F9A8D4;
-}
-
-.category-badge:nth-child(6n + 6) {
-  background: linear-gradient(135deg, #FED7AA 0%, #FDBA74 100%);
-  color: #9A3412;
-  border: 1.5px solid #FB923C;
-}
-
-.category-badge:hover {
-  transform: translateY(-2px) scale(1.05);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
 /* ========== BOOKMARK BUTTON ========== */
@@ -453,10 +490,28 @@
 }
 
 .market-card-footer {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: center;
+  gap: 12px;
+}
+
+.market-card-footer .market-effective {
+  grid-column: 1 / -1;
+  margin-top: 0;
+  width: 100%;
+}
+
+.market-card-footer .item-price {
+  margin: 0;
   display: flex;
-  flex-direction: column; /* Stack price and button vertically */
-  align-items: stretch; /* Make children take full width */
-  gap: 4px; /* Adjust space between price and button */
+  align-items: center;
+  justify-content: center;
+}
+
+.market-card-footer .bookmark-btn {
+  margin: 0;
+  width: 100%;
 }
 
 /* ========== NO ITEMS MESSAGE ========== */
@@ -621,13 +676,23 @@
   letter-spacing: 0.5px;
 }
 
-.modal-categories {
-  margin-top: 8px;
+.modal-categories-text {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--philgeps-secondary);
+  line-height: 1.6;
 }
 
-.modal-categories .category-badge {
-  font-size: 0.8rem;
-  padding: 7px 14px;
+.modal-category-list {
+  margin: 16px 0 0 0;
+  padding-left: 20px;
+  color: var(--philgeps-secondary);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.modal-category-list li {
+  margin-bottom: 6px;
 }
 
 /* ========== ANIMATIONS ========== */
@@ -768,9 +833,18 @@
     padding: 20px;
   }
 
-  .category-badge {
-    font-size: 0.7rem;
-    padding: 5px 10px;
+  .market-card-footer {
+    grid-template-columns: 1fr;
+  }
+
+  .item-categories {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .show-more-btn {
+    margin-left: 0;
   }
 
   .market-modal-content {

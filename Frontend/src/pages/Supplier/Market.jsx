@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import axios from "axios";
+import dayjs from "dayjs";
 import { useAuth } from "../../components/AuthContext";
 import AddProductForm from "./AddProductForm"; 
 // 💡 IMPORTANT: Assuming 'react-hot-toast' is installed and used across the app
@@ -9,6 +10,49 @@ import "./Market.css";
 // --- CONFIGURATION ---
 const API_URL = import.meta.env?.VITE_API_URL || 'http://localhost:3001';
 const PAGE_SIZE = 50; 
+
+const formatDate = (value) => {
+    if (!value) {
+        return 'N/A';
+    }
+    const parsed = dayjs(value);
+    return parsed.isValid() ? parsed.format('MMM D, YYYY') : 'N/A';
+};
+
+const getEffectiveSummary = (product) => {
+    const effectiveRaw = product?.effectiveUntil || product?.effective_until;
+    if (!effectiveRaw) return null;
+
+    const effectiveDate = dayjs(effectiveRaw);
+    if (!effectiveDate.isValid()) return null;
+
+    const now = dayjs().startOf('day');
+    const effectiveStart = effectiveDate.startOf('day');
+    const daysRemaining = effectiveStart.diff(now, 'day');
+
+    const lastActivity = dayjs(product?.dateUpdated || product?.datePosted);
+    const lastActivityStart = lastActivity.isValid() ? lastActivity.startOf('day') : null;
+    const totalWindow = lastActivityStart ? Math.max(effectiveStart.diff(lastActivityStart, 'day'), 0) : null;
+
+    const isExpired = daysRemaining <= 0;
+    const badgeClass = isExpired ? 'effective-badge-expired' : 'effective-badge-active';
+    const badgeLabel = isExpired
+        ? (daysRemaining === 0 ? 'Expired Today' : 'Past Effective')
+        : 'Effective';
+    const statusMessage = isExpired
+        ? `Past effective since ${effectiveDate.format('MMM D, YYYY')}`
+        : `Effective until ${effectiveDate.format('MMM D, YYYY')}`;
+
+    return {
+        badgeClass,
+        badgeLabel,
+        statusMessage,
+        totalWindow,
+        formattedDate: effectiveDate.format('MMM D, YYYY'),
+        isExpired,
+        daysRemaining,
+    };
+};
 
 // 💡 NEW TOAST WRAPPER: Use the actual toast utility instead of alert/showToast
 const notify = (message, type = 'info') => {
@@ -257,9 +301,16 @@ const SupplierMarket = () => {
 
     const sortedProducts = useMemo(() => {
         const productsToSort = [...products];
+        const getSortTimestamp = (item) => {
+            const raw = item.dateUpdated || item.datePosted;
+            if (!raw) return 0;
+            const parsed = dayjs(raw);
+            return parsed.isValid() ? parsed.valueOf() : 0;
+        };
+
         return productsToSort.sort((a, b) => {
-            const dateA = a.date ? new Date(a.date) : 0;
-            const dateB = b.date ? new Date(b.date) : 0;
+            const dateA = getSortTimestamp(a);
+            const dateB = getSortTimestamp(b);
             if (sortBy === "recent") return dateB - dateA;
             if (sortBy === "name") return (a.name || "").localeCompare(b.name || "");
             if (sortBy === "price") return (a.price || 0) - (b.price || 0);
@@ -428,8 +479,15 @@ const SupplierMarket = () => {
                 </div>
             ) : (
                 <div className="product-grid-container">
-                    {sortedProducts.map((product) => (
-                        <div className="product-card" key={product.id}>
+                    {sortedProducts.map((product) => {
+                        const effectiveSummary = getEffectiveSummary(product);
+                        const cardClasses = [
+                            'product-card',
+                            effectiveSummary?.isExpired ? 'product-card-expired' : ''
+                        ].filter(Boolean).join(' ');
+
+                        return (
+                        <div className={cardClasses} key={product.id}>
                             {/* Card Header */}
                             <div className="card-header">
                                 <h3>{product.name || "Unnamed Product"}</h3>
@@ -455,6 +513,11 @@ const SupplierMarket = () => {
 
                             {/* Card Body */}
                             <div className="card-body">
+                                {effectiveSummary?.isExpired && (
+                                    <div className="expired-banner">
+                                        ⚠️ This listing is past its effective date. Please update or remove it.
+                                    </div>
+                                )}
                                 {/* Description */}
                                 <div className="card-description">
                                     {product.description || "No description available"}
@@ -483,10 +546,30 @@ const SupplierMarket = () => {
                                         <span>{product.unit || "N/A"}</span>
                                     </div>
 
+                                    <div className="detail-item">
+                                        <span>🕓</span>
+                                        <span>Updated: {formatDate(product.dateUpdated || product.datePosted)}</span>
+                                    </div>
+
                                     {product.location && (
                                         <div className="detail-item">
                                             <span>📍</span>
                                             <span>{product.location}</span>
+                                        </div>
+                                    )}
+
+                                    {effectiveSummary && (
+                                        <div className="detail-item effective-until">
+                                            <span>⏳</span>
+                                            <div className="effective-meta">
+                                                <span className={`effective-badge ${effectiveSummary.badgeClass}`}>{effectiveSummary.badgeLabel}</span>
+                                                <span className="effective-text">{effectiveSummary.statusMessage}</span>
+                                                {effectiveSummary.totalWindow !== null && (
+                                                    <span className="effective-text subtle">
+                                                        Valid window from last update: {effectiveSummary.totalWindow} day{effectiveSummary.totalWindow === 1 ? '' : 's'}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -515,10 +598,11 @@ const SupplierMarket = () => {
 
                             {/* Card Footer */}
                             <div className="card-footer">
-                                Posted: {product.date ? new Date(product.date).toLocaleDateString() : 'N/A'}
+                                Posted: {formatDate(product.datePosted)}
                             </div>
                         </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
             
@@ -577,6 +661,7 @@ const SupplierMarket = () => {
                                     <ul>
                                         <li><strong>Category</strong> - Product category (text, <strong>comma-separated</strong> for multiple)</li>
                                         <li><strong>Stock</strong> - Available quantity (number)</li>
+                                        <li><strong>Effective Until</strong> - Expiration date (use YYYY-MM-DD, e.g., 2025-12-05)</li>
                                     </ul>
                                 </div>
                                 
@@ -607,13 +692,13 @@ const SupplierMarket = () => {
                                     <table className="example-table">
                                         <thead>
                                             <tr>
-                                                <th>Name</th><th>Description</th><th>Price</th><th>Stock</th><th>Unit</th><th>Location</th><th>Category</th>
+                                                <th>Name</th><th>Description</th><th>Price</th><th>Stock</th><th>Unit</th><th>Location</th><th>Category</th><th>Effective Until</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            <tr><td>Steel Bars</td><td>High-grade steel</td><td>1500.00</td><td>100</td><td>kg</td><td>Warehouse A</td><td>Construction, Metal</td></tr>
-                                            <tr><td>Office Chair</td><td>Ergonomic design</td><td>3500.00</td><td>50</td><td>pcs</td><td>Showroom</td><td>Office Supplies & Devices</td></tr>
-                                            <tr><td>Cement Bags</td><td>Portland cement</td><td>250.00</td><td>500</td><td>bag</td><td>Warehouse B</td><td>Construction</td></tr>
+                                            <tr><td>Steel Bars</td><td>High-grade steel</td><td>1500.00</td><td>100</td><td>kg</td><td>Warehouse A</td><td>Construction, Metal</td><td>2025-12-05</td></tr>
+                                            <tr><td>Office Chair</td><td>Ergonomic design</td><td>3500.00</td><td>50</td><td>pcs</td><td>Showroom</td><td>Office Supplies & Devices</td><td>2025-08-31</td></tr>
+                                            <tr><td>Cement Bags</td><td>Portland cement</td><td>250.00</td><td>500</td><td>bag</td><td>Warehouse B</td><td>Construction</td><td>2026-03-15</td></tr>
                                         </tbody>
                                     </table>
                                 </div>

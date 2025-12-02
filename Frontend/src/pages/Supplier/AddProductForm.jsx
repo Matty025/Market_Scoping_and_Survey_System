@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import dayjs from "dayjs";
 import { useAuth } from "../../components/AuthContext";
-// 💡 FIX 1: Import the standard toast utility object from the library
-import toast from 'react-hot-toast'; 
-// NOTE: You must REMOVE the import for your local Toast component if it existed: 
-// import Toast from "../../components/Toast";
-import "./AddProductForm.css"; // Assuming you have styles
+import toast from "react-hot-toast";
+import "./AddProductForm.css";
 
 const API_URL = import.meta.env?.VITE_API_URL || 'http://localhost:3001';
 
@@ -19,7 +17,8 @@ const AddProductForm = ({ editing, onClose, onCreated }) => {
     stock: "",
     unit: "",
     location: "",
-    categories: [] // This will store category IDs
+    categories: [],
+    effectiveUntil: "",
   });
 
   const [availableCategories, setAvailableCategories] = useState([]);
@@ -55,6 +54,10 @@ const AddProductForm = ({ editing, onClose, onCreated }) => {
   // Populate form when editing
   useEffect(() => {
     if (editing) {
+      const effectiveRaw = editing.effectiveUntil || editing.effective_until || null;
+      const effectiveInput = effectiveRaw && dayjs(effectiveRaw).isValid()
+        ? dayjs(effectiveRaw).format("YYYY-MM-DD")
+        : "";
       setFormData({
         name: editing.name || "",
         description: editing.description || "",
@@ -62,8 +65,8 @@ const AddProductForm = ({ editing, onClose, onCreated }) => {
         stock: editing.stock || "",
         unit: editing.unit || "",
         location: editing.location || "",
-        // Use the categories array (which contains IDs) from the backend
-        categories: editing.categories || []
+        categories: editing.categories || [],
+        effectiveUntil: effectiveInput,
       });
     }
   }, [editing]);
@@ -110,6 +113,13 @@ const AddProductForm = ({ editing, onClose, onCreated }) => {
       toast.error("Stock cannot be negative");
       return;
     }
+    if (formData.effectiveUntil) {
+      const parsedEffective = dayjs(formData.effectiveUntil);
+      if (!parsedEffective.isValid()) {
+        toast.error("Effective until date is invalid");
+        return;
+      }
+    }
 
     try {
       setLoading(true);
@@ -121,7 +131,10 @@ const AddProductForm = ({ editing, onClose, onCreated }) => {
         stock: parseFloat(formData.stock) || 0,
         unit: formData.unit.trim(),
         location: formData.location.trim() || null,
-        categories: formData.categories // Send array of category IDs
+        categories: formData.categories,
+        effectiveUntil: formData.effectiveUntil
+          ? dayjs(formData.effectiveUntil).format("YYYY-MM-DD")
+          : null,
       };
 
       if (editing) {
@@ -268,6 +281,19 @@ const AddProductForm = ({ editing, onClose, onCreated }) => {
                 disabled={loading}
               />
             </div>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="effectiveUntil">Effective Until (optional)</label>
+            <input
+              type="date"
+              id="effectiveUntil"
+              name="effectiveUntil"
+              value={formData.effectiveUntil}
+              onChange={handleChange}
+              disabled={loading}
+              max="9999-12-31"
+            />
           </div>
 
           {/* Categories */}
