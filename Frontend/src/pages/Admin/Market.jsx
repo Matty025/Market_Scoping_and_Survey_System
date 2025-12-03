@@ -47,6 +47,22 @@ const computeEffectiveStatus = (rawValue) => {
   };
 };
 
+const getLatestActivityDate = (item) => item?.dateUpdated || item?.date || item?.datePosted || null;
+
+const getPostedDate = (item) => item?.datePosted || item?.date || null;
+
+const formatDisplayDate = (value) => {
+  if (!value) return "N/A";
+  const parsed = dayjs(value);
+  return parsed.isValid() ? parsed.format("MMM D, YYYY") : "N/A";
+};
+
+const formatDisplayDateTime = (value) => {
+  if (!value) return "N/A";
+  const parsed = dayjs(value);
+  return parsed.isValid() ? parsed.format("MMM D, YYYY h:mm A") : "N/A";
+};
+
 const Market = () => {
   const { token } = useAuth();
   const [marketItems, setMarketItems] = useState([]);
@@ -106,7 +122,14 @@ const Market = () => {
           }
         );
         const items = res.data || [];
-        setMarketItems(items);
+        const normalizedItems = items.map((item) => ({
+          ...item,
+          datePosted: item.datePosted || item.dateposted || null,
+          dateUpdated: item.dateUpdated || item.dateupdated || item.date || null,
+          effectiveUntil: item.effectiveUntil || item.effectiveuntil || null,
+          date: item.date || item.dateUpdated || item.datePosted || null,
+        }));
+        setMarketItems(normalizedItems);
         
         // Calculate price statistics
         if (items.length > 0) {
@@ -247,6 +270,13 @@ const Market = () => {
 
     // Apply sorting
     if (sortOption) {
+      const getSortTimestamp = (item) => {
+        const source = getLatestActivityDate(item);
+        if (!source) return 0;
+        const parsed = dayjs(source);
+        return parsed.isValid() ? parsed.valueOf() : 0;
+      };
+
       switch (sortOption) {
         case "price-asc":
           filtered.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
@@ -261,10 +291,10 @@ const Market = () => {
           filtered.sort((a, b) => b.name.localeCompare(a.name));
           break;
         case "date-newest":
-          filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
+          filtered.sort((a, b) => getSortTimestamp(b) - getSortTimestamp(a));
           break;
         case "date-oldest":
-          filtered.sort((a, b) => new Date(a.date) - new Date(b.date));
+          filtered.sort((a, b) => getSortTimestamp(a) - getSortTimestamp(b));
           break;
         default:
           break;
@@ -547,11 +577,7 @@ const Market = () => {
                   </p>
                   <p className="item-updated">
                     <strong>Updated:</strong>{" "}
-                    {new Date(item.date).toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                    })}
+                    {formatDisplayDate(getLatestActivityDate(item))}
                   </p>
                 </div>
                 <div className="market-card-footer">
@@ -617,13 +643,7 @@ const Market = () => {
             </p>
             <p>
               <strong>Updated:</strong>{" "}
-              {new Date(modalItem.date).toLocaleString("en-US", {
-                year: "numeric",
-                month: "short",
-                day: "numeric",
-                hour: "numeric",
-                minute: "2-digit",
-              })}
+              {formatDisplayDateTime(getLatestActivityDate(modalItem))}
             </p>
             <p>
               <strong>Unit:</strong> {modalItem.unit}

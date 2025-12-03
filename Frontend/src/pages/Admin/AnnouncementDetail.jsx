@@ -752,8 +752,6 @@ const AnnouncementDetail = () => {
           responses={responses}
           isLoading={isResponseLoading}
           onClose={closeResponseModal}
-          onShowHistory={handleShowStatusHistory}
-          historyLoading={historyModal.loading && historyModal.visible}
         />
       )}
     </div>

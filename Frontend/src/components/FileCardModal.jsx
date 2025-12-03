@@ -10,7 +10,7 @@ const FileCardModal = ({
   canSubmit = true,
   onOptIn,
   onDecline,
-  onReusePrevious,
+  onViewHistory,
   isDecisionPending = false,
   decisionAction = null,
 }) => {
@@ -36,21 +36,17 @@ const FileCardModal = ({
   const optInStatus = file.optInStatus || "PENDING";
   const requiresDecision = Boolean(file.requiresDecision);
   const hasDecisionActions = Boolean(file.hasDecisionActions);
-  const canReusePrevious = Boolean(file.canReusePrevious);
   const lastResponse = file.lastResponse;
   const lastResponseUrl = lastResponse?.filePath ? `http://localhost:3001/${lastResponse.filePath.replace(/\\/g, "/")}` : null;
   const lastResponseTimestamp = lastResponse?.uploadedAt instanceof Date && !Number.isNaN(lastResponse.uploadedAt.getTime())
     ? lastResponse.uploadedAt.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })
     : null;
-  const lastReusedAtLabel = file.lastReusedAt instanceof Date && !Number.isNaN(file.lastReusedAt.getTime())
-    ? file.lastReusedAt.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })
-    : null;
   const decisionBusy = Boolean(isDecisionPending);
   const isJoinBusy = decisionBusy && decisionAction === "opt-in";
-  const isReuseBusy = decisionBusy && decisionAction === "reuse";
   const isDeclineBusy = decisionBusy && decisionAction === "decline";
   const effectiveCanSubmit = Boolean(canSubmit);
   const fileInputDisabled = !effectiveCanSubmit || decisionBusy;
+  const showHistoryButton = typeof onViewHistory === "function";
 
   const handleJoinAttempt = () => {
     if (typeof onOptIn === "function") {
@@ -58,15 +54,15 @@ const FileCardModal = ({
     }
   };
 
-  const handleReuseAttempt = () => {
-    if (typeof onReusePrevious === "function") {
-      onReusePrevious(file);
-    }
-  };
-
   const handleDeclineAttempt = () => {
     if (typeof onDecline === "function") {
       onDecline(file);
+    }
+  };
+
+  const handleViewHistory = () => {
+    if (typeof onViewHistory === "function") {
+      onViewHistory(file);
     }
   };
 
@@ -98,6 +94,16 @@ const FileCardModal = ({
         <span className={`status-badge ${badgeClass}`}>
           {statusLabel}
         </span>
+        {showHistoryButton && (
+          <button
+            type="button"
+            className="history-btn inline"
+            onClick={handleViewHistory}
+            disabled={decisionBusy}
+          >
+            View Status Timeline
+          </button>
+        )}
 
         {hasDecisionActions && (
           <div className="modal-decision-block">
@@ -105,11 +111,9 @@ const FileCardModal = ({
             <p>
               {optInStatus === "DECLINED"
                 ? "You previously declined this round. You can change your mind below."
-                : canReusePrevious
-                  ? "Let us know if you want to stay in. You can also reuse your last quotation."
-                  : "Let us know if you want to stay in for this round."}
+                : "Let us know if you want to stay in for this round."}
             </p>
-            {canReusePrevious && lastResponseTimestamp && (
+            {lastResponseTimestamp && (
               <p className="modal-decision-subtext">
                 Last submission: {lastResponseTimestamp}
                 {lastResponseUrl && (
@@ -131,16 +135,6 @@ const FileCardModal = ({
               >
                 {isJoinBusy ? "Saving..." : "Yes, I'll join"}
               </button>
-              {canReusePrevious && (
-                <button
-                  type="button"
-                  className="decision-btn"
-                  onClick={handleReuseAttempt}
-                  disabled={decisionBusy || typeof onReusePrevious !== "function"}
-                >
-                  {isReuseBusy ? "Reusing..." : "Reuse previous PDF"}
-                </button>
-              )}
               <button
                 type="button"
                 className="decision-btn secondary"
@@ -161,7 +155,20 @@ const FileCardModal = ({
 
         {optInStatus === "SUBMITTED" && !hasDecisionActions && (
           <div className="modal-decision-block info">
-            <p>{lastReusedAtLabel ? `Previous quotation reused on ${lastReusedAtLabel}.` : "Quotation submitted for this attempt."}</p>
+            <p>Quotation submitted for this attempt.</p>
+            {lastResponseTimestamp && (
+              <p className="modal-decision-subtext">
+                Submitted on {lastResponseTimestamp}
+                {lastResponseUrl && (
+                  <>
+                    {" • "}
+                    <a href={lastResponseUrl} target="_blank" rel="noopener noreferrer">
+                      View PDF
+                    </a>
+                  </>
+                )}
+              </p>
+            )}
           </div>
         )}
 

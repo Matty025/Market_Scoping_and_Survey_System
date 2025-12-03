@@ -192,6 +192,27 @@
   margin-bottom: 0.5rem;
 }
 
+.history-btn.inline {
+  margin-left: auto;
+  align-self: flex-start;
+  background-color: #eef2ff;
+  color: #273c75;
+  border: 1px solid rgba(121, 134, 203, 0.4);
+  padding: 0.45rem 0.9rem;
+  font-size: 0.85rem;
+}
+
+.history-btn.inline:hover {
+  background-color: #dee5ff;
+  transform: translateY(-1px);
+}
+
+.history-btn.inline:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
 /* Custom File Input */
 .modal-container input[type="file"] {
   border: 2px dashed #dde3ea;
@@ -242,7 +263,7 @@
   display: flex;
   gap: 0.75rem;
   justify-content: flex-end;
-  margin-top: 1rem;
+  margin-top: 1.25rem;
   flex-wrap: wrap;
 }
 
@@ -306,6 +327,10 @@
   background-color: #eef1f6;
   color: #94a3b8;
   cursor: not-allowed;
+}
+
+.modal-buttons .history-btn {
+  display: none;
 }
 
 /* Close Button (Secondary) */

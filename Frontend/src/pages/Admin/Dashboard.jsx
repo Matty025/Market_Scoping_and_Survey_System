@@ -718,19 +718,6 @@ const SupplierModal = ({ suppliers, onClose }) => (
   </div>
 );
 
-const CollapsibleSection = ({ title, children, defaultOpen = true }) => {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <div className="collapsible-section">
-      <div className="collapsible-header" onClick={() => setOpen(!open)}>
-        <h4>{title}</h4>
-        <span>{open ? "▲" : "▼"}</span>
-      </div>
-      {open && <div className="collapsible-content">{children}</div>}
-    </div>
-  );
-};
-
 const Dashboard = () => {
   const { token } = useAuth();
   const navigate = useNavigate();
@@ -1189,10 +1176,6 @@ const Dashboard = () => {
     if (formData.file) {
       data.append("file", formData.file);
     }
-
-    if (typeof formData.notes === "string" && formData.notes.trim().length > 0) {
-      data.append("notes", formData.notes.trim());
-    }
     if (formData.end) {
       data.append("end", formData.end);
     }
@@ -1254,6 +1237,10 @@ const Dashboard = () => {
 
     if (formData.file) {
       data.append("file", formData.file);
+    }
+
+    if (typeof formData.notes === "string" && formData.notes.trim().length > 0) {
+      data.append("notes", formData.notes.trim());
     }
 
     try {
@@ -1620,125 +1607,130 @@ const Dashboard = () => {
       {isLoading && <p>Loading dashboard data...</p>}
       {error && <p className="error-message">{error}</p>}
 
-      <CollapsibleSection title={`📢 Recent Procurement Announcements (${announcements.length})`}>
-        <div className="dashboard-filters">
-          <div className="filters-left">
-            <button className="post-btn" onClick={openCreateAnnouncementModal}>
-              + Post Announcement
-            </button>
-          </div>
-          <div className="filters-right">
-            <input 
-              type="text" 
-              placeholder="Search title or description..." 
-              value={searchQuery} 
-              onChange={(e) => setSearchQuery(e.target.value)} 
-              className="filter-input" 
-            />
-            
-            <select 
-              value={selectedFilter} 
-              onChange={(e) => setSelectedFilter(e.target.value)} 
-              className="filter-select"
-              style={{ minWidth: "200px" }}
-            >
-              <option value="All">📋 All Announcements</option>
-              
-              <optgroup label="📁 BY CATEGORY">
-                {categoryHierarchy.map((cat) => (
-                  <option 
-                    key={`category:${cat.name}`} 
-                    value={`category:${cat.name}`}
-                    style={{ paddingLeft: cat.isParent ? "5px" : "20px" }}
-                  >
-                    {cat.isParent ? `${cat.name}` : `└─ ${cat.name}`}
-                  </option>
-                ))}
-              </optgroup>
-              
-              <optgroup label="👥 BY SUPPLIER">
-                {supplierOptions.map((sup) => (
-                  <option key={`supplierId:${sup.id}`} value={`supplierId:${sup.id}`}>
-                    {sup.name}
-                  </option>
-                ))}
-              </optgroup>
-            </select>
-            
-            <input 
-              type="date" 
-              value={postedDate} 
-              onChange={(e) => setPostedDate(e.target.value)} 
-              className="filter-date" 
-              title="Filter by posted date"
-            />
-            
-            {(searchQuery || selectedFilter !== "All" || postedDate) && (
-              <button 
-                type="button" 
-                className="see-more-btn" 
-                onClick={() => { 
-                  setSearchQuery(""); 
-                  setSelectedFilter("All"); 
-                  setPostedDate(""); 
-                }} 
-                title="Clear filters"
-              >
-                Clear
+      <div className="collapsible-section">
+        <div className="collapsible-header">
+          <h4>📢 Recent Procurement Announcements ({announcements.length})</h4>
+        </div>
+        <div className="collapsible-content">
+          <div className="dashboard-filters">
+            <div className="filters-left">
+              <button className="post-btn" onClick={openCreateAnnouncementModal}>
+                + Post Announcement
               </button>
-            )}
-          </div>
-        </div>
-        {announcements.length === 0 ? (
-          <p>No announcements found.</p>
-        ) : (
-          <div className="announcements-container">
-            {announcements.map((ann) => (
-              <AnnouncementCard
-                key={ann.id}
-                announcement={ann}
-                onShowCategories={handleShowCategories}
-                onShowSuppliers={handleShowSuppliers}
-                onToggleExpand={() => handleToggleAnnouncementExpand(ann)}
-                expanded={expandedAnnouncementId === ann.id}
-                onOpenResponses={() => handleOpenResponseModal(ann)}
-                onOpenHistory={() => handleShowStatusHistory(ann)}
-                onNavigateDetail={() => handleNavigateToAnnouncementDetail(ann)}
-                onUpdateStatus={(nextStatus) => handleUpdateAnnouncementStatus(ann, nextStatus)}
-                onRepost={() => handleRepostAnnouncement(ann)}
-                isStatusUpdating={statusUpdatingId === ann.id}
+            </div>
+            <div className="filters-right">
+              <input
+                type="text"
+                placeholder="Search title or description..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="filter-input"
               />
-            ))}
-          </div>
-        )}
 
-        <div className="pagination-controls">
-          <div className="pagination-info">
-            {totalAnnouncements === 0
-              ? "No announcements to display"
-              : `Showing ${startItemIndex}-${endItemIndex} of ${totalAnnouncements}`}
+              <select
+                value={selectedFilter}
+                onChange={(e) => setSelectedFilter(e.target.value)}
+                className="filter-select"
+                style={{ minWidth: "200px" }}
+              >
+                <option value="All">📋 All Announcements</option>
+
+                <optgroup label="📁 BY CATEGORY">
+                  {categoryHierarchy.map((cat) => (
+                    <option
+                      key={`category:${cat.name}`}
+                      value={`category:${cat.name}`}
+                      style={{ paddingLeft: cat.isParent ? "5px" : "20px" }}
+                    >
+                      {cat.isParent ? `${cat.name}` : `└─ ${cat.name}`}
+                    </option>
+                  ))}
+                </optgroup>
+
+                <optgroup label="👥 BY SUPPLIER">
+                  {supplierOptions.map((sup) => (
+                    <option key={`supplierId:${sup.id}`} value={`supplierId:${sup.id}`}>
+                      {sup.name}
+                    </option>
+                  ))}
+                </optgroup>
+              </select>
+
+              <input
+                type="date"
+                value={postedDate}
+                onChange={(e) => setPostedDate(e.target.value)}
+                className="filter-date"
+                title="Filter by posted date"
+              />
+
+              {(searchQuery || selectedFilter !== "All" || postedDate) && (
+                <button
+                  type="button"
+                  className="see-more-btn"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setSelectedFilter("All");
+                    setPostedDate("");
+                  }}
+                  title="Clear filters"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
           </div>
-          <div className="pagination-buttons">
-            <button
-              type="button"
-              className="pagination-button"
-              onClick={handlePrevPage}
-              disabled={!canGoPrev}
-            >
-              Previous
-            </button>
-            <span className="pagination-page">Page {currentPage} of {totalPages}</span>
-            <button
-              type="button"
-              className="pagination-button"
-              onClick={handleNextPage}
-              disabled={!canGoNext}
-            >
-              Next
-            </button>
+          {announcements.length === 0 ? (
+            <p>No announcements found.</p>
+          ) : (
+            <div className="announcements-container">
+              {announcements.map((ann) => (
+                <AnnouncementCard
+                  key={ann.id}
+                  announcement={ann}
+                  onShowCategories={handleShowCategories}
+                  onShowSuppliers={handleShowSuppliers}
+                  onToggleExpand={() => handleToggleAnnouncementExpand(ann)}
+                  expanded={expandedAnnouncementId === ann.id}
+                  onOpenResponses={() => handleOpenResponseModal(ann)}
+                  onOpenHistory={() => handleShowStatusHistory(ann)}
+                  onNavigateDetail={() => handleNavigateToAnnouncementDetail(ann)}
+                  onUpdateStatus={(nextStatus) => handleUpdateAnnouncementStatus(ann, nextStatus)}
+                  onRepost={() => handleRepostAnnouncement(ann)}
+                  isStatusUpdating={statusUpdatingId === ann.id}
+                />
+              ))}
+            </div>
+          )}
+
+          <div className="pagination-controls">
+            <div className="pagination-info">
+              {totalAnnouncements === 0
+                ? "No announcements to display"
+                : `Showing ${startItemIndex}-${endItemIndex} of ${totalAnnouncements}`}
+            </div>
+            <div className="pagination-buttons">
+              <button
+                type="button"
+                className="pagination-button"
+                onClick={handlePrevPage}
+                disabled={!canGoPrev}
+              >
+                Previous
+              </button>
+              <span className="pagination-page">Page {currentPage} of {totalPages}</span>
+              <button
+                type="button"
+                className="pagination-button"
+                onClick={handleNextPage}
+                disabled={!canGoNext}
+              >
+                Next
+              </button>
+            </div>
           </div>
         </div>
-      </CollapsibleSection>
+      </div>
 
       {showModal && (
         <div
@@ -1771,8 +1763,6 @@ const Dashboard = () => {
             setSelectedAnnouncement(null);
             setHistoryModal(HISTORY_MODAL_INITIAL);
           }}
-          onShowHistory={handleShowStatusHistory}
-          historyLoading={historyModal.loading && historyModal.announcement?.id === selectedAnnouncement.id}
         />
       )}
 

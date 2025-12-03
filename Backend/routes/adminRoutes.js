@@ -1428,7 +1428,8 @@ router.get("/announcements/:id/responses", protect, async (req, res) => {
         latest."ResponseFilePath" AS "responseFilePath",
         latest."DateUploaded"     AS "dateUploaded",
         latest."IsReused"         AS "isReused",
-        latest."SourceResponseID" AS "sourceResponseId"
+        latest."SourceResponseID" AS "sourceResponseId",
+        COALESCE(history.responses, '[]'::json) AS "responseHistory"
       FROM "SupplierFiles" sf
       JOIN "Suppliers" s ON s."SupplierID" = sf."SupplierID"
       LEFT JOIN LATERAL (
@@ -1443,6 +1444,31 @@ router.get("/announcements/:id/responses", protect, async (req, res) => {
         ORDER BY sr."DateUploaded" DESC NULLS LAST, sr."ResponseID" DESC
         LIMIT 1
       ) latest ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT json_agg(
+            json_build_object(
+              'responseId', resp."ResponseID",
+              'responseFilePath', resp."ResponseFilePath",
+              'dateUploaded', resp."DateUploaded",
+              'isReused', resp."IsReused",
+              'sourceResponseId', resp."SourceResponseID",
+              'attemptIndex', resp.attempt_index
+            ) ORDER BY resp.attempt_index
+          ) AS responses
+        FROM (
+          SELECT
+            sr."ResponseID",
+            sr."ResponseFilePath",
+            sr."DateUploaded",
+            sr."IsReused",
+            sr."SourceResponseID",
+            ROW_NUMBER() OVER (
+              ORDER BY sr."DateUploaded" ASC NULLS LAST, sr."ResponseID" ASC
+            ) AS attempt_index
+          FROM "SupplierResponses" sr
+          WHERE sr."SupplierFileID" = sf."SupplierFileID"
+        ) resp
+      ) history ON TRUE
       WHERE ${whereClause}
       ORDER BY
         CASE WHEN latest."DateUploaded" IS NULL THEN 1 ELSE 0 END,
@@ -1481,7 +1507,10 @@ router.get("/market-items", protect, async (req, res) => {
         i."Stock" AS stock,
         i."Unit" AS unit,
         i."Location" AS location,
-        i."DateUpdated" AS date,
+        i."DatePosted" AS "datePosted",
+        i."DateUpdated" AS "dateUpdated",
+        COALESCE(i."DateUpdated", i."DatePosted") AS date,
+        i."EffectiveUntil" AS "effectiveUntil",
         s."CompanyName" AS company,
         STRING_AGG(c."CategoryName", ', ') AS categories
       FROM "Items" i
@@ -1534,7 +1563,7 @@ router.get("/market-items", protect, async (req, res) => {
 
     baseQuery += `
       GROUP BY i."ItemID", s."CompanyName"
-      ORDER BY i."DateUpdated" DESC
+      ORDER BY COALESCE(i."DateUpdated", i."DatePosted") DESC
     `;
 
     const { rows } = await pool.query(baseQuery, queryParams);

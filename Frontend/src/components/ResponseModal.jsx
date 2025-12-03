@@ -1,10 +1,11 @@
-import React from "react";
+import React, { useState } from "react";
 import axios from "axios";
 import { useAuth } from "./AuthContext";
 import "./ResponseModal.css";
 
-const ResponseModal = ({ announcement, responses, onClose, isLoading, onShowHistory, historyLoading }) => {
+const ResponseModal = ({ announcement, responses, onClose, isLoading }) => {
   const { token } = useAuth(); // token must be here
+  const [historyViewer, setHistoryViewer] = useState({ visible: false, supplierName: "", files: [] });
 
   const formatDateTime = (value, options = {}) => {
     if (!value) return "—";
@@ -115,6 +116,20 @@ const ResponseModal = ({ announcement, responses, onClose, isLoading, onShowHist
     }
   };
 
+  const buildFileUrl = (filePath) => {
+    if (!filePath) return null;
+    return `http://localhost:3001/${filePath.replace(/\\/g, "/")}`;
+  };
+
+  const openHistoryViewer = (supplierName, files = []) => {
+    const safeFiles = Array.isArray(files) ? files : [];
+    setHistoryViewer({ visible: true, supplierName, files: safeFiles });
+  };
+
+  const closeHistoryViewer = () => {
+    setHistoryViewer({ visible: false, supplierName: "", files: [] });
+  };
+
   const attemptLabel = announcement?.attemptNumber ? `#${announcement.attemptNumber}` : "—";
   const attemptStatusLabel = formatStatusLabel(announcement?.attemptStatus || "");
   const procurementStatusLabel = formatStatusLabel(announcement?.procurementStatus || "");
@@ -144,16 +159,6 @@ const ResponseModal = ({ announcement, responses, onClose, isLoading, onShowHist
           >
             📦 Download All Quotations (ZIP)
           </button>
-          {typeof onShowHistory === "function" ? (
-            <button
-              type="button"
-              className="abstract-btn secondary"
-              onClick={() => onShowHistory(announcement)}
-              disabled={Boolean(historyLoading)}
-            >
-              {historyLoading ? "Loading history…" : "📜 View Status Timeline"}
-            </button>
-          ) : null}
         </div>
 
         <div className="response-list">
@@ -190,18 +195,47 @@ const ResponseModal = ({ announcement, responses, onClose, isLoading, onShowHist
                       <td>{formatAttempt(res.currentAttemptNumber, announcement?.attemptNumber)}</td>
                       <td>{formatDateTime(resolveActivityDate(res))}</td>
                       <td>
-                        {res.responseFilePath ? (
-                          <a
-                            href={`http://localhost:3001/${res.responseFilePath.replace(/\\/g, "/")}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="download-btn"
-                          >
-                            View Quotation
-                          </a>
-                        ) : (
-                          <span className="download-placeholder">—</span>
-                        )}
+                        {(() => {
+                          const historyList = Array.isArray(res.responseHistory) ? res.responseHistory : [];
+                          const latestFileUrl = buildFileUrl(res.responseFilePath);
+                          if (latestFileUrl) {
+                            return (
+                              <div className="response-file-actions">
+                                <a
+                                  href={latestFileUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="download-btn"
+                                >
+                                  View Latest Quotation
+                                </a>
+                                {historyList.length > 0 && (
+                                  <button
+                                    type="button"
+                                    className="view-history-btn"
+                                    onClick={() => openHistoryViewer(res.companyName, historyList)}
+                                  >
+                                    View Files
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          }
+
+                          if (historyList.length > 0) {
+                            return (
+                              <button
+                                type="button"
+                                className="view-history-btn"
+                                onClick={() => openHistoryViewer(res.companyName, historyList)}
+                              >
+                                View Previous Files
+                              </button>
+                            );
+                          }
+
+                          return <span className="download-placeholder">—</span>;
+                        })()}
                       </td>
                     </tr>
                   );
@@ -210,6 +244,48 @@ const ResponseModal = ({ announcement, responses, onClose, isLoading, onShowHist
             </table>
           )}
         </div>
+        {historyViewer.visible && (
+          <div className="response-history-overlay" onClick={closeHistoryViewer}>
+            <div className="response-history-modal" onClick={(e) => e.stopPropagation()}>
+              <button type="button" className="modal-close-btn" onClick={closeHistoryViewer}>
+                ✖
+              </button>
+              <h4>Supplier Files — {historyViewer.supplierName}</h4>
+              {historyViewer.files.length === 0 ? (
+                <p className="response-history-empty">No uploaded quotations yet.</p>
+              ) : (
+                <ul className="response-history-list">
+                  {historyViewer.files.map((file, idx) => {
+                    const attemptNumber = Number.isInteger(file?.attemptIndex) ? file.attemptIndex : null;
+                    const attemptLabelRendered = attemptNumber ? `Attempt #${attemptNumber}` : formatAttempt(file?.attemptIndex, null);
+                    const fileUrl = buildFileUrl(file?.responseFilePath || "");
+                    return (
+                      <li key={file?.responseId || idx} className="response-history-item">
+                        <div className="response-history-meta">
+                          <span className="response-history-attempt">{attemptLabelRendered}</span>
+                          <span className="response-history-date">{formatDateTime(file?.dateUploaded)}</span>
+                          {file?.isReused ? <span className="response-history-tag">Reused</span> : null}
+                        </div>
+                        {fileUrl ? (
+                          <a
+                            href={fileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="download-btn"
+                          >
+                            View File
+                          </a>
+                        ) : (
+                          <span className="download-placeholder">No file</span>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

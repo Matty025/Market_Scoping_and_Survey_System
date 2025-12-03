@@ -3,17 +3,17 @@
   align-items: center; /* vertically center icon + info */
   justify-content: flex-start; /* keep icon on left */
   padding: 0.8rem 1rem;
-  border-radius: 12px;
-  background-color: #ffffff; /* White background */
-  color: #1e3a8a; /* Dark blue text */
+  border-radius: 14px;
+  background: linear-gradient(135deg, #ffffff 0%, rgba(238, 244, 255, 0.85) 100%);
+  color: var(--philgeps-deep-blue, #0f2d62);
   cursor: pointer;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 14px 24px rgba(15, 45, 98, 0.15);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .stat-card1:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 24px 32px rgba(15, 45, 98, 0.22);
 }
 
 .stat-icon {
@@ -25,13 +25,13 @@
   margin-right: 10px;
   flex-shrink: 0;
   border-radius: 50%;
-  background-color: #2563eb; /* Blue icon background */
-  color: #ffffff;
+  background: radial-gradient(circle at 30% 30%, #ffe27a 0%, var(--philgeps-gold, #f6b400) 70%);
+  color: var(--philgeps-deep-blue, #0f2d62);
   transition: background 0.3s ease;
 }
 
 .stat-card1:hover .stat-icon {
-  background-color: #1e40af; /* Darker blue on hover */
+  background: radial-gradient(circle at 30% 30%, #ffec9a 0%, var(--philgeps-gold, #f6b400) 70%);
 }
 
 /* Center the text info */
@@ -41,14 +41,14 @@
   justify-content: center; /* vertically center the label + value */
   align-items: center; /* horizontally center the text inside stat-info */
   flex: 1; /* take remaining width */
-  color: #1e3a8a;
+  color: var(--philgeps-deep-blue, #0f2d62);
 }
 
 .stat-card-label {
   margin: 0;
   font-size: 0.65rem; /* Small font for label */
   font-weight: 600;
-  color: #1e3a8a; /* Dark blue */
+  color: var(--philgeps-muted, #64748b);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   text-align: center; /* center text */
@@ -58,7 +58,7 @@
   margin: 0;
   font-size: 1.2rem; /* value font */
   font-weight: 700;
-  color: #2563eb; /* Blue numbers */
+  color: var(--philgeps-deep-blue, #0f2d62);
   line-height: 1.2;
   text-align: center; /* center value */
 }
@@ -70,11 +70,11 @@
 @keyframes pulse-animation {
   0%, 100% {
     transform: scale(1);
-    box-shadow: 0 0 0 rgba(37, 99, 235, 0.2);
+    box-shadow: 0 0 0 rgba(15, 45, 98, 0.15);
   }
   50% {
     transform: scale(1.05);
-    box-shadow: 0 0 8px rgba(37, 99, 235, 0.4);
+    box-shadow: 0 0 18px rgba(246, 180, 0, 0.4);
   }
 }
 

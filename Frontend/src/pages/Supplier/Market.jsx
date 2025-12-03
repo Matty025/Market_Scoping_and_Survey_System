@@ -122,7 +122,15 @@ const SupplierMarket = () => {
                 }
             );
 
-            setProducts(res.data.items || []);
+            const normalizedItems = (res.data.items || []).map((item) => ({
+                ...item,
+                datePosted: item.datePosted || item.dateposted || item.date || null,
+                dateUpdated: item.dateUpdated || item.dateupdated || item.date || null,
+                effectiveUntil: item.effectiveUntil || item.effectiveuntil || null,
+                date: item.date || item.dateUpdated || item.datePosted || null,
+            }));
+
+            setProducts(normalizedItems);
             setTotalItems(res.data.totalItems || 0);
             setCurrentPage(res.data.currentPage);
             
@@ -548,7 +556,7 @@ const SupplierMarket = () => {
 
                                     <div className="detail-item">
                                         <span>🕓</span>
-                                        <span>Updated: {formatDate(product.dateUpdated || product.datePosted)}</span>
+                                        <span>Updated: {formatDate(product.dateUpdated || product.datePosted || product.date)}</span>
                                     </div>
 
                                     {product.location && (
@@ -598,7 +606,7 @@ const SupplierMarket = () => {
 
                             {/* Card Footer */}
                             <div className="card-footer">
-                                Posted: {formatDate(product.datePosted)}
+                                Posted: {formatDate(product.datePosted || product.date || product.dateUpdated)}
                             </div>
                         </div>
                         );

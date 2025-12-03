@@ -86,7 +86,6 @@ const StatusHistoryModal = ({ visible, onClose, records = [], announcement, load
         {announcement ? (
           <p className="status-history-summary">
             <strong>{announcement.title}</strong>
-            <span>Announcement ID: {announcement.id}</span>
           </p>
         ) : null}
         {error ? (

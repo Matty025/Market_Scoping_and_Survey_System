@@ -3,9 +3,18 @@ import axios from "axios";
 import { useAuth } from "../../components/AuthContext";
 import FileCardModal from "../../components/FileCardModal.jsx";
 import Toast from "../../components/Toast";
+import StatusHistoryModal from "../../components/StatusHistoryModal";
 import "./Dashboard.css";
 
 const MS_IN_DAY = 24 * 60 * 60 * 1000;
+
+const HISTORY_MODAL_INITIAL = {
+  visible: false,
+  loading: false,
+  records: [],
+  error: null,
+  announcement: null,
+};
 
 const formatStatusLabel = (status) => {
   if (!status) return "";
@@ -50,6 +59,7 @@ const SupplierDashboard = () => {
   const [toast, setToast] = useState({ visible: false, type: "info", message: "" });
   const [lastUpdated, setLastUpdated] = useState(null);
   const [decisionState, setDecisionState] = useState({ loading: false, action: null });
+  const [historyModal, setHistoryModal] = useState(HISTORY_MODAL_INITIAL);
 
   const fetchAssignedFiles = useCallback(async ({ silent = false } = {}) => {
     if (!token) {
@@ -89,6 +99,7 @@ const SupplierDashboard = () => {
   const handleOpenModal = (file) => {
     setSelectedFileId(file.SupplierFileID);
     setDecisionState({ loading: false, action: null });
+    setHistoryModal(HISTORY_MODAL_INITIAL);
   };
 
   const handleCardClick = (file) => {
@@ -114,7 +125,47 @@ const SupplierDashboard = () => {
   const handleCloseModal = () => {
     setSelectedFileId(null);
     setDecisionState({ loading: false, action: null });
+    setHistoryModal(HISTORY_MODAL_INITIAL);
   };
+
+  const closeHistoryModal = () => {
+    setHistoryModal(HISTORY_MODAL_INITIAL);
+  };
+
+  const handleViewTimeline = useCallback(
+    async (file) => {
+      if (!token || !file?.SupplierFileID) {
+        return;
+      }
+
+      const announcementInfo = {
+        id: file.FileID ?? file.fileId ?? null,
+        title: file.Title || "Procurement File",
+      };
+
+      setHistoryModal({
+        visible: true,
+        loading: true,
+        records: [],
+        error: null,
+        announcement: announcementInfo,
+      });
+
+      try {
+        const response = await axios.get(
+          `http://localhost:3001/api/supplier-files/${file.SupplierFileID}/status-history`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const records = Array.isArray(response.data) ? response.data : [];
+        setHistoryModal((prev) => ({ ...prev, loading: false, records }));
+      } catch (err) {
+        console.error("Failed to load status history:", err);
+        const message = err.response?.data?.message || "Failed to load status history. Please try again.";
+        setHistoryModal((prev) => ({ ...prev, loading: false, error: message }));
+      }
+    },
+    [token]
+  );
 
   const handleSubmitResponse = async (file, uploadFile) => {
     if (!token) return false;
@@ -150,26 +201,22 @@ const SupplierDashboard = () => {
     }
   };
 
-  const handleOptInDecision = async (file, { reusePrevious = false } = {}) => {
+  const handleOptInDecision = async (file) => {
     if (!token) return;
     if (decisionState.loading) return;
-    setDecisionState({ loading: true, action: reusePrevious ? "reuse" : "opt-in" });
+    setDecisionState({ loading: true, action: "opt-in" });
 
     try {
       const response = await axios.post(
         `http://localhost:3001/api/supplier-files/${file.SupplierFileID}/opt-in`,
-        { reusePrevious },
+        {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      const message = response.data?.message || (reusePrevious ? "Previous response reused." : "Participation confirmed.");
+      const message = response.data?.message || "Participation confirmed.";
       setToast({ visible: true, type: "success", message });
 
       await fetchAssignedFiles({ silent: true });
-
-      if (reusePrevious) {
-        handleCloseModal();
-      }
     } catch (error) {
       console.error("Opt-in decision failed:", error);
       const message = error.response?.data?.message || "We couldn't update your decision. Please try again.";
@@ -230,8 +277,6 @@ const SupplierDashboard = () => {
       const optInStatus = String(optInStatusRaw).toUpperCase();
       const optedInAt = file.optedInAt ? new Date(file.optedInAt) : null;
       const declinedAt = file.declinedAt ? new Date(file.declinedAt) : null;
-      const reuseResponseId = file.reuseResponseId ?? file.ReuseResponseId ?? null;
-      const lastReusedAt = file.lastReusedAt ? new Date(file.lastReusedAt) : null;
       const lastResponseId = file.lastResponseId ?? file.LastResponseId ?? null;
       const lastResponsePath = file.lastResponseFilePath ?? file.LastResponseFilePath ?? "";
       const lastResponseUploadedAt = file.lastResponseDate ? new Date(file.lastResponseDate) : null;
@@ -272,7 +317,6 @@ const SupplierDashboard = () => {
       }
 
       const isMultiAttempt = attemptCount > 1;
-      const canReusePrevious = isMultiAttempt && Boolean(lastResponsePath);
       const requiresDecision = isMultiAttempt && optInStatus === "PENDING";
       const isDeclined = isMultiAttempt && optInStatus === "DECLINED";
       const hasDecisionActions = isMultiAttempt && (optInStatus === "PENDING" || optInStatus === "DECLINED");
@@ -319,11 +363,7 @@ const SupplierDashboard = () => {
         decisionBanner = `You opted in${optedInLabel}. Please upload your quotation to complete this round.`;
         decisionBannerClass = "opted-in";
       } else if (optInStatus === "SUBMITTED") {
-        if (lastReusedAt) {
-          decisionBanner = `Previous quotation reused on ${lastReusedAt.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}.`;
-        } else {
-          decisionBanner = "Quotation submitted.";
-        }
+        decisionBanner = "Quotation submitted.";
         decisionBannerClass = "submitted";
       }
 
@@ -345,8 +385,6 @@ const SupplierDashboard = () => {
         optInStatus,
         optedInAt,
         declinedAt,
-        reuseResponseId,
-        lastReusedAt,
         lastResponse: lastResponseId
           ? {
               id: lastResponseId,
@@ -354,7 +392,6 @@ const SupplierDashboard = () => {
               uploadedAt: lastResponseUploadedAt,
             }
           : null,
-        canReusePrevious,
         requiresDecision,
         hasDecisionActions,
         isDeclined,
@@ -622,12 +659,21 @@ const SupplierDashboard = () => {
           isSubmitting={isSubmittingResponse}
           canSubmit={selectedFile.canSubmit}
           onOptIn={(file) => handleOptInDecision(file)}
-          onReusePrevious={(file) => handleOptInDecision(file, { reusePrevious: true })}
           onDecline={handleDeclineDecision}
+          onViewHistory={handleViewTimeline}
           isDecisionPending={decisionState.loading}
           decisionAction={decisionState.action}
         />
       )}
+
+      <StatusHistoryModal
+        visible={historyModal.visible}
+        onClose={closeHistoryModal}
+        records={historyModal.records}
+        announcement={historyModal.announcement}
+        loading={historyModal.loading}
+        error={historyModal.error}
+      />
     </div>
   );
 };
