@@ -18,6 +18,11 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
+const getSupplierIdForUser = async (client, userId) => {
+  const result = await client.query('SELECT "SupplierID" FROM "Users" WHERE "UserID" = $1', [userId]);
+  return result.rows[0]?.SupplierID || null;
+};
+
 // @desc    Submit a supplier's quotation response
 // @route   POST /api/supplier-responses
 // @access  Private (Supplier)
@@ -33,12 +38,44 @@ router.post("/", protect, upload.single("responseFile"), async (req, res) => {
   try {
     await client.query("BEGIN");
 
+    const userId = req.user.userID;
+    const supplierId = await getSupplierIdForUser(client, userId);
+    if (!supplierId) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Supplier profile not found for this user." });
+    }
+
+    const supplierFileRes = await client.query(
+      'SELECT "SupplierID" FROM "SupplierFiles" WHERE "SupplierFileID" = $1 FOR UPDATE',
+      [supplierFileId]
+    );
+
+    if (supplierFileRes.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Supplier assignment not found." });
+    }
+
+    if (supplierFileRes.rows[0].SupplierID !== supplierId) {
+      await client.query("ROLLBACK");
+      return res.status(403).json({ message: "You are not authorised to submit for this assignment." });
+    }
+
     // 1. Insert the response file path into SupplierResponses
     const insertResponseQuery = `INSERT INTO "SupplierResponses" ("SupplierFileID", "ResponseFilePath") VALUES ($1, $2)`;
     await client.query(insertResponseQuery, [supplierFileId, responseFilePath]);
 
     // 2. Update the status and timestamp in SupplierFiles
-    const updateStatusQuery = `UPDATE "SupplierFiles" SET "Status" = 'Answered', "DateResponded" = NOW() WHERE "SupplierFileID" = $1`;
+    const updateStatusQuery = `
+      UPDATE "SupplierFiles"
+      SET "Status" = 'Answered',
+          "DateResponded" = NOW(),
+          "OptInStatus" = 'SUBMITTED',
+          "OptedInAt" = COALESCE("OptedInAt", NOW()),
+          "DeclinedAt" = NULL,
+          "ReuseResponseID" = NULL,
+          "LastReusedAt" = NULL
+      WHERE "SupplierFileID" = $1
+    `;
     await client.query(updateStatusQuery, [supplierFileId]);
 
     await client.query("COMMIT");

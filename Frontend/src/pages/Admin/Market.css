@@ -886,10 +886,10 @@
   font-weight: 500;
 }
 
-.stat-value {
-  font-size: 20px;
-  font-weight: bold;
-  color: white;
+.price-stats .stat-value {
+  font-size: 18px;
+  font-weight: 600;
+  color: #ffffff;
 }
 
 /* Filter Section */

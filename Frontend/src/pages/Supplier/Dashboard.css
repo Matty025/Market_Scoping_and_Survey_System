@@ -193,6 +193,14 @@
   border-color: rgba(46, 204, 113, 0.35);
 }
 
+.post-card.declined::before {
+  border-color: rgba(192, 57, 43, 0.25);
+}
+
+.post-card.awaiting-decision::before {
+  border-color: rgba(243, 156, 18, 0.35);
+}
+
 /* Card Content */
 .post-title {
   font-size: 1.25rem;
@@ -205,6 +213,100 @@
   font-size: 0.875rem;
   color: #7f8c8d;
   margin-bottom: 0.75rem;
+}
+
+.post-attempt {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #43536d;
+  margin-bottom: 0.6rem;
+}
+
+.post-decision {
+  margin-bottom: 0.85rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 10px;
+  font-size: 0.83rem;
+  line-height: 1.45;
+  font-weight: 600;
+  border: 1px solid rgba(185, 197, 225, 0.4);
+  background: linear-gradient(135deg, #f4f6fb, #eef2ff);
+  color: #344863;
+}
+
+.post-decision.pending {
+  background: linear-gradient(135deg, #fff6e8, #ffe9d6);
+  border-color: rgba(240, 181, 110, 0.6);
+  color: #b05a0e;
+}
+
+.post-decision.declined {
+  background: linear-gradient(135deg, #fff1f1, #ffe0e0);
+  border-color: rgba(235, 150, 150, 0.6);
+  color: #b03a2e;
+}
+
+.post-decision.opted-in {
+  background: linear-gradient(135deg, #f0fbf4, #e2f6eb);
+  border-color: rgba(155, 211, 177, 0.6);
+  color: #1f7a47;
+}
+
+.post-decision.submitted {
+  background: linear-gradient(135deg, #eef3ff, #dfe9ff);
+  border-color: rgba(170, 192, 238, 0.6);
+  color: #2d4c8f;
+}
+
+.post-note {
+  margin-bottom: 1rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #f6f8ff, #eef3ff);
+  border: 1px solid rgba(156, 177, 220, 0.45);
+  box-shadow: 0 10px 22px -24px rgba(63, 80, 120, 0.55);
+  cursor: default;
+  user-select: text;
+}
+
+.post-note-label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+  color: #27364d;
+}
+
+.post-note-text {
+  font-size: 0.92rem;
+  color: #43536d;
+  line-height: 1.45;
+  margin-bottom: 0.35rem;
+}
+
+.post-note-date {
+  display: block;
+  font-size: 0.75rem;
+  color: #5f6f8a;
+}
+
+.post-note.cancelled,
+.post-note.closed,
+.post-note.failed,
+.post-note.failed-posting {
+  background: linear-gradient(135deg, #fff5f3, #ffeceb);
+  border-color: rgba(229, 164, 156, 0.6);
+}
+
+.post-note.awarded {
+  background: linear-gradient(135deg, #f6fff7, #e9ffef);
+  border-color: rgba(139, 198, 164, 0.55);
+}
+
+.post-note.active {
+  background: linear-gradient(135deg, #f4fbff, #ebf6ff);
 }
 
 .post-description {
@@ -242,6 +344,13 @@
   color: #ba4d3f;
   border: 1px solid rgba(232, 155, 137, 0.55);
   box-shadow: 0 8px 20px -16px rgba(186, 77, 63, 0.4);
+}
+
+.status-badge.declined {
+  background: linear-gradient(135deg, #ffecec, #ffdede);
+  color: #c0392b;
+  border: 1px solid rgba(231, 129, 121, 0.6);
+  box-shadow: 0 8px 20px -18px rgba(192, 57, 43, 0.35);
 }
 
 /* Add a default for any other status */

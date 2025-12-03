@@ -65,6 +65,103 @@
   line-height: 1.6;
 }
 
+.modal-decision-block {
+  padding: 1rem 1.1rem;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #f7f8fe, #eef2ff);
+  border: 1px solid rgba(184, 196, 229, 0.5);
+  margin: 0.4rem 0 0.9rem 0;
+}
+
+.modal-decision-block h3 {
+  margin: 0 0 0.45rem 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #2d3b59;
+}
+
+.modal-decision-block p {
+  margin: 0;
+  color: #40526f;
+}
+
+.modal-decision-block.info {
+  background: linear-gradient(135deg, #f2fff7, #e5f9ed);
+  border-color: rgba(152, 207, 176, 0.55);
+}
+
+.modal-decision-subtext {
+  margin: 0.55rem 0 0;
+  font-size: 0.85rem;
+  color: #394b68;
+}
+
+.modal-decision-subtext a {
+  color: #2563eb;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.modal-decision-subtext a:hover {
+  text-decoration: underline;
+}
+
+.modal-decision-buttons {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-top: 0.9rem;
+}
+
+.decision-btn {
+  border: none;
+  border-radius: 8px;
+  padding: 0.55rem 1.1rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  background: #e7ecf7;
+  color: #2d3b59;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 150px;
+}
+
+.decision-btn.primary {
+  background: linear-gradient(135deg, #2563eb, #3b82f6);
+  color: #ffffff;
+  box-shadow: 0 6px 18px -12px rgba(37, 99, 235, 0.6);
+}
+
+.decision-btn.primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px -14px rgba(37, 99, 235, 0.65);
+}
+
+.decision-btn.secondary {
+  background: linear-gradient(135deg, #fef5f2, #fbe4e0);
+  color: #b23c2a;
+  border: 1px solid rgba(233, 162, 149, 0.6);
+}
+
+.decision-btn.secondary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px -14px rgba(178, 60, 42, 0.4);
+}
+
+.decision-btn:hover {
+  transform: translateY(-1px);
+}
+
+.decision-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+  transform: none;
+  box-shadow: none;
+}
+
 /* Date Information */
 .modal-file-dates {
   display: flex;

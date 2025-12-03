@@ -1,0 +1,81 @@
+.status-history-modal {
+  max-width: 900px;
+  width: 95%;
+  max-height: 85vh;
+  overflow: hidden;
+}
+
+.status-history-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: #1f2937;
+}
+
+.status-history-error {
+  color: #dc2626;
+  margin-bottom: 12px;
+}
+
+.status-history-table-wrapper {
+  max-height: 70vh;
+  overflow-y: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.status-history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.status-history-table thead {
+  background-color: #f3f4f6;
+  position: sticky;
+  top: 0;
+}
+
+.status-history-table th,
+.status-history-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+  vertical-align: top;
+}
+
+.status-history-table tbody tr:nth-child(even) {
+  background-color: #f9fafb;
+}
+
+.status-history-table tbody tr:hover {
+  background-color: #eef2ff;
+}
+
+.status-history-attempt {
+  text-align: center;
+  white-space: nowrap;
+  width: 90px;
+  color: #1f2937;
+  font-weight: 600;
+}
+
+.status-history-status {
+  white-space: nowrap;
+}
+
+.status-history-user {
+  white-space: nowrap;
+}
+
+.status-history-date {
+  white-space: nowrap;
+}
+
+.status-history-notes {
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-width: 200px;
+  color: #1f2937;
+}

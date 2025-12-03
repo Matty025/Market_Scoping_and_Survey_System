@@ -52,3 +52,65 @@
 .abstract-btn:hover {
   background-color: #1e3a8a;
 }
+
+.abstract-btn.secondary {
+  background-color: #4b5563;
+}
+
+.abstract-btn.secondary:hover {
+  background-color: #374151;
+}
+
+.abstract-btn:disabled,
+.abstract-btn[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.response-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 15px;
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background-color: #e5e7eb;
+  color: #111827;
+  text-transform: none;
+}
+
+.status-chip.status-submitted,
+.status-chip.status-answered {
+  background-color: #d1fae5;
+  color: #047857;
+}
+
+.status-chip.status-submitted-reused,
+.status-chip.status-answered-reused {
+  background-color: #cffafe;
+  color: #0e7490;
+}
+
+.status-chip.status-declined {
+  background-color: #fee2e2;
+  color: #b91c1c;
+}
+
+.status-chip.status-pending-decision,
+.status-chip.status-opted-in,
+.status-chip.status-no-response {
+  background-color: #ede9fe;
+  color: #5b21b6;
+}
+
+.download-placeholder {
+  color: #9ca3af;
+  font-style: italic;
+}

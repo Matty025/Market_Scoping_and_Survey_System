@@ -16,6 +16,7 @@ import MarketSuppliers from "./pages/Admin/MarketSuppliers";
 import SupplierActionHistory from "./pages/Admin/SupplierActionHistory";
 import Reports from "./pages/Admin/Reports";
 import Settings from "./pages/Admin/Settings";
+import AnnouncementDetail from "./pages/Admin/AnnouncementDetail";
 
 // Supplier layout and pages
 import SupplierLayout from "./layout/SupplierLayout";
@@ -57,6 +58,7 @@ function AppContent() {
           }
         >
           <Route path="dashboard" element={<Dashboard />} />
+          <Route path="announcements/:id" element={<AnnouncementDetail />} />
           <Route path="manage-accounts" element={<ManageAccounts />} />
           <Route path="market" element={<Market />} />
           <Route path="market-suppliers" element={<MarketSuppliers />} />

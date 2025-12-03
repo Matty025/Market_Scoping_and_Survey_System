@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import axios from "axios";
 import { useAuth } from "../../components/AuthContext";
 import FileCardModal from "../../components/FileCardModal.jsx";
@@ -7,10 +7,40 @@ import "./Dashboard.css";
 
 const MS_IN_DAY = 24 * 60 * 60 * 1000;
 
+const formatStatusLabel = (status) => {
+  if (!status) return "";
+  const normalized = String(status).toLowerCase().replace(/_/g, " ");
+  return normalized.replace(/(^|\s)\w/g, (c) => c.toUpperCase());
+};
+
+const formatOrdinal = (value) => {
+  const number = Number(value);
+  if (!Number.isFinite(number)) {
+    return String(value);
+  }
+
+  const abs = Math.abs(number);
+  const mod100 = abs % 100;
+  if (mod100 >= 11 && mod100 <= 13) {
+    return `${number}th`;
+  }
+
+  switch (abs % 10) {
+    case 1:
+      return `${number}st`;
+    case 2:
+      return `${number}nd`;
+    case 3:
+      return `${number}rd`;
+    default:
+      return `${number}th`;
+  }
+};
+
 const SupplierDashboard = () => {
   const { token } = useAuth();
   const [assignedFiles, setAssignedFiles] = useState([]);
-  const [selectedFile, setSelectedFile] = useState(null);
+  const [selectedFileId, setSelectedFileId] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -19,9 +49,46 @@ const SupplierDashboard = () => {
   const [isSubmittingResponse, setIsSubmittingResponse] = useState(false);
   const [toast, setToast] = useState({ visible: false, type: "info", message: "" });
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [decisionState, setDecisionState] = useState({ loading: false, action: null });
+
+  const fetchAssignedFiles = useCallback(async ({ silent = false } = {}) => {
+    if (!token) {
+      return [];
+    }
+
+    if (!silent) {
+      setIsLoading(true);
+      setError(null);
+    }
+
+    try {
+      const response = await axios.get("http://localhost:3001/api/supplier-files", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const rows = response.data || [];
+      const uniqueBySupplierFileId = Array.from(new Map(rows.map((r) => [r.SupplierFileID, r])).values());
+      setAssignedFiles(uniqueBySupplierFileId);
+      setLastUpdated(new Date());
+      setError(null);
+      return uniqueBySupplierFileId;
+    } catch (err) {
+      console.error("Fetch error:", err);
+      if (!silent) {
+        setError("Failed to fetch assigned files. Please try again later.");
+      }
+      return [];
+    } finally {
+      if (!silent) {
+        setIsLoading(false);
+      } else {
+        setIsLoading(false);
+      }
+    }
+  }, [token]);
 
   const handleOpenModal = (file) => {
-    setSelectedFile(file);
+    setSelectedFileId(file.SupplierFileID);
+    setDecisionState({ loading: false, action: null });
   };
 
   const handleCardClick = (file) => {
@@ -39,30 +106,14 @@ const SupplierDashboard = () => {
 
   // Fetch assigned files from the backend
   useEffect(() => {
-    const fetchAssignedFiles = async () => {
-      try {
-        const response = await axios.get("http://localhost:3001/api/supplier-files", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const rows = response.data || [];
-        const uniqueBySupplierFileId = Array.from(new Map(rows.map((r) => [r.SupplierFileID, r])).values());
-        setAssignedFiles(uniqueBySupplierFileId);
-        setLastUpdated(new Date());
-      } catch (err) {
-        setError("Failed to fetch assigned files. Please try again later.");
-        console.error("Fetch error:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     if (token) {
-      fetchAssignedFiles();
+      fetchAssignedFiles({ silent: false });
     }
-  }, [token]);
+  }, [token, fetchAssignedFiles]);
 
   const handleCloseModal = () => {
-    setSelectedFile(null);
+    setSelectedFileId(null);
+    setDecisionState({ loading: false, action: null });
   };
 
   const handleSubmitResponse = async (file, uploadFile) => {
@@ -86,15 +137,8 @@ const SupplierDashboard = () => {
       });
 
       setToast({ visible: true, type: "success", message: `Quotation submitted for "${file.Title}".` });
-      setAssignedFiles((prev) =>
-        prev.map((f) =>
-          f.SupplierFileID === file.SupplierFileID
-            ? { ...f, Status: "Answered" }
-            : f
-        )
-      );
+      await fetchAssignedFiles({ silent: true });
       handleCloseModal();
-      setLastUpdated(new Date());
       return true;
     } catch (error) {
       console.error("Failed to submit quotation:", error);
@@ -106,6 +150,60 @@ const SupplierDashboard = () => {
     }
   };
 
+  const handleOptInDecision = async (file, { reusePrevious = false } = {}) => {
+    if (!token) return;
+    if (decisionState.loading) return;
+    setDecisionState({ loading: true, action: reusePrevious ? "reuse" : "opt-in" });
+
+    try {
+      const response = await axios.post(
+        `http://localhost:3001/api/supplier-files/${file.SupplierFileID}/opt-in`,
+        { reusePrevious },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      const message = response.data?.message || (reusePrevious ? "Previous response reused." : "Participation confirmed.");
+      setToast({ visible: true, type: "success", message });
+
+      await fetchAssignedFiles({ silent: true });
+
+      if (reusePrevious) {
+        handleCloseModal();
+      }
+    } catch (error) {
+      console.error("Opt-in decision failed:", error);
+      const message = error.response?.data?.message || "We couldn't update your decision. Please try again.";
+      setToast({ visible: true, type: "error", message });
+    } finally {
+      setDecisionState({ loading: false, action: null });
+    }
+  };
+
+  const handleDeclineDecision = async (file) => {
+    if (!token) return;
+    if (decisionState.loading) return;
+    setDecisionState({ loading: true, action: "decline" });
+
+    try {
+      const response = await axios.post(
+        `http://localhost:3001/api/supplier-files/${file.SupplierFileID}/decline`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      const message = response.data?.message || "You have declined this attempt.";
+      setToast({ visible: true, type: "info", message });
+
+      await fetchAssignedFiles({ silent: true });
+    } catch (error) {
+      console.error("Decline decision failed:", error);
+      const message = error.response?.data?.message || "We couldn't record your decision. Please try again.";
+      setToast({ visible: true, type: "error", message });
+    } finally {
+      setDecisionState({ loading: false, action: null });
+    }
+  };
+
   const processedFiles = useMemo(() => {
     const now = new Date();
     return assignedFiles.map((file) => {
@@ -114,6 +212,29 @@ const SupplierDashboard = () => {
       const dateSentObj = file.dateSent ? new Date(file.dateSent) : null;
       const postedDateObj = file.datePosted ? new Date(file.datePosted) : null;
       const status = (file.Status || "Pending").toLowerCase();
+      const attemptCountRaw = Number(file.attemptCount ?? file.AttemptCount ?? 0);
+      const currentAttemptRaw = Number(file.currentAttemptNumber ?? file.CurrentAttemptNumber ?? attemptCountRaw);
+      const attemptCount = Number.isFinite(currentAttemptRaw) && currentAttemptRaw > 0
+        ? currentAttemptRaw
+        : (attemptCountRaw > 0 ? attemptCountRaw : 1);
+      const latestStatusRaw = file.latestStatus || file.lateststatus || null;
+      const latestStatusLabel = formatStatusLabel(latestStatusRaw);
+      const latestStatusKey = latestStatusRaw ? String(latestStatusRaw).toLowerCase() : null;
+      const latestStatusAt = file.latestChangedAt ? new Date(file.latestChangedAt) : null;
+      let latestStatusNote = typeof file.latestNote === "string" ? file.latestNote.trim() : "";
+      if (latestStatusNote.toLowerCase() === "initial posting") {
+        latestStatusNote = "";
+      }
+      const showLatestUpdate = Boolean(latestStatusNote) || (latestStatusKey && !["active", "pending"].includes(latestStatusKey));
+      const optInStatusRaw = file.optInStatus ?? file.OptInStatus ?? "PENDING";
+      const optInStatus = String(optInStatusRaw).toUpperCase();
+      const optedInAt = file.optedInAt ? new Date(file.optedInAt) : null;
+      const declinedAt = file.declinedAt ? new Date(file.declinedAt) : null;
+      const reuseResponseId = file.reuseResponseId ?? file.ReuseResponseId ?? null;
+      const lastReusedAt = file.lastReusedAt ? new Date(file.lastReusedAt) : null;
+      const lastResponseId = file.lastResponseId ?? file.LastResponseId ?? null;
+      const lastResponsePath = file.lastResponseFilePath ?? file.LastResponseFilePath ?? "";
+      const lastResponseUploadedAt = file.lastResponseDate ? new Date(file.lastResponseDate) : null;
       let dueState = "no-deadline";
       let dueLabel = "No deadline";
       let deadlineSortValue = Number.POSITIVE_INFINITY;
@@ -150,22 +271,93 @@ const SupplierDashboard = () => {
         dueLabel = "Failed Posting";
       }
 
-      const statusDisplay = status === "answered" ? "Answered" : (isFailedPosting ? "Failed Posting" : "Pending");
-      const statusClass = status === "answered" ? "answered" : (isFailedPosting ? "failed" : "pending");
-      const canSubmit = !isFailedPosting && status !== "answered";
+      const isMultiAttempt = attemptCount > 1;
+      const canReusePrevious = isMultiAttempt && Boolean(lastResponsePath);
+      const requiresDecision = isMultiAttempt && optInStatus === "PENDING";
+      const isDeclined = isMultiAttempt && optInStatus === "DECLINED";
+      const hasDecisionActions = isMultiAttempt && (optInStatus === "PENDING" || optInStatus === "DECLINED");
+
+      let statusDisplay;
+      let statusClass;
+      if (status === "answered") {
+        statusDisplay = optInStatus === "SUBMITTED" ? "Submitted" : "Answered";
+        statusClass = "answered";
+      } else if (isFailedPosting) {
+        statusDisplay = "Failed Posting";
+        statusClass = "failed";
+      } else if (isDeclined) {
+        statusDisplay = "Declined";
+        statusClass = "declined";
+      } else if (requiresDecision) {
+        statusDisplay = "Awaiting Decision";
+        statusClass = "pending";
+      } else if (optInStatus === "OPTED_IN") {
+        statusDisplay = "Awaiting Submission";
+        statusClass = "pending";
+      } else {
+        statusDisplay = "Pending";
+        statusClass = "pending";
+      }
+
+      const canSubmit = !isFailedPosting && status !== "answered" && !requiresDecision && !isDeclined;
 
       const categoryList = (file.categories || "")
         .split(",")
         .map((c) => c.trim())
         .filter((c) => c.length > 0);
 
+      let decisionBanner = "";
+      let decisionBannerClass = "";
+      if (requiresDecision) {
+        decisionBanner = "Action needed: confirm participation for this attempt.";
+        decisionBannerClass = "pending";
+      } else if (isDeclined) {
+        decisionBanner = "You declined this attempt. Open the card if you would like to rejoin.";
+        decisionBannerClass = "declined";
+      } else if (optInStatus === "OPTED_IN") {
+        const optedInLabel = optedInAt ? ` on ${optedInAt.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}` : "";
+        decisionBanner = `You opted in${optedInLabel}. Please upload your quotation to complete this round.`;
+        decisionBannerClass = "opted-in";
+      } else if (optInStatus === "SUBMITTED") {
+        if (lastReusedAt) {
+          decisionBanner = `Previous quotation reused on ${lastReusedAt.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}.`;
+        } else {
+          decisionBanner = "Quotation submitted.";
+        }
+        decisionBannerClass = "submitted";
+      }
+
       return {
         ...file,
         endDateObj,
         dateSentObj,
         postedDateObj,
+        attemptCount,
+        attemptLabel: attemptCount > 1 ? `${formatOrdinal(attemptCount)} attempt` : "Initial attempt",
+        latestStatusLabel,
+        latestStatusKey,
+        latestStatusAt,
+        latestStatusNote,
+        showLatestUpdate,
         descriptionText,
         normalizedStatus: status,
+        currentAttemptNumber: attemptCount,
+        optInStatus,
+        optedInAt,
+        declinedAt,
+        reuseResponseId,
+        lastReusedAt,
+        lastResponse: lastResponseId
+          ? {
+              id: lastResponseId,
+              filePath: lastResponsePath,
+              uploadedAt: lastResponseUploadedAt,
+            }
+          : null,
+        canReusePrevious,
+        requiresDecision,
+        hasDecisionActions,
+        isDeclined,
         dueState,
         dueLabel,
         deadlineSortValue,
@@ -176,10 +368,17 @@ const SupplierDashboard = () => {
         statusClass,
         canSubmit,
         failedPostingDetail: failedPostingDetail || null,
+        decisionBanner,
+        decisionBannerClass,
         searchIndex: `${file.Title || ""} ${descriptionText} ${(file.categories || "")}`.toLowerCase(),
       };
     });
   }, [assignedFiles]);
+
+  const selectedFile = useMemo(
+    () => processedFiles.find((file) => file.SupplierFileID === selectedFileId) || null,
+    [processedFiles, selectedFileId]
+  );
 
   const statsSummary = useMemo(() => {
     const total = processedFiles.length;
@@ -315,12 +514,24 @@ const SupplierDashboard = () => {
               : "No assignments match your current filters."}
           </p>
         )}
-        {filteredFiles.map((file) => (
-          <div
-            key={file.SupplierFileID}
-            className={`post-card ${file.dueState} ${file.normalizedStatus} ${file.isFailedPosting ? "failed-posting" : ""}`.trim()}
-            onClick={() => handleCardClick(file)}
-          >
+        {filteredFiles.map((file) => {
+          const cardClassName = [
+            "post-card",
+            file.dueState,
+            file.normalizedStatus,
+            file.isFailedPosting ? "failed-posting" : "",
+            file.isDeclined ? "declined" : "",
+            file.requiresDecision ? "awaiting-decision" : "",
+          ]
+            .filter(Boolean)
+            .join(" ");
+
+          return (
+            <div
+              key={file.SupplierFileID}
+              className={cardClassName}
+              onClick={() => handleCardClick(file)}
+            >
             {/* 
               NOTE: Your backend should JOIN SupplierFiles with ProcurementFiles 
               to get Title, Description, etc.
@@ -348,6 +559,40 @@ const SupplierDashboard = () => {
             {file.endDateObj && (
               <p className="post-date">Deadline {file.endDateObj.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</p>
             )}
+            {file.attemptCount > 1 && (
+              <p className="post-attempt">Attempt: {file.attemptLabel}</p>
+            )}
+            {file.decisionBanner && (
+              <p className={`post-decision ${file.decisionBannerClass || ""}`.trim()}>
+                {file.decisionBanner}
+              </p>
+            )}
+            {file.showLatestUpdate && (
+              <div
+                className={`post-note ${(file.latestStatusKey || file.normalizedStatus || "")
+                  .replace(/[_\s]+/g, "-")
+                  .replace(/-+$/, "")}`.trim()}
+                onClick={(event) => event.stopPropagation()}
+              >
+                <span className="post-note-label">
+                  Latest update{file.latestStatusLabel ? ` • ${file.latestStatusLabel}` : ""}
+                </span>
+                {file.latestStatusNote && (
+                  <p className="post-note-text">{file.latestStatusNote}</p>
+                )}
+                {file.latestStatusAt && (
+                  <span className="post-note-date">
+                    {`Updated ${file.latestStatusAt.toLocaleString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}`}
+                  </span>
+                )}
+              </div>
+            )}
             <p className="post-description">
               {file.descriptionText.length > 120 ? `${file.descriptionText.substring(0, 117)}...` : (file.descriptionText || "No description provided.")}
             </p>
@@ -363,8 +608,9 @@ const SupplierDashboard = () => {
                 )}
               </div>
             )}
-          </div>
-        ))}
+            </div>
+          );
+        })}
       </div>
 
       {selectedFile && (
@@ -374,6 +620,12 @@ const SupplierDashboard = () => {
           onSubmit={handleSubmitResponse}
           onRequireFile={handleRequireFile}
           isSubmitting={isSubmittingResponse}
+          canSubmit={selectedFile.canSubmit}
+          onOptIn={(file) => handleOptInDecision(file)}
+          onReusePrevious={(file) => handleOptInDecision(file, { reusePrevious: true })}
+          onDecline={handleDeclineDecision}
+          isDecisionPending={decisionState.loading}
+          decisionAction={decisionState.action}
         />
       )}
     </div>

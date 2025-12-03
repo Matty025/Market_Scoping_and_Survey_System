@@ -19,35 +19,119 @@ const upload = multer({ storage });
 const { protect } = require("./authMiddleware");
 const pool = require("../db.js"); // Your database connection pool
 
-const normalizeEffectiveUntil = (value) => {
-  if (value === undefined || value === null || value === "") {
-    return null;
+const supplierFileSelectColumns = `
+        sf."SupplierFileID",
+        sf."Status",
+        sf."DateSent" as "dateSent",
+        sf."CurrentAttemptNumber" AS "currentAttemptNumber",
+        sf."OptInStatus" AS "optInStatus",
+        sf."OptedInAt" AS "optedInAt",
+        sf."DeclinedAt" AS "declinedAt",
+        sf."ReuseResponseID" AS "reuseResponseId",
+        sf."LastReusedAt" AS "lastReusedAt",
+        pf."FileID",
+        pf."Title",
+        pf."Description",
+        pf."FilePath" as "filePath",
+        pf."DatePosted" as "datePosted",
+        pf."EndDate" as "endDate",
+        attempts.attempt_count AS "attemptCount",
+        latest."latestStatus",
+        latest."latestNote",
+        latest."latestChangedAt",
+        lastResponse."ResponseID" AS "lastResponseId",
+        lastResponse."ResponseFilePath" AS "lastResponseFilePath",
+        lastResponse."DateUploaded" AS "lastResponseDate",
+        CASE WHEN pf."EndDate" IS NOT NULL AND pf."EndDate" < NOW() THEN TRUE ELSE FALSE END AS "isExpired",
+        COALESCE(
+          array_to_string(array_agg(DISTINCT c."CategoryName" ORDER BY c."CategoryName"), ', '),
+          ''
+        ) AS "categories"`;
+
+const supplierFileJoins = `
+      FROM "SupplierFiles" sf
+      JOIN "ProcurementFiles" pf ON sf."FileID" = pf."FileID"
+      LEFT JOIN "ProcurementFileCategories" pfc ON pfc."FileID" = pf."FileID"
+      LEFT JOIN "Categories" c ON c."CategoryID" = pfc."CategoryID"
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*) FILTER (WHERE h."NewStatus" = 'ACTIVE') AS attempt_count
+        FROM "ProcurementStatusHistory" h
+        WHERE h."FileID" = pf."FileID"
+      ) attempts ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT
+          h."NewStatus" AS "latestStatus",
+          h."Notes" AS "latestNote",
+          h."ChangedAt" AS "latestChangedAt"
+        FROM "ProcurementStatusHistory" h
+        WHERE h."FileID" = pf."FileID"
+        ORDER BY h."ChangedAt" DESC
+        LIMIT 1
+      ) latest ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT
+          sr."ResponseID",
+          sr."ResponseFilePath",
+          sr."DateUploaded"
+        FROM "SupplierResponses" sr
+        WHERE sr."SupplierFileID" = sf."SupplierFileID"
+        ORDER BY sr."DateUploaded" DESC
+        LIMIT 1
+      ) lastResponse ON TRUE`;
+
+const supplierFileGroupBy = `
+      GROUP BY
+        sf."SupplierFileID",
+        sf."Status",
+        sf."DateSent",
+        sf."CurrentAttemptNumber",
+        sf."OptInStatus",
+        sf."OptedInAt",
+        sf."DeclinedAt",
+        sf."ReuseResponseID",
+        sf."LastReusedAt",
+        pf."FileID",
+        pf."Title",
+        pf."Description",
+        pf."FilePath",
+        pf."DatePosted",
+        pf."EndDate",
+        attempts.attempt_count,
+        latest."latestStatus",
+        latest."latestNote",
+        latest."latestChangedAt",
+        lastResponse."ResponseID",
+        lastResponse."ResponseFilePath",
+        lastResponse."DateUploaded"`;
+
+const buildSupplierFileQuery = (whereClause, orderClause = 'ORDER BY sf."DateSent" DESC') => `
+    SELECT
+${supplierFileSelectColumns}
+${supplierFileJoins}
+    WHERE ${whereClause}
+${supplierFileGroupBy}
+${orderClause ? `    ${orderClause}` : ''}`;
+
+const fetchSupplierFiles = async ({ client, supplierId, supplierFileIds = null, orderClause }) => {
+  const params = [supplierId];
+  let whereClause = 'sf."SupplierID" = $1';
+
+  if (Array.isArray(supplierFileIds) && supplierFileIds.length > 0) {
+    params.push(supplierFileIds);
+    whereClause += ` AND sf."SupplierFileID" = ANY($${params.length}::int[])`;
   }
 
-  if (value instanceof Date) {
-    return Number.isNaN(value.getTime()) ? null : value.toISOString().slice(0, 10);
-  }
+  const query = buildSupplierFileQuery(whereClause, orderClause);
+  const { rows } = await client.query(query, params);
+  return rows;
+};
 
-  if (typeof value === "number" && !Number.isNaN(value)) {
-    const excelEpoch = new Date(Date.UTC(1899, 11, 30));
-    const millis = Math.round(value * 24 * 60 * 60 * 1000);
-    const date = new Date(excelEpoch.getTime() + millis);
-    return Number.isNaN(date.getTime()) ? null : date.toISOString().slice(0, 10);
-  }
-
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (!trimmed) {
-      return null;
-    }
-    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-      return trimmed;
-    }
-    const parsed = new Date(trimmed);
-    return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString().slice(0, 10);
-  }
-
-  return null;
+const getSupplierIdForUser = async (client, userId) => {
+  const result = await client.query(
+    'SELECT "SupplierID" FROM "Users" WHERE "UserID" = $1',
+    [userId]
+  );
+  return result.rows[0]?.SupplierID || null;
 };
   
 // @desc    Get assigned procurement files for a logged-in supplier
@@ -59,49 +143,373 @@ router.get("/", protect, async (req, res) => {
 
   try {
     // Find the SupplierID linked to the UserID
-    const userResult = await pool.query(
-      'SELECT "SupplierID" FROM "Users" WHERE "UserID" = $1',
-      [loggedInUserId]
-    );
-
-    const supplierId = userResult.rows[0]?.SupplierID;
+    const supplierId = await getSupplierIdForUser(pool, loggedInUserId);
 
     if (!supplierId) {
       console.log("[SupplierRoutes.js] SupplierID not found for UserID:", loggedInUserId);
       return res.status(404).json({ message: "Supplier profile not found for this user." });
     }
 
-    // Query to get all files assigned to this supplier by joining the tables
-    const filesQuery = `
-      SELECT 
-        sf."SupplierFileID", 
-        sf."Status", 
-        sf."DateSent" as "dateSent", 
-        pf."FileID", 
-        pf."Title", 
-        pf."Description", 
-        pf."FilePath" as "filePath",
-        pf."DatePosted" as "datePosted",
-        pf."EndDate" as "endDate",
-        CASE WHEN pf."EndDate" IS NOT NULL AND pf."EndDate" < NOW() THEN TRUE ELSE FALSE END AS "isExpired",
-        COALESCE(
-          array_to_string(array_agg(DISTINCT c."CategoryName" ORDER BY c."CategoryName"), ', '),
-          ''
-        ) AS "categories"
-      FROM "SupplierFiles" sf
-      JOIN "ProcurementFiles" pf ON sf."FileID" = pf."FileID"
-      LEFT JOIN "ProcurementFileCategories" pfc ON pfc."FileID" = pf."FileID"
-      LEFT JOIN "Categories" c ON c."CategoryID" = pfc."CategoryID"
-      WHERE sf."SupplierID" = $1
-      GROUP BY sf."SupplierFileID", sf."Status", sf."DateSent", pf."FileID", pf."Title", pf."Description", pf."FilePath", pf."DatePosted", pf."EndDate"
-      ORDER BY sf."DateSent" DESC;
-    `;
-    const assignedFiles = await pool.query(filesQuery, [supplierId]);
-    res.json(assignedFiles.rows);
+    const assignedFiles = await fetchSupplierFiles({ client: pool, supplierId });
+    res.json(assignedFiles);
     console.log("[SupplierRoutes.js] Successfully fetched assigned files.");
   } catch (err) {
     console.error("Error fetching supplier files:", err.message);
     res.status(500).json({ message: "Server error while fetching files." });
+  }
+});
+
+// @desc    Supplier opts into an additional attempt (optionally reusing previous response)
+// @route   POST /api/supplier-files/:supplierFileId/opt-in
+// @access  Private (Supplier)
+router.post("/:supplierFileId/opt-in", protect, async (req, res) => {
+  const supplierFileId = parseInt(req.params.supplierFileId, 10);
+  const reusePrevious = Boolean(req.body?.reusePrevious);
+
+  if (!Number.isInteger(supplierFileId)) {
+    return res.status(400).json({ message: "Invalid supplier file id." });
+  }
+
+  const loggedInUserId = req.user.userID;
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const supplierId = await getSupplierIdForUser(client, loggedInUserId);
+    if (!supplierId) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Supplier profile not found for this user." });
+    }
+
+    const supplierFileRes = await client.query(
+      'SELECT "SupplierID", "OptInStatus", "CurrentAttemptNumber", "Status" FROM "SupplierFiles" WHERE "SupplierFileID" = $1 FOR UPDATE',
+      [supplierFileId]
+    );
+
+    if (supplierFileRes.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Supplier assignment not found." });
+    }
+
+    const supplierFileRow = supplierFileRes.rows[0];
+
+    if (supplierFileRow.SupplierID !== supplierId) {
+      await client.query("ROLLBACK");
+      return res.status(403).json({ message: "You are not authorised to modify this assignment." });
+    }
+
+    let responseMessage = "Participation confirmed.";
+
+    if (reusePrevious) {
+      const lastResponseRes = await client.query(
+        `SELECT "ResponseID", "ResponseFilePath"
+         FROM "SupplierResponses"
+         WHERE "SupplierFileID" = $1
+         ORDER BY "DateUploaded" DESC
+         LIMIT 1`,
+        [supplierFileId]
+      );
+
+      if (lastResponseRes.rowCount === 0) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ message: "No previous response is available to reuse." });
+      }
+
+      const lastResponse = lastResponseRes.rows[0];
+
+      const reuseInsert = await client.query(
+        `INSERT INTO "SupplierResponses" ("SupplierFileID", "ResponseFilePath", "IsReused", "SourceResponseID")
+         VALUES ($1, $2, TRUE, $3)
+         RETURNING "ResponseID"`,
+        [supplierFileId, lastResponse.ResponseFilePath, lastResponse.ResponseID]
+      );
+
+      const newResponseId = reuseInsert.rows[0].ResponseID;
+
+      await client.query(
+        `UPDATE "SupplierFiles"
+         SET "Status" = 'Answered',
+             "DateResponded" = NOW(),
+             "OptInStatus" = 'SUBMITTED',
+             "OptedInAt" = COALESCE("OptedInAt", NOW()),
+             "DeclinedAt" = NULL,
+             "ReuseResponseID" = $2,
+             "LastReusedAt" = NOW()
+         WHERE "SupplierFileID" = $1`,
+        [supplierFileId, newResponseId]
+      );
+
+      responseMessage = "Previous response reused.";
+    } else {
+      await client.query(
+        `UPDATE "SupplierFiles"
+         SET "Status" = 'PENDING',
+             "OptInStatus" = 'OPTED_IN',
+             "OptedInAt" = NOW(),
+             "DeclinedAt" = NULL,
+             "ReuseResponseID" = NULL,
+             "LastReusedAt" = NULL
+         WHERE "SupplierFileID" = $1`,
+        [supplierFileId]
+      );
+    }
+
+    await client.query("COMMIT");
+
+    const [updated] = await fetchSupplierFiles({
+      client: pool,
+      supplierId,
+      supplierFileIds: [supplierFileId],
+      orderClause: ''
+    });
+
+    return res.json({ message: responseMessage, supplierFile: updated || null });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("Error recording supplier opt-in:", err);
+    return res.status(500).json({ message: "Server error while recording decision." });
+  } finally {
+    client.release();
+  }
+});
+
+// @desc    Supplier declines participation in the current attempt
+// @route   POST /api/supplier-files/:supplierFileId/decline
+// @access  Private (Supplier)
+router.post("/:supplierFileId/decline", protect, async (req, res) => {
+  const supplierFileId = parseInt(req.params.supplierFileId, 10);
+
+  if (!Number.isInteger(supplierFileId)) {
+    return res.status(400).json({ message: "Invalid supplier file id." });
+  }
+
+  const loggedInUserId = req.user.userID;
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const supplierId = await getSupplierIdForUser(client, loggedInUserId);
+    if (!supplierId) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Supplier profile not found for this user." });
+    }
+
+    const supplierFileRes = await client.query(
+      'SELECT "SupplierID" FROM "SupplierFiles" WHERE "SupplierFileID" = $1 FOR UPDATE',
+      [supplierFileId]
+    );
+
+    if (supplierFileRes.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Supplier assignment not found." });
+    }
+
+    if (supplierFileRes.rows[0].SupplierID !== supplierId) {
+      await client.query("ROLLBACK");
+      return res.status(403).json({ message: "You are not authorised to modify this assignment." });
+    }
+
+    await client.query(
+      `UPDATE "SupplierFiles"
+       SET "Status" = 'PENDING',
+           "OptInStatus" = 'DECLINED',
+           "DeclinedAt" = NOW(),
+           "ReuseResponseID" = NULL,
+           "LastReusedAt" = NULL
+       WHERE "SupplierFileID" = $1`,
+      [supplierFileId]
+    );
+
+    await client.query("COMMIT");
+
+    const [updated] = await fetchSupplierFiles({
+      client: pool,
+      supplierId,
+      supplierFileIds: [supplierFileId],
+      orderClause: ''
+    });
+
+    return res.json({ message: "You have declined this attempt.", supplierFile: updated || null });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("Error recording supplier decline:", err);
+    return res.status(500).json({ message: "Server error while recording decision." });
+  } finally {
+    client.release();
+  }
+});
+
+// ---- Add upload endpoint at bottom ----
+router.post('/uploads', protect, upload.single('file'), async (req, res) => { // The 'file' name must match the frontend FormData key
+  console.log('[SupplierRoutes] POST /uploads hit');
+  const file = req.file;
+  let uploadLogId;
+
+  if (!file) {
+    return res.status(400).json({ message: 'File is required' });
+  }
+
+  try {
+    // 1. Authenticate and get SupplierID
+    if (!req.user || !req.user.role || req.user.role.toLowerCase() !== 'supplier') {
+      return res.status(403).json({ message: 'Only suppliers may upload product files' });
+    }
+    const userId = req.user.userID;
+    const userQ = await pool.query('SELECT "SupplierID" FROM "Users" WHERE "UserID" = $1', [userId]);
+    const supplierId = userQ.rows[0]?.SupplierID;
+    if (!supplierId) return res.status(404).json({ message: 'Supplier profile not found' });
+
+    // 2. Log the upload attempt with 'PROCESSING' status
+    const logResult = await pool.query(
+      `INSERT INTO "SupplierUploads" ("SupplierID", "FilePath", "FileName", "Status") VALUES ($1, $2, $3, 'PROCESSING') RETURNING "UploadID"`,
+      [supplierId, file.path, file.originalname]
+    );
+    uploadLogId = logResult.rows[0].UploadID;
+
+    // 3. Find and read the correct sheet from the Excel file
+    const workbook = xlsx.readFile(file.path);
+    let products = [];
+    let sheetFound = false;
+
+    // Define the essential headers we need to find (case-insensitive)
+    const requiredHeaders = ['name', 'price', 'unit'];
+
+    console.log('[UPLOAD_DEBUG] Workbook sheets found:', workbook.SheetNames);
+    for (const sheetName of workbook.SheetNames) {
+      const worksheet = workbook.Sheets[sheetName];
+      // Convert sheet to JSON to inspect the keys of the first object, which represent the headers
+      const sheetDataAsJson = xlsx.utils.sheet_to_json(worksheet);
+
+      if (sheetDataAsJson.length > 0) {
+        const firstRowKeys = Object.keys(sheetDataAsJson[0]).map(k => k.toLowerCase().trim());
+        console.log(`[UPLOAD_DEBUG] Checking sheet "${sheetName}". Headers found:`, firstRowKeys);
+        
+        // Check if this sheet contains all the required headers
+        const hasRequiredHeaders = requiredHeaders.every(rh => firstRowKeys.some(frk => frk.includes(rh)));
+
+        if (hasRequiredHeaders) {
+          products = sheetDataAsJson;
+          sheetFound = true;
+          console.log(`[UPLOAD_SUCCESS] Found valid product data in sheet: "${sheetName}". Processing ${products.length} rows.`);
+          break; // Stop looking once we've found the right sheet
+        }
+      }
+    }
+
+    if (!sheetFound) {
+      throw new Error('Upload failed: Could not find a sheet with the required columns (Name, Price, Unit).');
+    }
+
+    // 4. Process and save products in a single database transaction
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // --- NEW: Pre-fetch all category names for efficient matching ---
+      const allCategoriesResult = await client.query('SELECT "CategoryID", "CategoryName" FROM "Categories"');
+      const allCategories = allCategoriesResult.rows.map(c => ({
+        id: c.CategoryID,
+        name: c.CategoryName.toLowerCase() // Use lowercase for case-insensitive matching
+      }));
+
+      // DEBUG: Log the first product row to see its structure
+      if (products.length > 0) console.log('[UPLOAD_DEBUG] First product row data:', products[0]);
+
+      for (const product of products) {
+        // --- ENHANCED COLUMN MAPPING (Case-Insensitive) ---
+        const getVal = (obj, keys) => {
+          const lowerCaseObjKeys = Object.keys(obj).reduce((acc, k) => {
+            acc[k.toLowerCase().trim()] = obj[k];
+            return acc;
+          }, {});
+          for (const key of keys) {
+            if (lowerCaseObjKeys[key.toLowerCase()] !== undefined) return lowerCaseObjKeys[key.toLowerCase()];
+          }
+          return undefined;
+        };
+
+        const name = getVal(product, ['Names', 'Name', 'Product Name', 'Item Name', 'Item']);
+        const description = getVal(product, ['Description']);
+        const price = parseFloat(getVal(product, ['Price', 'Cost']));
+        const unit = getVal(product, ['Unit', 'Unit of Measure']);
+        const stock = parseFloat(getVal(product, ['Stock', 'Quantity', 'Qty'])) || 0;
+        const location = getVal(product, ['Location']);
+        const categoryName = getVal(product, ['Category', 'CategoryName']);
+
+        if (!name || isNaN(price) || !unit) {
+          console.error(`[UPLOAD_SKIP] Skipping row. Reason: Missing required fields. Parsed values -> Name: ${name}, Price: ${price}, Unit: ${unit}. Original Data: ${JSON.stringify(product)}`);
+          continue; // Skip rows that are missing essential data
+        }
+
+        const itemInsertResult = await client.query(
+          `INSERT INTO "Items" ("SupplierID", "Name", "Description", "Price", "Stock", "Unit", "Location") VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING "ItemID"`,
+          [supplierId, name, description, price, stock, unit, location]
+        );
+        const newItemId = itemInsertResult.rows[0].ItemID;
+
+        // --- BEST PRACTICE: STRICT COMMA-SEPARATED CATEGORY HANDLING ---
+        if (categoryName && typeof categoryName === 'string' && newItemId) {
+          const foundCategoryIds = new Set();
+
+          // 1. Split the cell content by commas. This is the only supported delimiter.
+          const categoryNamesFromCell = categoryName.split(',').map(c => c.trim()).filter(Boolean);
+
+          // 2. For each name found after splitting, find its corresponding ID.
+          for (const namePart of categoryNamesFromCell) {
+            const lowerCaseNamePart = namePart.toLowerCase();
+            const matchedCat = allCategories.find(c => c.name === lowerCaseNamePart);
+            if (matchedCat) {
+              foundCategoryIds.add(matchedCat.id);
+            } else {
+              // Log a warning if a category name from the Excel file is not found in the database.
+              console.warn(`[UPLOAD] Category "${namePart}" for item "${name}" was not found in the database and was skipped.`);
+            }
+          }
+
+          // 3. Insert all unique, valid category IDs that were found into the ItemCategories table.
+          for (const categoryId of foundCategoryIds) {
+            if (categoryId) { // Final safety check
+              await client.query('INSERT INTO "ItemCategories" ("ItemID", "CategoryID") VALUES ($1, $2) ON CONFLICT DO NOTHING', [newItemId, categoryId]);
+            } else {
+              console.warn(`[UPLOAD] An invalid category ID was found for item "${name}".`);
+            }
+          }
+        }
+      }
+
+      await client.query('COMMIT');
+
+      // 5. Update the log to 'COMPLETED' - This now happens inside the 'try' block after a successful COMMIT
+      await client.query(
+        `UPDATE "SupplierUploads" SET "Status" = 'COMPLETED', "RowCount" = $1, "ProcessedAt" = NOW() WHERE "UploadID" = $2`,
+        [products.length, uploadLogId]
+      );
+
+      res.status(201).json({ message: `Successfully processed and saved ${products.length} products.`, uploadId: uploadLogId });
+
+    } catch (transactionError) {
+      await client.query('ROLLBACK'); // If any item fails, undo all insertions from this file
+      throw transactionError; // Let the outer catch block handle it
+    } finally {
+      client.release(); // Return the database client to the pool
+    }
+  } catch (err) {
+    console.error('Upload error:', err);
+
+    // If processing fails, update the log to 'FAILED'
+    if (uploadLogId) {
+      await pool.query(`UPDATE "SupplierUploads" SET "Status" = 'FAILED' WHERE "UploadID" = $1`, [uploadLogId]);
+    }
+    res.status(500).json({ message: 'Server error while processing file', error: err.message });
+  } finally {
+    // 6. Clean up by deleting the temporary file from the 'uploads/' folder
+    if (file) {
+      fs.unlink(file.path, (unlinkErr) => {
+        if (unlinkErr) console.error('Failed to delete temporary file:', file.path);
+      });
+    }
   }
 });
 
@@ -147,41 +555,23 @@ router.post('/items', protect, async (req, res) => {
     const supplierId = userQ.rows[0]?.SupplierID;
     if (!supplierId) return res.status(404).json({ message: 'Supplier profile not found' });
 
-    const { name, description, price, stock, unit, location, categories, effectiveUntil } = req.body;
+    const { name, description, price, stock, unit, location, categories } = req.body;
     if (!name || !unit) return res.status(400).json({ message: 'Missing required fields: name or unit' });
-
-    const safePrice = Number.isNaN(parseFloat(price)) ? 0 : parseFloat(price);
-    const safeStock = Number.isNaN(parseFloat(stock)) ? 0 : parseFloat(stock);
-    const providedEffectiveValue = effectiveUntil !== undefined && effectiveUntil !== null && String(effectiveUntil).trim() !== '';
-    const normalizedEffectiveCandidate = providedEffectiveValue ? normalizeEffectiveUntil(effectiveUntil) : null;
-
-    if (providedEffectiveValue && !normalizedEffectiveCandidate) {
-      return res.status(400).json({ message: 'Effective until date is invalid' });
-    }
 
     // Insert into Items
     const insertQ = `
-      INSERT INTO "Items" ("SupplierID","Name","Description","Price","Stock","Unit","Location","EffectiveUntil")
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+      INSERT INTO "Items" ("SupplierID","Name","Description","Price","Stock","Unit","Location")
+      VALUES ($1,$2,$3,$4,$5,$6,$7)
       RETURNING "ItemID";
     `;
-    const vals = [
-      supplierId,
-      name,
-      description || null,
-      safePrice,
-      safeStock,
-      unit,
-      location || null,
-      normalizedEffectiveCandidate,
-    ];
+    const vals = [supplierId, name, description || null, price || 0, stock || 0, unit, location || null];
     const { rows } = await pool.query(insertQ, vals);
     const newItemId = rows[0].ItemID;
 
     // --- ENHANCED LOGGING ---
     // Create a rich details object for the history log.
     const details = {
-      createdItem: { name, price: safePrice, unit, stock: safeStock, effectiveUntil: normalizedEffectiveCandidate }
+      createdItem: { name, price, unit, stock }
     };
 
     // Log the creation action to ActionHistory
@@ -265,28 +655,26 @@ router.get('/items', protect, async (req, res) => {
         
         // 4. Construct the main Item listing query
         const baseQuery = `
-          SELECT
-            i."ItemID" as id, 
-            i."Name" as name, 
-            i."Description" as description, 
-            i."Price" as price, 
-            i."Stock" as stock, 
-            i."Unit" as unit, 
-            i."Location" as location, 
-            i."DatePosted" as "datePosted",
-            i."DateUpdated" as "dateUpdated",
-            i."EffectiveUntil" as "effectiveUntil",
-            -- Aggregate categories
-            COALESCE(ARRAY_AGG(DISTINCT c."CategoryID") FILTER (WHERE c."CategoryID" IS NOT NULL), '{}') as categories,
-            COALESCE(STRING_AGG(DISTINCT c."CategoryName", ', ') , 'N/A') as "categoryNames"
-          FROM "Items" i
-          LEFT JOIN "ItemCategories" ic ON i."ItemID" = ic."ItemID"
-          LEFT JOIN "Categories" c ON ic."CategoryID" = c."CategoryID"
-          WHERE ${whereClauses.join(' AND ')}
-          ${categoryFilterClause}
-          GROUP BY i."ItemID"
-          ORDER BY i."DateUpdated" DESC, i."DatePosted" DESC
-          LIMIT ${limit} OFFSET ${offset};
+            SELECT
+                i."ItemID" as id, 
+                i."Name" as name, 
+                i."Description" as description, 
+                i."Price" as price, 
+                i."Stock" as stock, 
+                i."Unit" as unit, 
+                i."Location" as location, 
+                i."DatePosted" as date,
+                -- Aggregate categories
+                COALESCE(ARRAY_AGG(DISTINCT c."CategoryID") FILTER (WHERE c."CategoryID" IS NOT NULL), '{}') as categories,
+                COALESCE(STRING_AGG(DISTINCT c."CategoryName", ', ') , 'N/A') as "categoryNames"
+            FROM "Items" i
+            LEFT JOIN "ItemCategories" ic ON i."ItemID" = ic."ItemID"
+            LEFT JOIN "Categories" c ON ic."CategoryID" = c."CategoryID"
+            WHERE ${whereClauses.join(' AND ')}
+            ${categoryFilterClause}
+            GROUP BY i."ItemID"
+            ORDER BY i."DatePosted" DESC
+            LIMIT ${limit} OFFSET ${offset};
         `;
         
         const { rows } = await pool.query(baseQuery, params);
@@ -335,7 +723,7 @@ router.get('/categories', protect, async (req, res) => {
 router.put('/items/:id', protect, async (req, res) => {
   const { id } = req.params;
   const itemId = parseInt(id, 10);
-  const { name, description, price, stock, unit, location, categories, effectiveUntil } = req.body;
+  const { name, description, price, stock, unit, location, categories } = req.body;
 
   try {
     // 1. Verify user and get supplier ID
@@ -343,16 +731,6 @@ router.put('/items/:id', protect, async (req, res) => {
     const userQ = await pool.query('SELECT "SupplierID" FROM "Users" WHERE "UserID" = $1', [userId]);
     const supplierId = userQ.rows[0]?.SupplierID;
     if (!supplierId) return res.status(404).json({ message: 'Supplier profile not found' });
-
-    const safePrice = Number.isNaN(parseFloat(price)) ? 0 : parseFloat(price);
-    const safeStock = Number.isNaN(parseFloat(stock)) ? 0 : parseFloat(stock);
-    const submittedRawValue = effectiveUntil;
-    const submittedHasValue = submittedRawValue !== undefined && submittedRawValue !== null && String(submittedRawValue).trim() !== '';
-    const normalizedEffectiveCandidate = submittedHasValue ? normalizeEffectiveUntil(submittedRawValue) : null;
-
-    if (submittedHasValue && !normalizedEffectiveCandidate) {
-      return res.status(400).json({ message: 'Effective until date is invalid' });
-    }
 
     const client = await pool.connect();
     try {
@@ -366,33 +744,10 @@ router.put('/items/:id', protect, async (req, res) => {
       const oldItem = oldItemResult.rows[0];
 
       // 3. Update the item  
-      const oldEffectiveUntil = oldItem.EffectiveUntil
-        ? new Date(oldItem.EffectiveUntil).toISOString().slice(0, 10)
-        : null;
-
-      let effectiveForUpdate;
-      if (submittedRawValue === undefined) {
-        effectiveForUpdate = oldEffectiveUntil;
-      } else if (!submittedHasValue) {
-        effectiveForUpdate = null;
-      } else {
-        effectiveForUpdate = normalizedEffectiveCandidate;
-      }
-
-      await client.query(
-        `UPDATE "Items" SET "Name" = $1, "Description" = $2, "Price" = $3, "Stock" = $4, "Unit" = $5, "Location" = $6, "EffectiveUntil" = $7, "DateUpdated" = NOW()
-         WHERE "ItemID" = $8 AND "SupplierID" = $9`,
-        [
-          name,
-          description || null,
-          safePrice,
-          safeStock,
-          unit,
-          location || null,
-          effectiveForUpdate,
-          itemId,
-          supplierId,
-        ]
+      const updateResult = await client.query(
+        `UPDATE "Items" SET "Name" = $1, "Description" = $2, "Price" = $3, "Stock" = $4, "Unit" = $5, "Location" = $6, "DateUpdated" = NOW()
+         WHERE "ItemID" = $7 AND "SupplierID" = $8`,
+        [name, description, price, stock, unit, location, itemId, supplierId]
       );
 
       // --- FIX: UPDATE ITEM CATEGORIES ---
@@ -410,38 +765,12 @@ router.put('/items/:id', protect, async (req, res) => {
       // --- END OF FIX ---
       
       // 4. Log changes to ActionHistory
-      const changes = {
-        Name: name,
-        Description: description || null,
-        Price: safePrice,
-        Stock: safeStock,
-        Unit: unit,
-        Location: location || null,
-        EffectiveUntil: effectiveForUpdate,
-      };
-
+      const changes = { Name: name, Description: description, Price: price, Stock: stock, Unit: unit, Location: location };  
       for (const key in changes) {
-        let previousValue = oldItem[key];
-        if (key === 'EffectiveUntil') {
-          previousValue = oldEffectiveUntil;
-        }
-        if (key === 'Price' || key === 'Stock') {
-          previousValue = previousValue === null || previousValue === undefined ? null : Number(previousValue);
-        }
-
-        const normalizedPrevious = previousValue === undefined ? null : previousValue;
-        const normalizedNew = changes[key] === undefined ? null : changes[key];
-
-        if (String(normalizedPrevious ?? '') !== String(normalizedNew ?? '')) {
+        if (String(oldItem[key]) !== String(changes[key])) {
           await client.query(
             'INSERT INTO "ActionHistory" ("UserID", "SupplierID", "ActionType", "TargetID", "Details") VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING',
-            [
-              userId,
-              supplierId,
-              'ITEM_UPDATED',
-              itemId,
-              JSON.stringify({ field: key, oldValue: normalizedPrevious, newValue: normalizedNew }),
-            ]
+            [userId, supplierId, 'ITEM_UPDATED', itemId, JSON.stringify({ field: key, oldValue: oldItem[key], newValue: changes[key] })]
           );
         }
       }
@@ -619,7 +948,6 @@ router.post('/uploads', protect, upload.single('file'), async (req, res) => {
     let skippedCount = 0;
     const skippedCategories = new Set();
     const missingCategoryDetails = [];
-    const invalidEffectiveDates = [];
     
     try {
       await client.query('BEGIN');
@@ -632,69 +960,6 @@ router.post('/uploads', protect, upload.single('file'), async (req, res) => {
       }));
 
       if (products.length > 0) console.log('[UPLOAD_DEBUG] First product row data:', products[0]);
-
-      const parseExcelDate = (rawValue) => {
-        if (rawValue === undefined || rawValue === null || rawValue === '') return null;
-
-        if (rawValue instanceof Date && !Number.isNaN(rawValue.getTime())) {
-          return rawValue;
-        }
-
-        if (typeof rawValue === 'number' && !Number.isNaN(rawValue)) {
-          const ssfParser = xlsx?.SSF?.parse_date_code;
-          if (typeof ssfParser === 'function') {
-            const dateCode = ssfParser(rawValue);
-            if (dateCode) {
-              return new Date(Date.UTC(
-                dateCode.y,
-                (dateCode.m || 1) - 1,
-                dateCode.d || 1,
-                dateCode.H || 0,
-                dateCode.M || 0,
-                dateCode.S || 0
-              ));
-            }
-          }
-
-          // Fallback: Excel serial number to JS Date (Excel epoch 1899-12-30)
-          const excelEpoch = new Date(Date.UTC(1899, 11, 30));
-          const millis = rawValue * 24 * 60 * 60 * 1000; // days to millis
-          return new Date(excelEpoch.getTime() + millis);
-        }
-
-        if (typeof rawValue === 'string') {
-          const trimmed = rawValue.trim();
-          if (!trimmed) return null;
-
-          // Common explicit formats
-          const ymdMatch = trimmed.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
-          if (ymdMatch) {
-            const year = parseInt(ymdMatch[1], 10);
-            const month = parseInt(ymdMatch[2], 10) - 1;
-            const day = parseInt(ymdMatch[3], 10);
-            if (year && month >= 0 && day) {
-              return new Date(Date.UTC(year, month, day));
-            }
-          }
-
-          const dmyMatch = trimmed.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
-          if (dmyMatch) {
-            const day = parseInt(dmyMatch[1], 10);
-            const month = parseInt(dmyMatch[2], 10) - 1;
-            const year = parseInt(dmyMatch[3], 10);
-            if (year && month >= 0 && day) {
-              return new Date(Date.UTC(year, month, day));
-            }
-          }
-
-          const parsed = new Date(trimmed);
-          if (!Number.isNaN(parsed.getTime())) {
-            return parsed;
-          }
-        }
-
-        return null;
-      };
 
       for (const product of products) {
         // --- COLUMN MAPPING (Case-Insensitive) ---
@@ -716,24 +981,6 @@ router.post('/uploads', protect, upload.single('file'), async (req, res) => {
         const stock = parseFloat(getVal(product, ['Stock', 'Quantity', 'Qty'])) || 0;
         const location = getVal(product, ['Location']);
         const categoryName = getVal(product, ['Category', 'CategoryName']);
-        const effectiveUntilRaw = getVal(product, ['EffectiveUntil', 'Effective Until', 'Valid Until', 'Effective Through', 'ValidThrough']);
-        const hasEffectiveValue = effectiveUntilRaw !== undefined && effectiveUntilRaw !== null && String(effectiveUntilRaw).trim() !== '';
-        const effectiveUntilParsed = hasEffectiveValue ? parseExcelDate(effectiveUntilRaw) : null;
-
-        if (hasEffectiveValue) {
-          console.log(`[UPLOAD_DEBUG] EffectiveUntil raw for "${name}":`, effectiveUntilRaw, `(${typeof effectiveUntilRaw})`);
-        }
-
-        let effectiveUntilForDb = null;
-        console.log(`[UPLOAD_DEBUG] Parsed object for "${name}":`, effectiveUntilParsed instanceof Date ? effectiveUntilParsed.toISOString() : effectiveUntilParsed);
-
-        if (effectiveUntilParsed instanceof Date && !Number.isNaN(effectiveUntilParsed.getTime())) {
-          effectiveUntilForDb = effectiveUntilParsed.toISOString().split('T')[0];
-          console.log(`[UPLOAD_DEBUG] Parsed EffectiveUntil for "${name}":`, effectiveUntilForDb);
-        } else if (hasEffectiveValue) {
-          invalidEffectiveDates.push({ item: name, rawValue: effectiveUntilRaw });
-          console.warn(`[UPLOAD_WARNING] Unable to parse EffectiveUntil value "${effectiveUntilRaw}" for item "${name}". Value stored as NULL.`);
-        }
 
         // Skip rows with missing required fields
         if (!name || isNaN(price) || !unit) {
@@ -744,27 +991,11 @@ router.post('/uploads', protect, upload.single('file'), async (req, res) => {
 
         // Insert item with UploadID for tracking
         const itemInsertResult = await client.query(
-          `INSERT INTO "Items" ("SupplierID", "Name", "Description", "Price", "Stock", "Unit", "Location", "EffectiveUntil", "UploadID") 
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING "ItemID"`,
-          [
-            supplierId,
-            name,
-            description,
-            price,
-            stock,
-            unit,
-            location,
-            effectiveUntilForDb,
-            uploadLogId
-          ]
+          `INSERT INTO "Items" ("SupplierID", "Name", "Description", "Price", "Stock", "Unit", "Location", "UploadID") 
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING "ItemID"`,
+          [supplierId, name, description, price, stock, unit, location, uploadLogId]
         );
         const newItemId = itemInsertResult.rows[0].ItemID;
-
-        if (effectiveUntilForDb) {
-          const effectiveCheck = await client.query('SELECT "EffectiveUntil" FROM "Items" WHERE "ItemID" = $1', [newItemId]);
-          console.log(`[UPLOAD_DEBUG] Stored EffectiveUntil for "${name}":`, effectiveCheck.rows[0]?.EffectiveUntil);
-        }
-
         processedCount++;
 
         // --- ENHANCED CATEGORY HANDLING WITH FEEDBACK ---
@@ -823,10 +1054,6 @@ router.post('/uploads', protect, upload.single('file'), async (req, res) => {
         warnings.push(`${skippedCategories.size} category name${skippedCategories.size !== 1 ? 's' : ''} not found in database: "${Array.from(skippedCategories).join('", "')}". Items were created but these categories were not assigned.`);
       }
 
-      if (invalidEffectiveDates.length > 0) {
-        warnings.push(`${invalidEffectiveDates.length} Effective Until value${invalidEffectiveDates.length !== 1 ? 's were' : ' was'} skipped because the date could not be parsed. Please ensure dates use YYYY-MM-DD or a valid Excel date format.`);
-      }
-
       // Return comprehensive response
       res.status(201).json({ 
         message: responseMessage,
@@ -836,8 +1063,7 @@ router.post('/uploads', protect, upload.single('file'), async (req, res) => {
           processed: processedCount,
           skipped: skippedCount,
           skippedCategories: Array.from(skippedCategories),
-          missingCategoryDetails: missingCategoryDetails.length > 0 ? missingCategoryDetails : null,
-          invalidEffectiveDates: invalidEffectiveDates.length > 0 ? invalidEffectiveDates : null
+          missingCategoryDetails: missingCategoryDetails.length > 0 ? missingCategoryDetails : null
         },
         warnings: warnings.length > 0 ? warnings : null
       });
