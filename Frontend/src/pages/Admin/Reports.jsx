@@ -61,10 +61,36 @@ const Reports = () => {
   if (error) return <p className="error">{error}</p>;
   if (suppliers.length === 0) return <p>No suppliers found.</p>;
 
+  const totalSuppliers = suppliers.length;
+  const suppliersWithAnalytics = suppliers.filter((s) => Array.isArray(s.priceAnalytics) && s.priceAnalytics.length > 0).length;
+  const aggregatedTotals = suppliers.reduce(
+    (acc, supplier) => {
+      acc.items += Number(supplier.summary?.total_items || 0);
+      return acc;
+    },
+    { items: 0 }
+  );
+
   return (
     <div className="reports-container">
-      <h2>📊 Supplier Price Trends</h2>
-      <p>Monitor supplier pricing trends and performance over time.</p>
+      <div className="reports-header">
+        <span className="reports-tagline">MSSS Admin Console</span>
+        <div className="reports-heading">
+          <h2>Supplier Price Trends</h2>
+          <p>Monitor pricing behavior across suppliers, compare category performance, and spot areas that need procurement attention.</p>
+        </div>
+        <div className="reports-meta">
+          <span className="reports-meta-pill">
+            Suppliers Tracked: <strong>{totalSuppliers}</strong>
+          </span>
+          <span className="reports-meta-pill">
+            With Analytics: <strong>{suppliersWithAnalytics}</strong>
+          </span>
+          <span className="reports-meta-pill">
+            Total Items Covered: <strong>{aggregatedTotals.items}</strong>
+          </span>
+        </div>
+      </div>
 
       <div className="supplier-cards-wrapper scrollable">
         {suppliers.map((supplier) => {
@@ -81,7 +107,6 @@ const Reports = () => {
 
               <div className="stats-cards">
                 <span>Total Items: {supplier.summary?.total_items || 0}</span>
-                <span>Sent Files: {supplier.summary?.sent_files || 0}</span>
                 <span>Activity: {supplier.timeline?.length || 0} actions</span>
                 <span>Last Update: {supplier.lastUpdate ? new Date(supplier.lastUpdate).toLocaleString() : 'N/A'}</span>
               </div>

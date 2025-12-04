@@ -41,53 +41,86 @@
   position: relative;
   z-index: 1;
 }
-.market-header p {
-  color: var(--philgeps-light); /* or var(--text-secondary) */
-}
 /* ========== HEADER ========== */
 .market-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 20px;
   padding: 24px 28px;
   border-radius: 16px;
   gap: 16px;
   flex-wrap: wrap;
   position: relative;
   overflow: hidden;
+  background: linear-gradient(180deg, #ffffff 0%, #f5f8ff 100%);
+  box-shadow: 0 20px 36px rgba(15, 45, 98, 0.12);
+  border: 1px solid rgba(15, 45, 98, 0.12);
 }
 
 .market-header::before {
   content: '';
   position: absolute;
-  top: -50%;
-  right: -10%;
-  width: 300px;
-  height: 300px;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+  top: 8%;
+  right: -12%;
+  width: 260px;
+  height: 260px;
+  background: radial-gradient(circle, rgba(28, 63, 124, 0.08) 0%, transparent 70%);
   pointer-events: none;
 }
 
-.market-header h2 {
-  font-size: 2.25rem;
-  font-weight: 700;
-  color: #FFFFFF;
-  margin: 0;
+.market-header-content {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  flex-direction: column;
+  gap: 0.85rem;
   position: relative;
   z-index: 1;
+  max-width: 680px;
 }
 
-.market-container > p {
-  color: var(--text-secondary);
-  font-size: 1.05rem;
-  margin: 0 0 24px 0;
-  font-weight: 400;
-  padding: 0 4px;
+.market-header-tagline {
+  align-self: flex-start;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(28, 63, 124, 0.15);
+  background: rgba(28, 63, 124, 0.08);
+  color: var(--philgeps-bright-blue);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.market-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.market-header h2 {
+  font-size: 2.1rem;
+  font-weight: 700;
+  color: var(--philgeps-deep-blue);
+  margin: 0;
+  text-shadow: none;
+}
+
+.market-header h2::after {
+  content: "";
+  display: block;
+  width: 74px;
+  height: 3px;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--philgeps-gold) 0%, rgba(28, 63, 124, 0.65) 100%);
+  opacity: 0.8;
+}
+
+.market-header-description {
+  color: var(--philgeps-muted);
+  font-size: 1rem;
+  margin: 0;
+  line-height: 1.5;
 }
 
 /* Bookmark Toggle Button */

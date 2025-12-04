@@ -11,6 +11,7 @@ const UploadProducts = () => {
   const [uploadHistory, setUploadHistory] = useState([]);
   const [selectedFile, setSelectedFile] = useState(null);
   const [toast, setToast] = useState({ visible: false, message: "", type: "info" });
+  const [instructionsExpanded, setInstructionsExpanded] = useState(false);
 
   useEffect(() => {
     fetchHistory();
@@ -94,7 +95,7 @@ const UploadProducts = () => {
   return (
     <div className="upload-page">
       <header className="upload-header">
-        <h2>📤 Upload Product File</h2>
+        <h2>Upload Product File</h2>
         <p>
           Upload your product list (CSV or Excel). The system will read and
           update your market items automatically.
@@ -102,8 +103,10 @@ const UploadProducts = () => {
       </header>
 
       <div className="upload-section">
-        <input id="fileUpload" type="file" accept=".csv, .xlsx" onChange={handleFileChange} />
-        <button className="upload-btn" onClick={handleSubmit}>Upload</button>
+        <div className="upload-controls">
+          <input id="fileUpload" type="file" accept=".csv, .xlsx" onChange={handleFileChange} />
+          <button className="upload-btn" onClick={handleSubmit}>Upload</button>
+        </div>
         <p className="note">
           Supported formats: <strong>.csv</strong>, <strong>.xlsx</strong>. For the optional
           <code>Effective Until</code> column, enter calendar dates in <strong>YYYY-MM-DD</strong>
@@ -111,8 +114,111 @@ const UploadProducts = () => {
         </p>
       </div>
 
+      {/* Upload Instructions Section */}
+      <section className="upload-instructions-section">
+        <div className="instructions-header">
+          <h3>Upload Instructions</h3>
+          <button 
+            className="toggle-instructions-btn" 
+            onClick={() => setInstructionsExpanded(!instructionsExpanded)}
+          >
+            {instructionsExpanded ? 'Hide Instructions' : 'Show Instructions'}
+            <span className={`toggle-icon ${instructionsExpanded ? 'expanded' : ''}`}>
+              ▼
+            </span>
+          </button>
+        </div>
+        <div className={`upload-instructions ${instructionsExpanded ? 'expanded' : ''}`}>
+          <div className="instruction-section">
+            <h4>Required File Columns</h4>
+            <ul>
+              <li><strong>Name</strong> - Product name (required)</li>
+              <li><strong>Description</strong> - Detailed product description</li>
+              <li><strong>Price</strong> - Unit price in Philippine Peso (₱)</li>
+              <li><strong>Stock</strong> - Available quantity (numeric)</li>
+              <li><strong>Unit</strong> - Unit of measurement (e.g., piece, kg, box)</li>
+              <li><strong>Location</strong> - Storage or supplier location</li>
+              <li><strong>Effective Until</strong> - (Optional) Expiration date in YYYY-MM-DD format</li>
+            </ul>
+          </div>
+
+          <div className="instruction-section">
+            <h4>File Format Guidelines</h4>
+            <ul>
+              <li>Supported file types: <strong>.xlsx</strong> (Excel) and <strong>.csv</strong></li>
+              <li>First row must contain column headers (case-sensitive)</li>
+              <li>Each row represents one product</li>
+              <li>Empty rows will be skipped automatically</li>
+              <li>Maximum file size: <strong>5MB</strong></li>
+            </ul>
+          </div>
+
+          <div className="instruction-warning">
+            <h4>Important Notes</h4>
+            <ul>
+              <li><strong>Price Format:</strong> Enter numbers only (e.g., 1250.50), no currency symbols</li>
+              <li><strong>Stock:</strong> Must be a whole number (e.g., 100, not 100.5)</li>
+              <li><strong>Date Format:</strong> Use YYYY-MM-DD only (e.g., 2025-12-31)</li>
+              <li><strong>Duplicates:</strong> Products with the same name will be updated, not duplicated</li>
+              <li><strong>Categories:</strong> Auto-matched based on product name and description</li>
+            </ul>
+          </div>
+
+          <div className="instruction-example">
+            <h4>Example File Structure</h4>
+            <div className="table-scroll">
+              <table className="example-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th>Price</th>
+                    <th>Stock</th>
+                    <th>Unit</th>
+                    <th>Effective Until</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Steel Bars</td>
+                    <td>High-grade construction steel</td>
+                    <td>1500</td>
+                    <td>100</td>
+                    <td>kg</td>
+                    <td>2025-12-05</td>
+                  </tr>
+                  <tr>
+                    <td>Office Chair</td>
+                    <td>Ergonomic design with lumbar support</td>
+                    <td>3500</td>
+                    <td>50</td>
+                    <td>pcs</td>
+                    <td>2025-08-31</td>
+                  </tr>
+                  <tr>
+                    <td>Cement Bags</td>
+                    <td>Portland cement 50kg bags</td>
+                    <td>250</td>
+                    <td>500</td>
+                    <td>bag</td>
+                    <td>2026-03-15</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="instruction-categories-list">
+              <h4>How Categories Work</h4>
+              <p className="category-match-note">
+                Categories are <strong>predefined in the system</strong> and/or provided in the Excel sheet template. You can simply copy and paste the correct category for each product from the list in your Excel sheet or from the system. No need to invent or guess categories—just use the provided options for consistency.
+              </p>
+          </div>
+        </div>
+      </section>
+
       <section className="upload-history">
-        <h3>📜 Upload History</h3>
+        <h3>Upload History</h3>
         <div className="history-table-container">
           <table className="history-table">
             <thead>

@@ -27,7 +27,8 @@ const STATUS_BADGE_COLORS = {
   ARCHIVED: "#6b7280",
   CLOSED: "#6b7280",
   ACTIVE: "#2563eb",
-  AWARDED: "#f59e0b",
+  AWARDED: "#16a34a",
+  FAILED_POSTING: "#dc2626",
 };
 
 const STATUS_LABELS = {
@@ -42,43 +43,36 @@ const STATUS_LABELS = {
   COMPLETED: "Completed",
   DECLINED: "Declined",
   ARCHIVED: "Archived",
+  FAILED_POSTING: "Failed Posting",
 };
 
-const ANNOUNCEMENT_STATUS_ACTIONS = [
-  {
-    status: "CLOSED",
-    label: "Mark as Completed",
-    shouldShow: (announcement) => {
-      const current = String(announcement.status || "").toUpperCase();
-      return current !== "CLOSED" && current !== "AWARDED";
-    },
-  },
-  {
-    status: "CANCELLED",
-    label: "Cancel Posting",
-    shouldShow: (announcement) => {
-      const current = String(announcement.status || "").toUpperCase();
-      return current !== "CANCELLED" && current !== "AWARDED" && current !== "EXPIRED";
-    },
-  },
-  {
-    status: "ACTIVE",
-    label: "Repost",
-    shouldShow: (announcement) => {
-      const current = String(announcement.status || "").toUpperCase();
-      return current && current !== "ACTIVE";
-    },
-  },
-];
+const normalizeStatus = (status) => (status ? String(status).toUpperCase() : "");
+
+const FINALIZED_STATUSES = new Set(["CLOSED", "AWARDED", "COMPLETED"]);
+
+const deriveAnnouncementStatus = (status, isExpired) => {
+  const normalized = normalizeStatus(status);
+  if (normalized === "FAILED_POSTING") {
+    return "FAILED_POSTING";
+  }
+
+  if (isExpired && !FINALIZED_STATUSES.has(normalized)) {
+    return "FAILED_POSTING";
+  }
+
+  return normalized || "PENDING";
+};
+
+const isFailedPostingStatus = (status, isExpired) => deriveAnnouncementStatus(status, isExpired) === "FAILED_POSTING";
 
 const STATUS_CONFIRMATION_MESSAGES = {
-  CLOSED: "Mark this announcement as completed?",
-  CANCELLED: "Cancel this announcement? Suppliers will no longer be able to respond.",
+  CLOSED: "Close this announcement and record the winning supplier?",
+  COMPLETED: "Mark this failed posting as completed?",
   ACTIVE: "Repost this announcement and mark it as active again?",
   AWARDED: "Award this announcement to the selected supplier?",
 };
 
-const STATUSES_REQUIRING_NOTES = new Set(["CANCELLED", "CLOSED", "AWARDED"]);
+const STATUSES_REQUIRING_NOTES = new Set(["CLOSED"]);
 const STATUSES_REQUIRING_SUPPLIER = new Set(["CLOSED", "AWARDED"]);
 
 const STATUS_DIALOG_INITIAL = {
@@ -296,18 +290,34 @@ const AnnouncementCard = ({
   const responseCount = Number.isNaN(responseCountNum) ? 0 : responseCountNum;
   const hasResponses = announcement.hasResponses ?? responseCount > 0;
 
-  const normalizedStatus = announcement.status
-    ? String(announcement.status).toUpperCase()
-    : announcement.procurementStatus
-      ? String(announcement.procurementStatus).toUpperCase()
-      : "";
-  const statusLabel = normalizedStatus ? formatStatusLabel(normalizedStatus) : "Unlabeled";
-  const statusColor = getStatusBadgeColor(normalizedStatus);
-  const isCancelledStatus = normalizedStatus === "CANCELLED";
-  const isExpiredStatus = normalizedStatus === "EXPIRED";
-  const backendExpired = announcement.isExpired ?? announcement.isexpired ?? false;
-  const isExpired = Boolean(isExpiredStatus || backendExpired || isCancelledStatus);
-  const baseClassName = isExpired ? "announcement-card expired" : "announcement-card";
+  const rawStatus = normalizeStatus(
+    announcement.status ??
+      announcement.procurementStatus ??
+      announcement.procurement_status ??
+      ""
+  );
+  const computedExpired = Boolean(
+    announcement.isExpired ??
+      announcement.isexpired ??
+      rawStatus === "EXPIRED"
+  );
+  const derivedStatus = normalizeStatus(
+    announcement.derivedStatus ?? deriveAnnouncementStatus(rawStatus, computedExpired)
+  );
+  const statusLabel = formatStatusLabel(derivedStatus);
+  const statusColor = getStatusBadgeColor(derivedStatus);
+  const isFailedPosting = derivedStatus === "FAILED_POSTING";
+  const isAwardedStatus = derivedStatus === "AWARDED";
+  const isExpired = Boolean(computedExpired);
+  const isFinalStatus = FINALIZED_STATUSES.has(derivedStatus);
+  let baseClassName = "announcement-card";
+  if (isAwardedStatus) {
+    baseClassName += " awarded";
+  } else if (isFailedPosting) {
+    baseClassName += " failed-posting";
+  } else if (isExpired) {
+    baseClassName += " expired";
+  }
   const cardClassName = expanded ? `${baseClassName} expanded` : baseClassName;
 
   const seenCategories = new Set();
@@ -334,6 +344,7 @@ const AnnouncementCard = ({
 
   const firstTwoSuppliers = supplierNames.slice(0, 2);
   const remainingSuppliers = Math.max(0, supplierNames.length - firstTwoSuppliers.length);
+  const supplierIdsList = Array.isArray(announcement.supplierIds) ? announcement.supplierIds : [];
 
   const assignedSupplierCount =
     toNullableNumber(announcement.totalSuppliersAssigned) ??
@@ -358,11 +369,13 @@ const AnnouncementCard = ({
   const procurementStatusRaw = announcement.procurementStatus || announcement.procurement_status || "";
   const procurementStatus = procurementStatusRaw
     ? procurementStatusRaw.toString().toUpperCase()
-    : normalizedStatus;
+    : derivedStatus;
   const procurementBadgeColor = getStatusBadgeColor(procurementStatus);
   const attemptSentAt = announcement.attemptSentAt || announcement.attempt_sent_at || null;
   const attemptDueAt = announcement.attemptDueAt || announcement.attempt_due_at || null;
   const awardedSupplierName = announcement.awardedSupplierName || announcement.awarded_supplier_name || "";
+  const normalizedWinnerName = awardedSupplierName ? awardedSupplierName.trim() : "";
+  const showWinnerBadge = isAwardedStatus || derivedStatus === "CLOSED" || normalizedWinnerName.length > 0;
   const descriptionText = announcement.description && announcement.description.trim().length > 0
     ? announcement.description
     : "No description provided yet.";
@@ -456,12 +469,32 @@ const AnnouncementCard = ({
     }
   };
 
-  const actionableStatuses = ANNOUNCEMENT_STATUS_ACTIONS.filter(({ shouldShow }) =>
-    typeof shouldShow === "function" ? shouldShow({ ...announcement, status: normalizedStatus }) : true
-  );
+  const actionButtons = [];
+  const canMarkWinner = !isFailedPosting && !isFinalStatus;
+  const canMarkCompleted = isFailedPosting;
+  const canRepost = isFailedPosting;
+
+  if (canMarkWinner) {
+    const hasAssignableSuppliers = supplierIdsList.length > 0;
+    actionButtons.push({
+      status: "CLOSED",
+      label: "Mark Winner",
+      variant: "primary",
+      disabled: !hasAssignableSuppliers,
+      tooltip: !hasAssignableSuppliers ? "Assign suppliers to enable winner selection." : undefined,
+    });
+  }
+
+  if (canMarkCompleted) {
+    actionButtons.push({ status: "COMPLETED", label: "Mark as Completed" });
+  }
+
+  if (canRepost) {
+    actionButtons.push({ status: "ACTIVE", label: "Repost", variant: "primary" });
+  }
 
   const shouldShowProcurementBadge =
-    procurementStatus && procurementStatus !== normalizedStatus && procurementStatus !== attemptStatus;
+    procurementStatus && procurementStatus !== derivedStatus && procurementStatus !== attemptStatus;
 
   return (
     <div
@@ -517,6 +550,11 @@ const AnnouncementCard = ({
               No categories
             </span>
           )}
+          {showWinnerBadge && (
+            <span className="badge badge-awarded">
+              {normalizedWinnerName.length > 0 ? `🏆 Winner: ${normalizedWinnerName}` : "🏆 Winner Selected"}
+            </span>
+          )}
         </div>
       </div>
       {expanded && (
@@ -552,22 +590,20 @@ const AnnouncementCard = ({
         <span className="status-pill" style={{ backgroundColor: statusColor }}>
           {statusLabel}
         </span>
-        {actionableStatuses.length > 0 && (
+        {actionButtons.length > 0 && (
           <div className="status-action-group">
-            {actionableStatuses.map((action) => {
+            {actionButtons.map((action) => {
               const classNames = ["status-action-btn"];
-              if (action.status === "ACTIVE") {
+              if (action.variant === "primary") {
                 classNames.push("status-action-btn--primary");
-              }
-              if (action.status === "CANCELLED") {
-                classNames.push("status-action-btn--danger");
               }
               return (
                 <button
                   key={action.status}
                   type="button"
                   className={classNames.join(" ")}
-                  disabled={Boolean(isStatusUpdating)}
+                  disabled={Boolean(isStatusUpdating || action.disabled)}
+                  title={action.tooltip}
                   onClick={(event) => handleStatusAction(event, action.status)}
                 >
                   {isStatusUpdating ? "Updating..." : action.label}
@@ -908,6 +944,12 @@ const Dashboard = () => {
       }
     }
 
+    const derivedStatus = deriveAnnouncementStatus(normalizedStatus, isExpired);
+    const isFailedPosting = derivedStatus === "FAILED_POSTING";
+    if (isFailedPosting && !isExpired) {
+      isExpired = true;
+    }
+
     let displayText = "Uncategorized";
     if (sendType === "supplier") {
       displayText = "Supplier-specific";
@@ -993,6 +1035,8 @@ const Dashboard = () => {
       categoryDisplay: displayText,
       sendType,
       status: normalizedStatus,
+      derivedStatus,
+      isFailedPosting,
       suppliers: Array.isArray(ann.suppliers) ? ann.suppliers : [],
       responseCount: respondingSupplierCount,
       respondingSupplierCount,
@@ -1510,11 +1554,28 @@ const Dashboard = () => {
           if (item.id !== announcement.id) {
             return item;
           }
-          const isCancelled = updatedStatus === "CANCELLED";
+          const normalizedUpdatedStatus = normalizeStatus(updatedStatus);
+          const isCancelled = normalizedUpdatedStatus === "CANCELLED";
+          const nextIsExpired = (() => {
+            if (normalizedUpdatedStatus === "ACTIVE") {
+              return false;
+            }
+            if (normalizedUpdatedStatus === "EXPIRED") {
+              return true;
+            }
+            if (normalizedUpdatedStatus === "FAILED_POSTING") {
+              return true;
+            }
+            return item.isExpired;
+          })();
+          const nextDerivedStatus = deriveAnnouncementStatus(normalizedUpdatedStatus, nextIsExpired);
+          const nextIsFailedPosting = nextDerivedStatus === "FAILED_POSTING";
           return {
             ...item,
-            status: updatedStatus,
-            isExpired: isCancelled || updatedStatus === "EXPIRED" || item.isExpired,
+            status: normalizedUpdatedStatus,
+            derivedStatus: nextDerivedStatus,
+            isFailedPosting: nextIsFailedPosting,
+            isExpired: isCancelled || nextIsExpired,
             awardedSupplierId:
               updatedSupplierId !== undefined && updatedSupplierId !== null
                 ? updatedSupplierId
@@ -1529,7 +1590,7 @@ const Dashboard = () => {
       setToast({
         visible: true,
         type: "success",
-        message: `Status updated to ${formatStatusLabel(updatedStatus)}.`,
+        message: `Status updated to ${formatStatusLabel(normalizeStatus(updatedStatus))}.`,
       });
 
       setRefreshKey((key) => key + 1);
@@ -1551,10 +1612,60 @@ const Dashboard = () => {
     }
 
     const statusUpper = String(nextStatus).toUpperCase();
+    const rawStatus = normalizeStatus(
+      announcement.status ??
+        announcement.derivedStatus ??
+        announcement.procurementStatus ??
+        announcement.procurement_status ??
+        ""
+    );
+    const currentIsExpired = Boolean(announcement.isExpired ?? announcement.isexpired);
+    const currentIsFailedPosting =
+      typeof announcement.isFailedPosting === "boolean"
+        ? announcement.isFailedPosting
+        : isFailedPostingStatus(rawStatus, currentIsExpired);
 
     if (statusUpper === "ACTIVE") {
+      if (!currentIsFailedPosting) {
+        setToast({
+          visible: true,
+          type: "info",
+          message: "Only failed postings can be reposted.",
+        });
+        return;
+      }
       handleRepostAnnouncement(announcement);
       return;
+    }
+
+    if (statusUpper === "COMPLETED" && !currentIsFailedPosting) {
+      setToast({
+        visible: true,
+        type: "info",
+        message: "You can only mark failed postings as completed.",
+      });
+      return;
+    }
+
+    if (statusUpper === "CLOSED") {
+      if (currentIsFailedPosting || currentIsExpired) {
+        setToast({
+          visible: true,
+          type: "warning",
+          message: "Select a winner before the posting expires.",
+        });
+        return;
+      }
+
+      const supplierIds = Array.isArray(announcement.supplierIds) ? announcement.supplierIds : [];
+      if (supplierIds.length === 0) {
+        setToast({
+          visible: true,
+          type: "warning",
+          message: "Assign suppliers to this announcement before marking a winner.",
+        });
+        return;
+      }
     }
 
     openStatusDialog(announcement, statusUpper);
@@ -1598,8 +1709,9 @@ const Dashboard = () => {
     <div className="dashboard-container">
       <Toast type={toast.type} message={toast.message} visible={toast.visible} onClose={() => setToast({ ...toast, visible: false })} duration={3000} />
       <div className="dashboard-header">
-        <h2>📊 Dashboard Overview</h2>
-        <p>Welcome! Here's a summary of your procurement activities.</p>
+        <span className="dashboard-header-tagline">MSSS Admin Console</span>
+        <h2>Dashboard Overview</h2>
+        <p>Monitor procurement activities, supplier engagement, and announcement status at a glance.</p>
       </div>
 
       <StatsSection stats={stats} />

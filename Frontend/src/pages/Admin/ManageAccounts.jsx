@@ -103,8 +103,11 @@ const ManageAccounts = () => {
 
   return (
     <div className="manage-accounts-container">
-      <h2>👥 Manage Accounts</h2>
-      <p>Here you can view and manage supplier and buyer accounts.</p>
+      <div className="manage-accounts-header">
+        <span className="manage-accounts-tagline">MSSS Admin Console</span>
+        <h2>Manage Accounts</h2>
+        <p>Review supplier and buyer credentials, approve pending requests, and maintain an up-to-date directory.</p>
+      </div>
 
       <div className="tabs">
         <button className={`tab-btn ${activeTab === "suppliers" ? "active" : ""}`} onClick={() => setActiveTab("suppliers")}>

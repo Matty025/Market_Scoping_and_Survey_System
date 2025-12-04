@@ -402,14 +402,14 @@ const SupplierMarket = () => {
             {/* ----------- Action Buttons ----------- */}
             <div className="market-actions">
                 <button className="upload-btn" onClick={() => setShowUploadModal(true)}>
-                    📤 Upload Excel
+                    Upload Excel File
                 </button>
                 <button
                     className="upload-btn"
                     onClick={() => setShowAddModal(true)}
                     style={{ marginLeft: '10px' }}
                 >
-                    + Add Product
+                    Add New Product
                 </button>
             </div>
 
@@ -431,7 +431,7 @@ const SupplierMarket = () => {
                     onChange={(e) => handleCategoryFilterChange(e.target.value)}
                 >
                     <option value="">All Categories</option>
-                    <option value="none">⚠️ Missing Categories (N/A)</option> 
+                    <option value="none">Missing Categories (N/A)</option> 
                     {categories.map((c) => (
                         <option key={c.CategoryID} value={c.CategoryID}>
                             {c.CategoryName}
@@ -479,7 +479,6 @@ const SupplierMarket = () => {
             {/* ----------- Product Grid ----------- */}
             {sortedProducts.length === 0 && !loading ? (
                 <div className="no-results-card">
-                    <div style={{fontSize: '3rem', marginBottom: '1rem'}}>📦</div>
                     <h3>No Products Found</h3>
                     <p>
                         Try adjusting your filters, search term, or pagination.
@@ -506,7 +505,7 @@ const SupplierMarket = () => {
                                         onClick={() => setEditProduct(product)}
                                         aria-label={`Edit ${product.name}`}
                                     >
-                                        ✏️
+                                        Edit
                                     </button>
                                     <button
                                         className="dropdown-toggle"
@@ -514,7 +513,7 @@ const SupplierMarket = () => {
                                         onClick={() => handleDelete(product.id, product.name)} // Pass name for confirmation
                                         aria-label={`Delete ${product.name}`}
                                     >
-                                        🗑️
+                                        Delete
                                     </button>
                                 </div>
                             </div>
@@ -523,7 +522,7 @@ const SupplierMarket = () => {
                             <div className="card-body">
                                 {effectiveSummary?.isExpired && (
                                     <div className="expired-banner">
-                                        ⚠️ This listing is past its effective date. Please update or remove it.
+                                        WARNING: This listing is past its effective date. Please update or remove it.
                                     </div>
                                 )}
                                 {/* Description */}
@@ -534,41 +533,40 @@ const SupplierMarket = () => {
                                 {/* Product Details Grid */}
                                 <div className="card-details-grid">
                                     <div className="detail-item">
-                                        <span>💰</span>
-                                        <span>₱{parseFloat(product.price || 0).toFixed(2)}</span>
+                                        <span className="detail-label">Price:</span>
+                                        <span className="detail-value">₱{parseFloat(product.price || 0).toFixed(2)}</span>
                                     </div>
 
                                     <div className="detail-item">
-                                        <span>📦</span>
-                                        <span>
+                                        <span className="detail-label">Stock:</span>
+                                        <span className="detail-value">
                                             {product.stock || 0} {product.unit || "units"}
                                             <span className={`stock-badge ${getStockStatus(product.stock)}`}>
-                                                {/* Only show text when out of stock */}
                                                 {product.stock === 0 ? 'Out' : ''}
                                             </span>
                                         </span>
                                     </div>
 
                                     <div className="detail-item">
-                                        <span>📏</span>
-                                        <span>{product.unit || "N/A"}</span>
+                                        <span className="detail-label">Unit:</span>
+                                        <span className="detail-value">{product.unit || "N/A"}</span>
                                     </div>
 
                                     <div className="detail-item">
-                                        <span>🕓</span>
-                                        <span>Updated: {formatDate(product.dateUpdated || product.datePosted || product.date)}</span>
+                                        <span className="detail-label">Updated:</span>
+                                        <span className="detail-value">{formatDate(product.dateUpdated || product.datePosted || product.date)}</span>
                                     </div>
 
                                     {product.location && (
                                         <div className="detail-item">
-                                            <span>📍</span>
-                                            <span>{product.location}</span>
+                                            <span className="detail-label">Location:</span>
+                                            <span className="detail-value">{product.location}</span>
                                         </div>
                                     )}
 
                                     {effectiveSummary && (
                                         <div className="detail-item effective-until">
-                                            <span>⏳</span>
+                                            <span className="detail-label">Effective:</span>
                                             <div className="effective-meta">
                                                 <span className={`effective-badge ${effectiveSummary.badgeClass}`}>{effectiveSummary.badgeLabel}</span>
                                                 <span className="effective-text">{effectiveSummary.statusMessage}</span>
@@ -599,7 +597,7 @@ const SupplierMarket = () => {
                                             ))}
                                         </div>
                                     ) : (
-                                        <span className="category-tag-na"> ⚠️ None</span>
+                                        <span className="category-tag-na">None Assigned</span>
                                     )}
                                 </div>
                             </div>

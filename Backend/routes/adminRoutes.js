@@ -678,19 +678,18 @@ router.patch("/announcements/:id/status", protect, async (req, res) => {
     const previousStatus = currentRes.rows[0].Status || null;
 
     let awardedSupplierName = null;
+    let losingSupplierIds = [];
 
     const needsWinner = (requestedStatus === 'AWARDED') || (requestedStatus === 'CLOSED' && awardedSupplierId);
     if (needsWinner) {
       const supplierRes = await client.query(
-        `SELECT "SupplierID",
-                COALESCE(
-                  NULLIF(TRIM("CompanyName"), ''),
-                  NULLIF(TRIM("SupplierName"), ''),
-                  NULLIF(TRIM("ContactPerson"), ''),
-                  NULLIF(TRIM(CONCAT(COALESCE("FirstName", ''), ' ', COALESCE("LastName", ''))), '')
-                ) AS "DisplayName"
-         FROM "Suppliers"
-         WHERE "SupplierID" = $1`,
+          `SELECT s."SupplierID",
+                  COALESCE(
+                    NULLIF(TRIM(s."CompanyName"), ''),
+                    'Supplier ' || s."SupplierID"
+                  ) AS "DisplayName"
+           FROM "Suppliers" s
+           WHERE s."SupplierID" = $1`,
         [awardedSupplierId]
       );
 
@@ -725,6 +724,21 @@ router.patch("/announcements/:id/status", protect, async (req, res) => {
          WHERE "FileID" = $2 AND "SupplierID" = $3`,
         ['AWARDED', fileId, awardedSupplierId]
       );
+
+      const losingRes = await client.query(
+        'SELECT "SupplierID" FROM "SupplierFiles" WHERE "FileID" = $1 AND "SupplierID" <> $2',
+        [fileId, awardedSupplierId]
+      );
+      losingSupplierIds = uniqueIntegers(losingRes.rows.map((row) => row.SupplierID));
+
+      if (losingSupplierIds.length > 0) {
+        await client.query(
+          `UPDATE "SupplierFiles"
+           SET "Status" = $3
+           WHERE "FileID" = $1 AND "SupplierID" = ANY($2::int[])`,
+          [fileId, losingSupplierIds, 'NOT_AWARDED']
+        );
+      }
     } else if (requestedStatus === 'CANCELLED') {
       await client.query(
         `UPDATE "ProcurementFiles"
@@ -757,7 +771,8 @@ router.patch("/announcements/:id/status", protect, async (req, res) => {
       previousStatus,
       status: requestedStatus,
       awardedSupplierId: awardedSupplierId || null,
-      awardedSupplierName: awardedSupplierName
+      awardedSupplierName: awardedSupplierName,
+      losingSupplierIds
     });
   } catch (err) {
     await client.query("ROLLBACK").catch(() => {});
@@ -822,6 +837,21 @@ router.patch("/announcements/:id/award", protect, async (req, res) => {
       ['AWARDED', fileId, supplierId]
     );
 
+    const losingRes = await client.query(
+      'SELECT "SupplierID" FROM "SupplierFiles" WHERE "FileID" = $1 AND "SupplierID" <> $2',
+      [fileId, supplierId]
+    );
+    const losingSupplierIds = uniqueIntegers(losingRes.rows.map((row) => row.SupplierID));
+
+    if (losingSupplierIds.length > 0) {
+      await client.query(
+        `UPDATE "SupplierFiles"
+         SET "Status" = $3
+         WHERE "FileID" = $1 AND "SupplierID" = ANY($2::int[])`,
+        [fileId, losingSupplierIds, 'NOT_AWARDED']
+      );
+    }
+
     await recordStatusHistory(client, {
       fileId,
       oldStatus: fileRes.rows[0].Status || null,
@@ -835,7 +865,8 @@ router.patch("/announcements/:id/award", protect, async (req, res) => {
       message: "Announcement awarded successfully.",
       fileId,
       supplierId,
-      status: 'AWARDED'
+      status: 'AWARDED',
+      losingSupplierIds
     });
   } catch (err) {
     await client.query("ROLLBACK").catch(() => {});

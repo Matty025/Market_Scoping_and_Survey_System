@@ -1,8 +1,14 @@
 import React from "react";
 import { FaBell, FaUserCircle, FaBars, FaChevronLeft } from "react-icons/fa";
+import { useAuth } from "./AuthContext";
 import "./AdminNavbar.css";
 
 const AdminNavbar = ({ title = "Admin", onToggle, isCollapsed }) => {
+  const { fullName, userRole } = useAuth();
+  
+  // Display full name if available, otherwise fall back to role
+  const displayName = fullName || title;
+  
   return (
     <header className="admin-navbar">
       <div className="navbar-left">
@@ -18,7 +24,10 @@ const AdminNavbar = ({ title = "Admin", onToggle, isCollapsed }) => {
             <span className="hamburger-icon-desktop"><FaChevronLeft className={isCollapsed ? "rotated" : ""} /></span>
           </button>
         )}
-        <h2 className="navbar-title-nav">{title}</h2>
+        <div className="navbar-title-wrap">
+          <h2 className="navbar-title-nav">{displayName}</h2>
+          <span className="navbar-branding">MSSS Command Center</span>
+        </div>
       </div>
       <div className="navbar-actions">
         <input

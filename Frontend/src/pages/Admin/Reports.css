@@ -1,12 +1,91 @@
 .reports-container {
-  padding: 1.5rem;
-  font-family: "Segoe UI", sans-serif;
-  background-color: #f4f6f8;
+  padding: 2rem;
+  font-family: "Poppins", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: linear-gradient(180deg, #eef4ff 0%, #ffffff 45%, #eef4ff 100%);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+.reports-header {
+  background: linear-gradient(135deg, #ffffff 0%, rgba(255, 255, 255, 0.78) 100%);
+  border: 1px solid rgba(28, 63, 124, 0.12);
+  border-radius: 18px;
+  padding: 1.35rem 1.85rem;
+  box-shadow: 0 22px 34px rgba(15, 45, 98, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.reports-tagline {
+  align-self: flex-start;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(28, 63, 124, 0.16);
+  background: rgba(28, 63, 124, 0.08);
+  color: #1c3f7c;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.reports-heading h2 {
+  color: #0f2d62;
+  margin: 0;
+  font-weight: 700;
+  font-size: 1.9rem;
+}
+
+.reports-heading h2::after {
+  content: "";
+  display: block;
+  width: 76px;
+  height: 3px;
+  margin-top: 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #f6b400 0%, rgba(28, 63, 124, 0.6) 100%);
+}
+
+.reports-heading p {
+  color: #64748b;
+  margin: 0.35rem 0 0 0;
+  max-width: 760px;
+  line-height: 1.6;
+}
+
+.reports-meta {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.reports-meta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(28, 63, 124, 0.08);
+  color: #1f2937;
+  font-size: 0.84rem;
+  font-weight: 500;
+}
+
+.reports-meta-pill strong {
+  color: #0f2d62;
+}
+
+.reports-meta-pill--accent {
+  background: rgba(246, 180, 0, 0.2);
+  color: #92400e;
 }
 
 .supplier-cards-wrapper {
   display: flex;
-  gap: 1rem;
+  gap: 1.25rem;
   overflow-x: auto;
   padding-bottom: 1rem;
   scroll-behavior: smooth;
@@ -14,56 +93,97 @@
 
 .supplier-card {
   min-width: 360px;
-  background-color: #ffffff;
-  border-radius: 14px;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.08);
-  padding: 1rem 1.2rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(238, 244, 255, 0.94) 100%);
+  border-radius: 18px;
+  box-shadow: 0 16px 30px rgba(15, 45, 98, 0.12);
+  padding: 1.1rem 1.4rem;
   flex-shrink: 0;
-  transition: transform 0.25s, box-shadow 0.25s;
+  transition: transform 0.25s, box-shadow 0.25s, border-color 0.25s;
+  border: 1px solid rgba(28, 63, 124, 0.1);
 }
 
 .supplier-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 12px 30px rgba(0,0,0,0.12);
+  transform: translateY(-6px);
+  box-shadow: 0 24px 42px rgba(15, 45, 98, 0.18);
+  border-color: rgba(246, 180, 0, 0.35);
 }
 
 .supplier-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.6rem;
+  margin-bottom: 0.75rem;
+  gap: 0.75rem;
+}
+
+.supplier-header h3 {
+  margin: 0;
+  color: #1c3f7c;
+  font-size: 1.1rem;
+  font-weight: 600;
 }
 
 .status {
-  padding: 0.3rem 0.6rem;
-  border-radius: 8px;
-  color: #fff;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  color: #1f2937;
   font-size: 0.75rem;
   text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: rgba(148, 163, 184, 0.2);
 }
 
 .status.active {
-  background-color: #22c55e;
+  background-color: rgba(16, 185, 129, 0.22);
+  color: #047857;
 }
 
 .status.inactive {
-  background-color: #f97316;
+  background-color: rgba(239, 68, 68, 0.22);
+  color: #b91c1c;
 }
 
 .status.unknown {
-  background-color: #6b7280;
+  background-color: rgba(148, 163, 184, 0.22);
+  color: #475569;
 }
 
 .stats-cards {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  font-size: 0.85rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.6rem;
+  font-size: 0.86rem;
   color: #374151;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.stats-cards span {
+  background: rgba(28, 63, 124, 0.06);
+  padding: 0.55rem 0.75rem;
+  border-radius: 10px;
 }
 
 .no-data {
-  opacity: 0.7;
+  opacity: 0.78;
   font-style: italic;
+}
+
+@media (max-width: 768px) {
+  .reports-container {
+    padding: 1.35rem;
+  }
+
+  .reports-heading h2 {
+    font-size: 1.65rem;
+  }
+
+  .reports-meta-pill {
+    padding: 5px 12px;
+    font-size: 0.78rem;
+  }
+
+  .supplier-card {
+    min-width: 300px;
+    padding: 1rem 1.1rem;
+  }
 }

@@ -7,6 +7,7 @@ import StatusHistoryModal from "../../components/StatusHistoryModal";
 import "./Dashboard.css";
 
 const MS_IN_DAY = 24 * 60 * 60 * 1000;
+const PAGE_SIZE = 10;
 
 const HISTORY_MODAL_INITIAL = {
   visible: false,
@@ -60,6 +61,9 @@ const SupplierDashboard = () => {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [decisionState, setDecisionState] = useState({ loading: false, action: null });
   const [historyModal, setHistoryModal] = useState(HISTORY_MODAL_INITIAL);
+  const [expandedFileId, setExpandedFileId] = useState(null);
+  const [viewedFileIds, setViewedFileIds] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const fetchAssignedFiles = useCallback(async ({ silent = false } = {}) => {
     if (!token) {
@@ -96,23 +100,37 @@ const SupplierDashboard = () => {
     }
   }, [token]);
 
+  const markFileAsViewed = useCallback((supplierFileId) => {
+    if (!supplierFileId) {
+      return;
+    }
+    setViewedFileIds((prev) => {
+      if (prev.includes(supplierFileId)) {
+        return prev;
+      }
+      return [...prev, supplierFileId];
+    });
+    // TODO: Integrate with backend "viewed" tracking endpoint when available.
+  }, []);
+
   const handleOpenModal = (file) => {
+    markFileAsViewed(file.SupplierFileID);
     setSelectedFileId(file.SupplierFileID);
     setDecisionState({ loading: false, action: null });
     setHistoryModal(HISTORY_MODAL_INITIAL);
   };
 
-  const handleCardClick = (file) => {
-    if (file.isFailedPosting) {
-      setToast({
-        visible: true,
-        type: "info",
-        message: "This posting has closed. Please await new assignments.",
-      });
+  const handleToggleExpand = (file) => {
+    if (!file) {
       return;
     }
-
-    handleOpenModal(file);
+    setExpandedFileId((prev) => {
+      if (prev === file.SupplierFileID) {
+        return null;
+      }
+      markFileAsViewed(file.SupplierFileID);
+      return file.SupplierFileID;
+    });
   };
 
   // Fetch assigned files from the backend
@@ -137,6 +155,8 @@ const SupplierDashboard = () => {
       if (!token || !file?.SupplierFileID) {
         return;
       }
+
+      markFileAsViewed(file.SupplierFileID);
 
       const announcementInfo = {
         id: file.FileID ?? file.fileId ?? null,
@@ -164,7 +184,7 @@ const SupplierDashboard = () => {
         setHistoryModal((prev) => ({ ...prev, loading: false, error: message }));
       }
     },
-    [token]
+    [token, markFileAsViewed]
   );
 
   const handleSubmitResponse = async (file, uploadFile) => {
@@ -253,12 +273,27 @@ const SupplierDashboard = () => {
 
   const processedFiles = useMemo(() => {
     const now = new Date();
+    const viewedSet = new Set(viewedFileIds);
     return assignedFiles.map((file) => {
       const endDateValue = file.endDate || file.EndDate || null;
       const endDateObj = endDateValue ? new Date(endDateValue) : null;
       const dateSentObj = file.dateSent ? new Date(file.dateSent) : null;
       const postedDateObj = file.datePosted ? new Date(file.datePosted) : null;
       const status = (file.Status || "Pending").toLowerCase();
+      const awardedSupplierName = file.awardedSupplierName || file.AwardedSupplierName || file.awardedsuppliername || "";
+      const isWinner = status === "awarded";
+      const isNotWinner = status === "not_awarded";
+      const isClosedStatus = ["closed", "cancelled", "expired"].includes(status);
+      const isFinalized = isWinner || isNotWinner || isClosedStatus;
+      const hasViewedFromBackend = Boolean(
+        file.hasViewed ||
+        file.viewed ||
+        file.viewedAt ||
+        file.ViewedAt ||
+        file.lastViewedAt ||
+        file.LastViewedAt
+      );
+      const hasViewed = hasViewedFromBackend || viewedSet.has(file.SupplierFileID);
       const attemptCountRaw = Number(file.attemptCount ?? file.AttemptCount ?? 0);
       const currentAttemptRaw = Number(file.currentAttemptNumber ?? file.CurrentAttemptNumber ?? attemptCountRaw);
       const attemptCount = Number.isFinite(currentAttemptRaw) && currentAttemptRaw > 0
@@ -272,7 +307,7 @@ const SupplierDashboard = () => {
       if (latestStatusNote.toLowerCase() === "initial posting") {
         latestStatusNote = "";
       }
-      const showLatestUpdate = Boolean(latestStatusNote) || (latestStatusKey && !["active", "pending"].includes(latestStatusKey));
+      let showLatestUpdate = Boolean(latestStatusNote) || (latestStatusKey && !["active", "pending"].includes(latestStatusKey));
       const optInStatusRaw = file.optInStatus ?? file.OptInStatus ?? "PENDING";
       const optInStatus = String(optInStatusRaw).toUpperCase();
       const optedInAt = file.optedInAt ? new Date(file.optedInAt) : null;
@@ -311,21 +346,54 @@ const SupplierDashboard = () => {
       }
 
       const endDatePassed = Boolean(endDateObj && endDateObj.getTime() < now.getTime());
-      const isFailedPosting = status !== "answered" && (isExpiredFlag || endDatePassed);
+      const isFailedPosting = !isFinalized && status !== "answered" && (isExpiredFlag || endDatePassed);
       if (isFailedPosting) {
         dueLabel = "Failed Posting";
       }
 
+      if (isFinalized) {
+        if (isWinner) {
+          dueState = "awarded";
+          dueLabel = "Awarded";
+        } else if (isNotWinner) {
+          dueState = "not-awarded";
+          dueLabel = awardedSupplierName
+            ? `Awarded to ${awardedSupplierName}`
+            : "Awarded to another supplier";
+        } else {
+          dueState = status || "finalized";
+          dueLabel = formatStatusLabel(status);
+        }
+        deadlineSortValue = Number.POSITIVE_INFINITY;
+        failedPostingDetail = "";
+        showLatestUpdate = showLatestUpdate || isWinner || isNotWinner;
+      }
+
       const isMultiAttempt = attemptCount > 1;
-      const requiresDecision = isMultiAttempt && optInStatus === "PENDING";
-      const isDeclined = isMultiAttempt && optInStatus === "DECLINED";
-      const hasDecisionActions = isMultiAttempt && (optInStatus === "PENDING" || optInStatus === "DECLINED");
+      const requiresDecision = !isFinalized && isMultiAttempt && optInStatus === "PENDING";
+      const isDeclined = !isFinalized && isMultiAttempt && optInStatus === "DECLINED";
+      const hasDecisionActions = !isFinalized && isMultiAttempt && (optInStatus === "PENDING" || optInStatus === "DECLINED");
 
       let statusDisplay;
       let statusClass;
-      if (status === "answered") {
+      if (isWinner) {
+        statusDisplay = "Won";
+        statusClass = "awarded";
+      } else if (isNotWinner) {
+        statusDisplay = "Not Selected";
+        statusClass = "not-awarded";
+      } else if (status === "answered") {
         statusDisplay = optInStatus === "SUBMITTED" ? "Submitted" : "Answered";
         statusClass = "answered";
+      } else if (status === "closed") {
+        statusDisplay = "Closed";
+        statusClass = "closed";
+      } else if (status === "cancelled") {
+        statusDisplay = "Cancelled";
+        statusClass = "cancelled";
+      } else if (status === "expired") {
+        statusDisplay = "Expired";
+        statusClass = "expired";
       } else if (isFailedPosting) {
         statusDisplay = "Failed Posting";
         statusClass = "failed";
@@ -343,7 +411,7 @@ const SupplierDashboard = () => {
         statusClass = "pending";
       }
 
-      const canSubmit = !isFailedPosting && status !== "answered" && !requiresDecision && !isDeclined;
+      const canSubmit = !isFinalized && !isFailedPosting && status !== "answered" && !requiresDecision && !isDeclined;
 
       const categoryList = (file.categories || "")
         .split(",")
@@ -352,7 +420,21 @@ const SupplierDashboard = () => {
 
       let decisionBanner = "";
       let decisionBannerClass = "";
-      if (requiresDecision) {
+      if (isWinner) {
+        const congratulations = latestStatusNote || "Congratulations! You won this announcement.";
+        decisionBanner = congratulations;
+        decisionBannerClass = "awarded";
+      } else if (isNotWinner) {
+        const baseMessage = awardedSupplierName
+          ? `Not selected. Awarded to ${awardedSupplierName}.`
+          : "Not selected for this announcement.";
+        if (latestStatusNote && !baseMessage.includes(latestStatusNote)) {
+          decisionBanner = `${baseMessage} ${latestStatusNote}`.trim();
+        } else {
+          decisionBanner = baseMessage;
+        }
+        decisionBannerClass = "not-awarded";
+      } else if (requiresDecision) {
         decisionBanner = "Action needed: confirm participation for this attempt.";
         decisionBannerClass = "pending";
       } else if (isDeclined) {
@@ -408,9 +490,15 @@ const SupplierDashboard = () => {
         decisionBanner,
         decisionBannerClass,
         searchIndex: `${file.Title || ""} ${descriptionText} ${(file.categories || "")}`.toLowerCase(),
+        isWinner,
+        isNotWinner,
+        isFinalized,
+        awardedSupplierName,
+        isFailedPosting,
+        hasViewed,
       };
     });
-  }, [assignedFiles]);
+  }, [assignedFiles, viewedFileIds]);
 
   const selectedFile = useMemo(
     () => processedFiles.find((file) => file.SupplierFileID === selectedFileId) || null,
@@ -420,9 +508,10 @@ const SupplierDashboard = () => {
   const statsSummary = useMemo(() => {
     const total = processedFiles.length;
     const answered = processedFiles.filter((file) => file.normalizedStatus === "answered").length;
-    const failedPosting = processedFiles.filter((file) => file.isFailedPosting).length;
-    const pending = processedFiles.filter((file) => file.normalizedStatus !== "answered" && !file.isFailedPosting).length;
-    return { total, answered, pending, failedPosting };
+    const pending = processedFiles.filter((file) => !file.isFinalized && file.normalizedStatus !== "answered" && !file.isFailedPosting).length;
+    const won = processedFiles.filter((file) => file.isWinner).length;
+    const closed = processedFiles.filter((file) => file.isFinalized && !file.isWinner && !file.isNotWinner).length;
+    return { total, answered, pending, won, closed };
   }, [processedFiles]);
 
   const filteredFiles = useMemo(() => {
@@ -434,7 +523,7 @@ const SupplierDashboard = () => {
         }
 
         if (statusFilter === "Pending") {
-          return file.normalizedStatus !== "answered" && !file.isFailedPosting;
+          return !file.isFinalized && file.normalizedStatus !== "answered" && !file.isFailedPosting;
         }
         if (statusFilter === "Answered") {
           return file.normalizedStatus === "answered";
@@ -489,8 +578,46 @@ const SupplierDashboard = () => {
     setSortOption("deadline");
   };
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, sortOption]);
+
   const handleRequireFile = () => {
     setToast({ visible: true, type: "warning", message: "Please attach your quotation PDF before submitting." });
+  };
+
+  const formatDateTime = (value) => {
+    if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
+      return "Not recorded";
+    }
+    return value.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const totalPages = Math.max(1, Math.ceil(filteredFiles.length / PAGE_SIZE));
+  const normalizedPage = Math.min(currentPage, totalPages);
+  const pageStartIndex = (normalizedPage - 1) * PAGE_SIZE;
+  const paginatedFiles = filteredFiles.slice(pageStartIndex, pageStartIndex + PAGE_SIZE);
+  const showingStart = filteredFiles.length === 0 ? 0 : pageStartIndex + 1;
+  const showingEnd = filteredFiles.length === 0 ? 0 : pageStartIndex + paginatedFiles.length;
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const handlePrevPage = () => {
+    setCurrentPage((prev) => Math.max(1, prev - 1));
+  };
+
+  const handleNextPage = () => {
+    setCurrentPage((prev) => Math.min(totalPages, prev + 1));
   };
 
   return (
@@ -502,17 +629,52 @@ const SupplierDashboard = () => {
         onClose={() => setToast((prev) => ({ ...prev, visible: false }))}
         duration={3200}
       />
-      <header className="supplier-header">
-        <h2>📄 Assigned Procurement Files</h2>
-        <p>Click a card to review the details and upload your quotation.</p>
-        <div className="supplier-header-meta">
-          <span>{`Assignments: ${statsSummary.total}`}</span>
-          <span>{`Pending: ${statsSummary.pending}`}</span>
-          <span>{`Answered: ${statsSummary.answered}`}</span>
-          <span>{`Failed Posting: ${statsSummary.failedPosting}`}</span>
-          {lastUpdated && <span>{`Last updated: ${lastUpdated.toLocaleString()}`}</span>}
+      <section className="supplier-top-card">
+        <div className="supplier-header-intro">
+          <span className="supplier-header-tagline">MSSS Supplier Workspace</span>
+          <h2>Assigned Procurement Files</h2>
+          <p>Stay on top of your assigned procurement requests and submit quotations before the deadlines.</p>
         </div>
-      </header>
+      </section>
+
+      <section className="supplier-metrics-panel">
+        <div className="supplier-metrics-grid">
+          <div className="supplier-metric-card">
+            <span className="metric-label">Total Assignments</span>
+            <span className="metric-value">{statsSummary.total}</span>
+          </div>
+          <div className="supplier-metric-card">
+            <span className="metric-label">Pending Actions</span>
+            <span className="metric-value">{statsSummary.pending}</span>
+          </div>
+          <div className="supplier-metric-card">
+            <span className="metric-label">Answered</span>
+            <span className="metric-value">{statsSummary.answered}</span>
+          </div>
+          <div className="supplier-metric-card metric-accent">
+            <span className="metric-label">Won</span>
+            <span className="metric-value">{statsSummary.won}</span>
+          </div>
+          <div className="supplier-metric-card metric-accent">
+            <span className="metric-label">Closed</span>
+            <span className="metric-value">{statsSummary.closed}</span>
+          </div>
+        </div>
+        <div className="supplier-metrics-footer">
+          <span className="metric-label">Last Updated</span>
+          <span className="metric-value">
+            {lastUpdated
+              ? lastUpdated.toLocaleString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : "Awaiting sync"}
+          </span>
+        </div>
+      </section>
 
       {isLoading && <p>Loading files...</p>}
       {error && <p className="error-message">{error}</p>}
@@ -551,7 +713,10 @@ const SupplierDashboard = () => {
               : "No assignments match your current filters."}
           </p>
         )}
-        {filteredFiles.map((file) => {
+        {paginatedFiles.map((file) => {
+          const isExpanded = expandedFileId === file.SupplierFileID;
+          const isViewed = Boolean(file.hasViewed);
+          const showNewPill = !isViewed && !file.isWinner && !file.isNotWinner;
           const cardClassName = [
             "post-card",
             file.dueState,
@@ -559,96 +724,236 @@ const SupplierDashboard = () => {
             file.isFailedPosting ? "failed-posting" : "",
             file.isDeclined ? "declined" : "",
             file.requiresDecision ? "awaiting-decision" : "",
+            isExpanded ? "expanded" : "",
+            isViewed ? "viewed" : "",
           ]
             .filter(Boolean)
             .join(" ");
+
+          const optInStatusLabel = file.optInStatus ? formatStatusLabel(file.optInStatus) : "Pending";
+          const expandedSectionId = `supplier-post-${file.SupplierFileID}-details`;
+
+          const handleOpenSubmission = (event) => {
+            event.stopPropagation();
+            if (file.isFailedPosting) {
+              setToast({
+                visible: true,
+                type: "info",
+                message: "This posting has closed. Please await new assignments.",
+              });
+              return;
+            }
+            handleOpenModal(file);
+          };
+
+          const handleOpenTimeline = (event) => {
+            event.stopPropagation();
+            handleViewTimeline(file);
+          };
+
+          const handleQuickToggle = (event) => {
+            event.stopPropagation();
+            handleToggleExpand(file);
+          };
+
+          const latestStatusClass = (file.latestStatusKey || file.normalizedStatus || "")
+            .replace(/[_\s]+/g, "-")
+            .replace(/-+$/, "")
+            .trim();
 
           return (
             <div
               key={file.SupplierFileID}
               className={cardClassName}
-              onClick={() => handleCardClick(file)}
+              onClick={() => handleToggleExpand(file)}
+              role="button"
+              tabIndex={0}
+              aria-expanded={isExpanded}
+              aria-controls={expandedSectionId}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  handleToggleExpand(file);
+                }
+              }}
             >
-            {/* 
-              NOTE: Your backend should JOIN SupplierFiles with ProcurementFiles 
-              to get Title, Description, etc.
-              Example structure for 'file' object:
-              { SupplierFileID: 1, Status: 'Pending', Title: 'Procurement of Laptops', ... }
-            */}
-            <div className="post-card-header">
-              <h3 className="post-title">{file.Title}</h3>
-              <span className={`status-badge ${file.statusClass}`}>
-                {file.statusDisplay}
-              </span>
-            </div>
-            <div className={`due-chip ${file.dueState} ${file.isFailedPosting ? "failed-posting" : ""}`}>
-              {file.dueLabel}
-            </div>
-            {file.failedPostingDetail && (
-              <p className="post-date failed-posting-detail">{file.failedPostingDetail}</p>
-            )}
-            <p className="post-date">
-              Posted {file.postedDateObj ? file.postedDateObj.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "N/A"}
-            </p>
-            {file.dateSentObj && (
-              <p className="post-date">Assigned {file.dateSentObj.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</p>
-            )}
-            {file.endDateObj && (
-              <p className="post-date">Deadline {file.endDateObj.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</p>
-            )}
-            {file.attemptCount > 1 && (
-              <p className="post-attempt">Attempt: {file.attemptLabel}</p>
-            )}
-            {file.decisionBanner && (
-              <p className={`post-decision ${file.decisionBannerClass || ""}`.trim()}>
-                {file.decisionBanner}
-              </p>
-            )}
-            {file.showLatestUpdate && (
-              <div
-                className={`post-note ${(file.latestStatusKey || file.normalizedStatus || "")
-                  .replace(/[_\s]+/g, "-")
-                  .replace(/-+$/, "")}`.trim()}
-                onClick={(event) => event.stopPropagation()}
-              >
-                <span className="post-note-label">
-                  Latest update{file.latestStatusLabel ? ` • ${file.latestStatusLabel}` : ""}
-                </span>
-                {file.latestStatusNote && (
-                  <p className="post-note-text">{file.latestStatusNote}</p>
-                )}
-                {file.latestStatusAt && (
-                  <span className="post-note-date">
-                    {`Updated ${file.latestStatusAt.toLocaleString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}`}
-                  </span>
-                )}
+              <div className="post-card-header">
+                <h3 className="post-title">{file.Title}</h3>
+                <div className="post-card-header-actions">
+                  {showNewPill && <span className="new-pill">New</span>}
+                  <span className={`status-badge ${file.statusClass}`}>{file.statusDisplay}</span>
+                </div>
               </div>
-            )}
-            <p className="post-description">
-              {file.descriptionText.length > 120 ? `${file.descriptionText.substring(0, 117)}...` : (file.descriptionText || "No description provided.")}
-            </p>
-            {file.categoryList.length > 0 && (
-              <div className="post-categories">
-                {file.categoryList.slice(0, 3).map((cat, index) => (
-                  <span key={index} className="category-pill">
-                    {cat}
-                  </span>
-                ))}
-                {file.categoryList.length > 3 && (
-                  <span className="category-pill more">+{file.categoryList.length - 3} more</span>
-                )}
+
+              <div className="post-card-body">
+                <p className="post-description">
+                  {file.descriptionText.length > 120
+                    ? `${file.descriptionText.substring(0, 117)}...`
+                    : file.descriptionText || "No description provided."}
+                </p>
               </div>
-            )}
+
+              {isExpanded && (
+                <div
+                  id={expandedSectionId}
+                  className="post-card-expanded"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  {file.decisionBanner && (
+                    <p className={`post-decision expanded ${file.decisionBannerClass || ""}`.trim()}>
+                      {file.decisionBanner}
+                    </p>
+                  )}
+
+                  <div className="post-card-expanded-grid">
+                    <div className="post-card-expanded-item">
+                      <span className="post-card-expanded-label">Status</span>
+                      <span className="post-card-expanded-value">{file.statusDisplay}</span>
+                    </div>
+
+                    <div className="post-card-expanded-item">
+                      <span className="post-card-expanded-label">Deadline</span>
+                      <div className="post-card-expanded-value post-card-expanded-deadline">
+                        <span className={`due-chip ${file.dueState} ${file.isFailedPosting ? "failed-posting" : ""}`}>
+                          {file.dueLabel}
+                        </span>
+                        {file.endDateObj && (
+                          <span className="post-card-expanded-muted">
+                            {file.endDateObj.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
+                          </span>
+                        )}
+                        {file.failedPostingDetail && (
+                          <span className="post-card-expanded-muted">{file.failedPostingDetail}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="post-card-expanded-item">
+                      <span className="post-card-expanded-label">Attempt</span>
+                      <span className="post-card-expanded-value">{file.attemptLabel}</span>
+                    </div>
+
+                    <div className="post-card-expanded-item">
+                      <span className="post-card-expanded-label">Participation</span>
+                      <span className="post-card-expanded-value">{optInStatusLabel}</span>
+                      {file.optedInAt && (
+                        <span className="post-card-expanded-subtle">Opted in {formatDateTime(file.optedInAt)}</span>
+                      )}
+                      {file.declinedAt && (
+                        <span className="post-card-expanded-subtle">Declined {formatDateTime(file.declinedAt)}</span>
+                      )}
+                    </div>
+
+                    <div className="post-card-expanded-item">
+                      <span className="post-card-expanded-label">Posted</span>
+                      <span className="post-card-expanded-value">{formatDateTime(file.postedDateObj)}</span>
+                    </div>
+
+                    {file.dateSentObj && (
+                      <div className="post-card-expanded-item">
+                        <span className="post-card-expanded-label">Assigned</span>
+                        <span className="post-card-expanded-value">{formatDateTime(file.dateSentObj)}</span>
+                      </div>
+                    )}
+
+                    {file.lastResponse && file.lastResponse.uploadedAt && (
+                      <div className="post-card-expanded-item">
+                        <span className="post-card-expanded-label">Last Submission</span>
+                        <span className="post-card-expanded-value">{formatDateTime(file.lastResponse.uploadedAt)}</span>
+                      </div>
+                    )}
+
+                    {file.awardedSupplierName && (
+                      <div className="post-card-expanded-item">
+                        <span className="post-card-expanded-label">Awarded To</span>
+                        <span className="post-card-expanded-value">{file.awardedSupplierName}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {file.showLatestUpdate && (
+                    <div className="post-card-expanded-wide">
+                      <h4>Latest Notes / Reasons</h4>
+                      <div className="post-card-expanded-note">
+                        {file.latestStatusNote && <p>{file.latestStatusNote}</p>}
+                        {file.latestStatusAt && <span>{formatDateTime(file.latestStatusAt)}</span>}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="post-card-expanded-wide">
+                    <h4>Description</h4>
+                    <p className="post-card-expanded-description">
+                      {file.descriptionText || "No description provided."}
+                    </p>
+                  </div>
+
+                  <div className="post-card-expanded-wide">
+                    <h4>Categories</h4>
+                    {file.categoryList.length === 0 ? (
+                      <span className="post-card-expanded-empty">No categories provided</span>
+                    ) : (
+                      <div className="post-card-expanded-chip-grid">
+                        {file.categoryList.map((category) => (
+                          <span key={category} className="post-card-expanded-chip">
+                            {category}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="post-card-expanded-actions">
+                    <button
+                      type="button"
+                      className="card-primary-btn"
+                      onClick={handleOpenSubmission}
+                      disabled={file.isFailedPosting}
+                    >
+                      Open Submission
+                    </button>
+                    <button type="button" className="card-secondary-btn" onClick={handleOpenTimeline}>
+                      View Timeline
+                    </button>
+                    <button
+                      type="button"
+                      className="card-tertiary-btn"
+                      onClick={handleQuickToggle}
+                    >
+                      Close Quick View
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}
       </div>
+
+      {filteredFiles.length > 0 && (
+        <div className="pagination-controls">
+          <div className="pagination-info">{`Showing ${showingStart}-${showingEnd} of ${filteredFiles.length}`}</div>
+          <div className="pagination-buttons">
+            <button
+              type="button"
+              className="pagination-button"
+              onClick={handlePrevPage}
+              disabled={normalizedPage <= 1}
+            >
+              Previous
+            </button>
+            <span className="pagination-page">Page {normalizedPage} of {totalPages}</span>
+            <button
+              type="button"
+              className="pagination-button"
+              onClick={handleNextPage}
+              disabled={normalizedPage >= totalPages}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
 
       {selectedFile && (
         <FileCardModal

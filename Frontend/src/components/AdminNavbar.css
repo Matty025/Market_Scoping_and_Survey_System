@@ -2,14 +2,30 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: linear-gradient(90deg, #1e1e2f 0%, #25253a 100%);
-  color: white;
+  background: linear-gradient(135deg, rgba(14, 38, 82, 0.82) 0%, rgba(16, 63, 130, 0.68) 55%, rgba(9, 32, 77, 0.6) 100%);
+  color: #f2f6ff;
   padding: 14px 24px;
   position: sticky;
   top: 0;
   z-index: 1001;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 18px 38px -28px rgba(8, 22, 52, 0.7);
   transition: all 0.3s ease;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  overflow: hidden;
+}
+
+.admin-navbar::after {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  left: 24px;
+  right: 24px;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(246, 180, 0, 0.7) 0%, rgba(255, 255, 255, 0.55) 50%, rgba(14, 90, 190, 0.55) 100%);
+  box-shadow: 0 8px 18px -10px rgba(12, 42, 98, 0.4);
 }
 
 /* Left section: hamburger + title */
@@ -20,26 +36,26 @@
 }
 
 .hamburger-btn {
-  background: #ef4444; /* red-500 */
+  background: var(--philgeps-gold, #f6b400);
   border: none;
-  color: #ffffff;
+  color: #0f1f3d;
   font-size: 20px;
   cursor: pointer;
   padding: 8px 12px;
   border-radius: 999px;
   transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+  box-shadow: 0 12px 26px -14px rgba(15, 23, 42, 0.55);
 }
 
 .hamburger-btn:hover {
-  background: #dc2626; /* red-600 */
+  background: #dca200;
   transform: translateY(-1px);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  box-shadow: 0 16px 34px -14px rgba(15, 23, 42, 0.55);
 }
 
 .hamburger-btn:active {
   transform: translateY(0);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+  box-shadow: 0 8px 20px -16px rgba(15, 23, 42, 0.5);
 }
 
 .hamburger-icon-desktop {
@@ -54,10 +70,26 @@
   transition: transform 200ms ease;
 }
 
+.navbar-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .navbar-title-nav {
   font-size: 22px;
   font-weight: 600;
   letter-spacing: 0.5px;
+  color: #f6f8ff;
+}
+
+.navbar-branding {
+  font-size: 0.7rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: rgba(230, 237, 255, 0.72);
+  font-weight: 600;
+  text-shadow: 0 3px 12px rgba(8, 18, 44, 0.4);
 }
 
 /* Right section: search bar + icons */
@@ -69,43 +101,56 @@
 
 .navbar-search-bar {
   padding: 8px 14px;
-  border-radius: 20px;
-  border: none;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
   outline: none;
-  background-color: #ffffff;
-  color: #fff;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(14, 52, 112, 0.18));
+  color: #f2f6ff;
   font-size: 14px;
   width: 220px;
-  transition: width 0.3s ease, background-color 0.3s ease;
+  transition: width 0.3s ease, background 0.3s ease, box-shadow 0.3s ease;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.navbar-search-bar::placeholder {
+  color: rgba(231, 239, 255, 0.7);
 }
 
 .navbar-search-bar:focus {
   width: 280px;
-  background-color: #383854;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.28), rgba(15, 45, 98, 0.25));
+  box-shadow: 0 0 0 3px rgba(246, 180, 0, 0.25);
 }
 
 /* Icons */
 .icon-btn {
-  background: none;
-  border: none;
-  color: white;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #f8fbff;
   font-size: 20px;
   cursor: pointer;
   padding: 6px;
-  border-radius: 6px;
+  border-radius: 10px;
   transition: all 0.3s ease;
+  box-shadow: 0 12px 28px -20px rgba(12, 26, 58, 0.52);
 }
 
 .icon-btn:hover {
-  color: #00bcd4;
-  background-color: rgba(255, 255, 255, 0.1);
-  transform: scale(1.1);
+  color: var(--philgeps-gold, #f6b400);
+  background-color: rgba(255, 255, 255, 0.16);
+  transform: translateY(-1px);
+  box-shadow: 0 16px 34px -20px rgba(12, 26, 58, 0.55);
 }
 
 /* Mobile-friendly adjustments */
 @media (max-width: 768px) {
   .navbar-title-nav {
     font-size: 18px;
+  }
+
+  .navbar-branding {
+    font-size: 0.62rem;
   }
 
   .navbar-search-bar {

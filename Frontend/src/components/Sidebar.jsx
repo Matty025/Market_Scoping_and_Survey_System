@@ -90,18 +90,29 @@ const Sidebar = ({ isCollapsed = false, onToggle = () => {}, role }) => {
       </button>
 
       <div className="sidebar-header">
-        {!isCollapsed && (
-          <h2 className="sidebar-title">
-            <img
-              src={logo}
-              alt="Logo"
-              className={`sidebar-logo-sdo ${isCollapsed ? "collapsed-logo" : ""}`}
-            />
-          </h2>
+        {!isCollapsed ? (
+          <>
+            <h2 className="sidebar-title">
+              <img
+                src={logo}
+                alt="MSSS logo"
+                className={`sidebar-logo-sdo ${isCollapsed ? "collapsed-logo" : ""}`}
+              />
+            </h2>
+            <div className="sidebar-branding" aria-hidden="true">
+              <span className="sidebar-branding-agency">MSSS</span>
+              <span className="sidebar-branding-suite">Market Scoping & Survey System</span>
+            </div>
+          </>
+        ) : (
+          <span className="sidebar-collapsed-indicator" aria-hidden="true" />
         )}
       </div>
 
-      <nav className="sidebar-nav">
+      <nav
+        className="sidebar-nav"
+        aria-label={`MSSS ${effectiveRole} navigation`}
+      >
         {navLinks.map((link) => (
           <NavLink
             key={link.to}
@@ -112,7 +123,7 @@ const Sidebar = ({ isCollapsed = false, onToggle = () => {}, role }) => {
             title={isCollapsed ? link.label : undefined}
           >
             <span className="sidebar-link-icon">{link.icon}</span>
-            {!isCollapsed && <span style={{ marginLeft: 8 }}>{link.label}</span>}
+            {!isCollapsed && <span className="sidebar-link-text">{link.label}</span>}
           </NavLink>
         ))}
       </nav>
@@ -122,6 +133,9 @@ const Sidebar = ({ isCollapsed = false, onToggle = () => {}, role }) => {
           <FaSignOutAlt className="sidebar-link-icon" />
           {!isCollapsed && "Logout"}
         </button>
+        {!isCollapsed && (
+          <p className="sidebar-footer-note">Secured MSSS Access</p>
+        )}
       </div>
     </aside>
   );

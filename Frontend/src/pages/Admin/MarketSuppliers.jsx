@@ -72,8 +72,21 @@ const MarketSuppliers = () => {
     <div className="market-suppliers-container">
       {/* Header */}
       <header className="market-suppliers-header">
-        <h2>🏢 Supplier Directory</h2>
-        <p>View all registered suppliers participating in the market.</p>
+        <span className="market-suppliers-tagline">MSSS Admin Console</span>
+        <div className="market-suppliers-heading">
+          <h2>Supplier Directory</h2>
+          <p>Review accredited suppliers, monitor their categories, and launch action history without leaving the page.</p>
+        </div>
+        <div className="market-suppliers-meta">
+          <span className="meta-pill">
+            Total Suppliers: <strong>{suppliers.length}</strong>
+          </span>
+          {filteredSuppliers.length !== suppliers.length && (
+            <span className="meta-pill meta-pill--highlight">
+              Showing {filteredSuppliers.length} matches
+            </span>
+          )}
+        </div>
       </header>
 
       {/* Search Bar */}
@@ -128,7 +141,7 @@ const MarketSuppliers = () => {
                   <td>{supplier.totalProducts}</td>
                   <td>
                     <button onClick={() => handleViewHistoryClick(supplier)} className="view-history-btn">
-                      View
+                      View History
                     </button>
                   </td>
                   <td>

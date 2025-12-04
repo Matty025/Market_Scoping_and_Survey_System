@@ -328,7 +328,15 @@ const Market = () => {
   return (
     <div className="market-container">
       <div className="market-header">
-        <h2>🛒 Market Survey & Scoping</h2>
+        <div className="market-header-content">
+          <span className="market-header-tagline">MSSS Admin Console</span>
+          <div className="market-header-text">
+            <h2>Market Survey &amp; Scoping</h2>
+            <p className="market-header-description">
+              Browse, filter, and review supplier offerings to support procurement planning.
+            </p>
+          </div>
+        </div>
         <button
           className={`bookmark-view-btn ${showBookmarks ? "active" : ""}`}
           onClick={() => setShowBookmarks(!showBookmarks)}
@@ -336,7 +344,6 @@ const Market = () => {
           ⭐ {showBookmarks ? "View All Items" : `View Bookmarked (${bookmarks.length})`}
         </button>
       </div>
-      <p>Browse, filter, and survey available products from suppliers.</p>
 
       {/* PRICE STATISTICS - Only show when filters are active */}
       {!isLoading && marketItems.length > 0 && activeFiltersCount > 0 && (

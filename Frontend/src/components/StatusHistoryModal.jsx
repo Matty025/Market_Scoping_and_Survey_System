@@ -115,11 +115,13 @@ const StatusHistoryModal = ({ visible, onClose, records = [], announcement, load
               ) : (
                 processedRows.map((item) => {
                   const attemptLabel = formatOrdinal(item.attemptNumber);
+                  const oldStatusLabel = item.oldStatus ? formatStatusLabel(item.oldStatus) : "Just Posted";
+                  const newStatusLabel = item.newStatus ? formatStatusLabel(item.newStatus) : "—";
                   return (
                     <tr key={item.id}>
                       <td className="status-history-attempt">{attemptLabel ? attemptLabel : "—"}</td>
-                      <td className="status-history-status">{formatStatusLabel(item.oldStatus)}</td>
-                      <td className="status-history-status">{formatStatusLabel(item.newStatus)}</td>
+                      <td className="status-history-status">{oldStatusLabel}</td>
+                      <td className="status-history-status">{newStatusLabel}</td>
                       <td className="status-history-notes">{item.notes && item.notes.trim().length > 0 ? item.notes : "—"}</td>
                       <td className="status-history-user">{item.changedByName || (item.changedBy ? `User ${item.changedBy}` : "—")}</td>
                       <td className="status-history-date">{formatDateTime(item.changedAt)}</td>

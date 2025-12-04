@@ -317,6 +317,17 @@ const Settings = () => {
     fetchCategories();
   };
 
+  const totalCategories = flattenedCategories.length;
+  const topLevelCategoryCount = categories.length;
+  const subcategoryCount = flattenedCategories.reduce(
+    (count, category) => (category.depth > 0 ? count + 1 : count),
+    0
+  );
+  const populatedCategoryCount = flattenedCategories.reduce(
+    (count, category) => (Number(category.itemCount || 0) > 0 ? count + 1 : count),
+    0
+  );
+
   return (
     <div className="settings-page">
       <Toast
@@ -328,13 +339,33 @@ const Settings = () => {
       />
 
       <div className="settings-header">
-        <div className="settings-title">
-          <FaSitemap />
-          <h2>Admin Settings</h2>
+        <span className="settings-tagline">MSSS Admin Console</span>
+        <div className="settings-heading">
+          <div className="settings-title">
+            <FaSitemap />
+            <h2>Admin Settings</h2>
+          </div>
+          <p className="settings-heading-description">
+            Maintain procurement categories, streamline hierarchies, and ensure suppliers see accurate groupings across the marketplace.
+          </p>
+        </div>
+        <div className="settings-meta">
+          <span className="settings-meta-pill">
+            Total Categories: <strong>{formatCount(totalCategories)}</strong>
+          </span>
+          <span className="settings-meta-pill">
+            Root Groups: <strong>{formatCount(topLevelCategoryCount)}</strong>
+          </span>
+          <span className="settings-meta-pill">
+            Subcategories: <strong>{formatCount(subcategoryCount)}</strong>
+          </span>
+          <span className="settings-meta-pill settings-meta-pill--accent">
+            With Items: <strong>{formatCount(populatedCategoryCount)}</strong>
+          </span>
         </div>
       </div>
       <p className="settings-subtitle">
-        Choose a maintenance tool below. Each section collapses so you can focus on one task at a time.
+        Choose a maintenance tool below—each panel collapses so you can focus on one administrative update at a time.
       </p>
 
       <div className="settings-tabs">
