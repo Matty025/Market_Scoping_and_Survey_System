@@ -42,9 +42,11 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-// --- Serve static files from the 'uploads' directory ---
-app.use('/uploads', express.static(uploadsDir));
-console.log(`[Static] Serving files from ${uploadsDir} at /uploads`);
+// --- Serve static files from specific sub-directories ---
+// This is the key change: It maps the URL '/uploads/buyer-pr' to the correct physical directory.
+const buyerPrUploadsDir = path.join(uploadsDir, 'buyer-pr');
+app.use('/uploads/buyer-pr', express.static(buyerPrUploadsDir));
+console.log(`[Static] Serving files from ${buyerPrUploadsDir} at /uploads/buyer-pr`);
 
 // ROUTES
 const authRoutes = require("./routes/authRoutes");
@@ -79,6 +81,10 @@ app.use("/api/supplier-responses", responseRoutes);
 const publicRoutes = require("./routes/publicRoutes");
 console.log("[Server.js] publicRoutes loaded.");
 app.use("/api/public", publicRoutes);
+
+const buyerRoutes = require("./routes/BuyerRoutes");
+console.log("[Server.js] buyerRoutes loaded.");
+app.use("/api/buyer", buyerRoutes);
 
 const reportRoutes = require("./routes/reportRoutes");
 console.log("[Server.js] reportRoutes loaded.");

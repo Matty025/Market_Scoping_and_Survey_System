@@ -19,10 +19,8 @@ const Sidebar = ({ isCollapsed = false, onToggle = () => {}, role }) => {
 
   const handleLogout = () => {
     if (window.confirm("Are you sure you want to logout?")) {
-      sessionStorage.removeItem("userRole");
-      sessionStorage.removeItem("token");
-      sessionStorage.removeItem("fullName");
-      sessionStorage.removeItem("userID");
+      sessionStorage.clear();
+      localStorage.clear();
       window.dispatchEvent(new Event("storage"));
       navigate("/");
     }
