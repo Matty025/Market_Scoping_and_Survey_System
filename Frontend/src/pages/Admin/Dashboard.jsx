@@ -10,6 +10,7 @@
   import { useAuth } from "../../components/AuthContext";
   import Toast from "../../components/Toast";
   import { FaUsers, FaBoxOpen, FaCheckCircle, FaClock, FaClipboardList, FaTag, FaUserCheck } from "react-icons/fa";
+  import BuyerRequestsSection from "../../components/BuyerRequestsSection";
   import "./Dashboard.css";
 
   const PAGE_SIZE = 50;
@@ -787,6 +788,7 @@
     const [editingAnnouncement, setEditingAnnouncement] = useState(null);
     const [statusDialog, setStatusDialog] = useState(STATUS_DIALOG_INITIAL);
     const [historyModal, setHistoryModal] = useState(HISTORY_MODAL_INITIAL);
+    const [activeView, setActiveView] = useState("announcements");
 
     const supplierIdToName = useMemo(() => {
       const map = {};
@@ -1721,126 +1723,150 @@
 
         <div className="collapsible-section">
           <div className="collapsible-header">
-            <h4>📢 Recent Procurement Announcements ({announcements.length})</h4>
+            <h4>{activeView === 'announcements' ? `📢 Recent Procurement Announcements (${announcements.length})` : '📥 Purchase Requests'}</h4>
+            <div className="view-toggle">
+              <button
+                type="button"
+                className={`view-toggle-btn ${activeView === 'announcements' ? 'active' : ''}`}
+                onClick={() => setActiveView('announcements')}
+              >
+                Announcements
+              </button>
+              <button
+                type="button"
+                className={`view-toggle-btn ${activeView === 'requests' ? 'active' : ''}`}
+                onClick={() => setActiveView('requests')}
+              >
+                Purchase Requests
+              </button>
+            </div>
           </div>
           <div className="collapsible-content">
-            <div className="dashboard-filters">
-              <div className="filters-left">
-                <button className="post-btn" onClick={openCreateAnnouncementModal}>
-                  + Post Announcement
-                </button>
-              </div>
-              <div className="filters-right">
-                <input
-                  type="text"
-                  placeholder="Search title or description..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="filter-input"
-                />
-
-                <select
-                  value={selectedFilter}
-                  onChange={(e) => setSelectedFilter(e.target.value)}
-                  className="filter-select"
-                  style={{ minWidth: "200px" }}
-                >
-                  <option value="All">📋 All Announcements</option>
-
-                  <optgroup label="📁 BY CATEGORY">
-                    {categoryHierarchy.map((cat) => (
-                      <option
-                        key={`category:${cat.name}`}
-                        value={`category:${cat.name}`}
-                        style={{ paddingLeft: cat.isParent ? "5px" : "20px" }}
-                      >
-                        {cat.isParent ? `${cat.name}` : `└─ ${cat.name}`}
-                      </option>
-                    ))}
-                  </optgroup>
-
-                  <optgroup label="👥 BY SUPPLIER">
-                    {supplierOptions.map((sup) => (
-                      <option key={`supplierId:${sup.id}`} value={`supplierId:${sup.id}`}>
-                        {sup.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                </select>
-
-                <input
-                  type="date"
-                  value={postedDate}
-                  onChange={(e) => setPostedDate(e.target.value)}
-                  className="filter-date"
-                  title="Filter by posted date"
-                />
-
-                {(searchQuery || selectedFilter !== "All" || postedDate) && (
-                  <button
-                    type="button"
-                    className="see-more-btn"
-                    onClick={() => {
-                      setSearchQuery("");
-                      setSelectedFilter("All");
-                      setPostedDate("");
-                    }}
-                    title="Clear filters"
-                  >
-                    Clear
+            {activeView === 'announcements' && (
+              <div className="dashboard-filters">
+                <div className="filters-left">
+                  <button className="post-btn" onClick={openCreateAnnouncementModal}>
+                    + Post Announcement
                   </button>
-                )}
-              </div>
-            </div>
-            {announcements.length === 0 ? (
-              <p>No announcements found.</p>
-            ) : (
-              <div className="announcements-container">
-                {announcements.map((ann) => (
-                  <AnnouncementCard
-                    key={ann.id}
-                    announcement={ann}
-                    onShowCategories={handleShowCategories}
-                    onShowSuppliers={handleShowSuppliers}
-                    onToggleExpand={() => handleToggleAnnouncementExpand(ann)}
-                    expanded={expandedAnnouncementId === ann.id}
-                    onOpenResponses={() => handleOpenResponseModal(ann)}
-                    onOpenHistory={() => handleShowStatusHistory(ann)}
-                    onNavigateDetail={() => handleNavigateToAnnouncementDetail(ann)}
-                    onUpdateStatus={(nextStatus) => handleUpdateAnnouncementStatus(ann, nextStatus)}
-                    onRepost={() => handleRepostAnnouncement(ann)}
-                    isStatusUpdating={statusUpdatingId === ann.id}
+                </div>
+                <div className="filters-right">
+                  <input
+                    type="text"
+                    placeholder="Search title or description..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="filter-input"
                   />
-                ))}
+
+                  <select
+                    value={selectedFilter}
+                    onChange={(e) => setSelectedFilter(e.target.value)}
+                    className="filter-select"
+                    style={{ minWidth: "200px" }}
+                  >
+                    <option value="All">📋 All Announcements</option>
+
+                    <optgroup label="📁 BY CATEGORY">
+                      {categoryHierarchy.map((cat) => (
+                        <option
+                          key={`category:${cat.name}`}
+                          value={`category:${cat.name}`}
+                          style={{ paddingLeft: cat.isParent ? "5px" : "20px" }}
+                        >
+                          {cat.isParent ? `${cat.name}` : `└─ ${cat.name}`}
+                        </option>
+                      ))}
+                    </optgroup>
+
+                    <optgroup label="👥 BY SUPPLIER">
+                      {supplierOptions.map((sup) => (
+                        <option key={`supplierId:${sup.id}`} value={`supplierId:${sup.id}`}>
+                          {sup.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  </select>
+
+                  <input
+                    type="date"
+                    value={postedDate}
+                    onChange={(e) => setPostedDate(e.target.value)}
+                    className="filter-date"
+                    title="Filter by posted date"
+                  />
+
+                  {(searchQuery || selectedFilter !== "All" || postedDate) && (
+                    <button
+                      type="button"
+                      className="see-more-btn"
+                      onClick={() => {
+                        setSearchQuery("");
+                        setSelectedFilter("All");
+                        setPostedDate("");
+                      }}
+                      title="Clear filters"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
               </div>
             )}
+            {activeView === 'announcements' ? (
+              announcements.length === 0 ? (
+                <p>No announcements found.</p>
+              ) : (
+                <>
+                  <div className="announcements-container">
+                    {announcements.map((ann) => (
+                      <AnnouncementCard
+                        key={ann.id}
+                        announcement={ann}
+                        onShowCategories={handleShowCategories}
+                        onShowSuppliers={handleShowSuppliers}
+                        onToggleExpand={() => handleToggleAnnouncementExpand(ann)}
+                        expanded={expandedAnnouncementId === ann.id}
+                        onOpenResponses={() => handleOpenResponseModal(ann)}
+                        onOpenHistory={() => handleShowStatusHistory(ann)}
+                        onNavigateDetail={() => handleNavigateToAnnouncementDetail(ann)}
+                        onUpdateStatus={(nextStatus) => handleUpdateAnnouncementStatus(ann, nextStatus)}
+                        onRepost={() => handleRepostAnnouncement(ann)}
+                        isStatusUpdating={statusUpdatingId === ann.id}
+                      />
+                    ))}
+                  </div>
 
-            <div className="pagination-controls">
-              <div className="pagination-info">
-                {totalAnnouncements === 0
-                  ? "No announcements to display"
-                  : `Showing ${startItemIndex}-${endItemIndex} of ${totalAnnouncements}`}
-              </div>
-              <div className="pagination-buttons">
-                <button
-                  type="button"
-                  className="pagination-button"
-                  onClick={handlePrevPage}
-                  disabled={!canGoPrev}
-                >
-                  Previous
-                </button>
-                <span className="pagination-page">Page {currentPage} of {totalPages}</span>
-                <button
-                  type="button"
-                  className="pagination-button"
-                  onClick={handleNextPage}
-                  disabled={!canGoNext}
-                >
-                  Next
-                </button>
-              </div>
-            </div>
+                  <div className="pagination-controls">
+                    <div className="pagination-info">
+                      {totalAnnouncements === 0
+                        ? "No announcements to display"
+                        : `Showing ${startItemIndex}-${endItemIndex} of ${totalAnnouncements}`}
+                    </div>
+                    <div className="pagination-buttons">
+                      <button
+                        type="button"
+                        className="pagination-button"
+                        onClick={handlePrevPage}
+                        disabled={!canGoPrev}
+                      >
+                        Previous
+                      </button>
+                      <span className="pagination-page">Page {currentPage} of {totalPages}</span>
+                      <button
+                        type="button"
+                        className="pagination-button"
+                        onClick={handleNextPage}
+                        disabled={!canGoNext}
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )
+            ) : (
+              <BuyerRequestsSection token={token} toast={toast} setToast={setToast} noWrapper={true} />
+            )}
           </div>
         </div>
 
@@ -1877,6 +1903,8 @@
             }}
           />
         )}
+
+        {/* Buyer purchase requests are accessible via the view toggle above. */}
 
         <StatusHistoryModal
           visible={historyModal.visible}

@@ -259,6 +259,36 @@
   cursor: not-allowed;
 }
 
+/* View toggle (Announcements / PR Requests) */
+.view-toggle {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.view-toggle-btn {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(15, 45, 98, 0.12);
+  background: transparent;
+  color: var(--philgeps-deep-blue);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.18s, color 0.18s, transform 0.12s;
+}
+.view-toggle-btn:hover {
+  transform: translateY(-1px);
+}
+.view-toggle-btn.active {
+  background: var(--philgeps-deep-blue);
+  color: #ffffff;
+  border-color: var(--philgeps-deep-blue);
+}
+
+@media (max-width: 640px) {
+  .view-toggle { gap: 6px; }
+  .view-toggle-btn { padding: 6px 10px; font-size: 0.9rem; }
+}
+
 .announcement-card, .post-card {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(238, 244, 255, 0.95) 100%);
   padding: 14px 16px;

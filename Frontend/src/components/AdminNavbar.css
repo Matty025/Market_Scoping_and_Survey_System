@@ -10,7 +10,7 @@
   z-index: 1001;
   box-shadow: 0 18px 38px -28px rgba(8, 22, 52, 0.7);
   transition: all 0.3s ease;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+border-bottom: 2px solid #000; /* clean black bottom border */
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   overflow: hidden;
@@ -24,7 +24,9 @@
   right: 24px;
   height: 3px;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(246, 180, 0, 0.7) 0%, rgba(255, 255, 255, 0.55) 50%, rgba(14, 90, 190, 0.55) 100%);
+  background: linear-gradient(90deg, #000 0%, #555 50%, #000 100%);
+    opacity: 0.12;
+
   box-shadow: 0 8px 18px -10px rgba(12, 42, 98, 0.4);
 }
 
@@ -98,50 +100,47 @@
   align-items: center;
   gap: 14px;
 }
-
 .navbar-search-bar {
   padding: 8px 14px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  border: 1px solid #000; /* Black border */
   outline: none;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(14, 52, 112, 0.18));
-  color: #f2f6ff;
+  background: #fff; /* Pure white */
+  color: #111;
   font-size: 14px;
   width: 220px;
-  transition: width 0.3s ease, background 0.3s ease, box-shadow 0.3s ease;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  transition: width 0.3s ease, box-shadow 0.3s ease;
 }
 
 .navbar-search-bar::placeholder {
-  color: rgba(231, 239, 255, 0.7);
+  color: #555;
 }
 
 .navbar-search-bar:focus {
   width: 280px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.28), rgba(15, 45, 98, 0.25));
-  box-shadow: 0 0 0 3px rgba(246, 180, 0, 0.25);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.15);
 }
 
-/* Icons */
 .icon-btn {
   background: #fff;
-  border: 1px solid #e5e7eb;
+  border: 1px solid #000; /* black border for consistency */
   color: #222;
-  font-size: 20px;
+  font-size: 22px; /* slightly bigger */
   cursor: pointer;
-  padding: 6px;
-  border-radius: 10px;
-  transition: all 0.3s ease;
-  box-shadow: 0 12px 28px -20px rgba(12, 26, 58, 0.52);
+  padding: 8px;
+  border-radius: 12px;
+  transition: all 0.25s ease;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
 .icon-btn:hover {
-  color: var(--philgeps-gold, #f6b400);
-  background-color: rgba(255, 255, 255, 0.16);
-  transform: translateY(-1px);
-  box-shadow: 0 16px 34px -20px rgba(12, 26, 58, 0.55);
+  color: #f6b400;
+  background-color: #fafafa;
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.25);
 }
+
 
 /* Mobile-friendly adjustments */
 @media (max-width: 768px) {

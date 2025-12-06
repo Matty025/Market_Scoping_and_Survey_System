@@ -1894,4 +1894,226 @@ router.get("/announcements/:id/detail", protect, async (req, res) => {
   }
 });
 
+// ============================================
+// BUYER PURCHASE REQUEST MANAGEMENT ROUTES
+// ============================================
+
+// @desc    Get all buyer purchase requests with filtering
+// @route   GET /api/admin/buyer-requests
+// @access  Private (Admin)
+router.get("/buyer-requests", protect, async (req, res) => {
+  if (req.user.role.toLowerCase() !== 'admin') {
+    return res.status(403).json({ message: "Access denied. Admins only." });
+  }
+
+  try {
+    const { status, search, from, to } = req.query;
+
+    let limit = parseInt(req.query.limit, 10);
+    if (!Number.isInteger(limit) || limit <= 0) {
+      limit = DEFAULT_PAGE_SIZE;
+    }
+    limit = Math.min(limit, MAX_PAGE_SIZE);
+
+    let page = parseInt(req.query.page, 10);
+    if (!Number.isInteger(page) || page <= 0) {
+      page = 1;
+    }
+    const offset = (page - 1) * limit;
+
+    const params = [];
+    const where = [];
+
+    if (status) {
+      params.push(status.toUpperCase());
+      where.push(`bu."Status" = $${params.length}`);
+    }
+
+    if (search) {
+      params.push(`%${search.toLowerCase()}%`);
+      where.push(`(LOWER(bu."Title") LIKE $${params.length} OR LOWER(bu."Description") LIKE $${params.length} OR LOWER(u."FullName") LIKE $${params.length})`);
+    }
+
+    if (from) {
+      params.push(from);
+      where.push(`bu."DateUploaded"::date >= $${params.length}::date`);
+    }
+
+    if (to) {
+      params.push(to);
+      where.push(`bu."DateUploaded"::date <= $${params.length}::date`);
+    }
+
+    const limitParamIndex = params.length + 1;
+    const offsetParamIndex = params.length + 2;
+
+    const query = `
+      WITH filtered AS (
+        SELECT 
+          bu."UploadID" as id,
+          bu."Title" as title,
+          bu."Description" as description,
+          bu."Notes" as notes,
+          bu."EndDate" as "endDate",
+          bu."FilePath" as "filePath",
+          bu."Status" as status,
+          bu."DateUploaded" as "dateUploaded",
+          bu."AdminFeedback" as "adminFeedback",
+          u."FullName" as "buyerName",
+          u."Email" as "buyerEmail",
+          u."UserID" as "buyerId",
+          COUNT(*) OVER() AS "TotalCountAll"
+        FROM "BuyerUploads" bu
+        JOIN "Users" u ON u."UserID" = bu."UserID"
+        ${where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''}
+        ORDER BY bu."DateUploaded" DESC
+        LIMIT $${limitParamIndex}
+        OFFSET $${offsetParamIndex}
+      )
+      SELECT * FROM filtered;
+    `;
+
+    params.push(limit, offset);
+
+    const { rows } = await pool.query(query, params);
+    const totalCount = rows.length > 0 ? Number(rows[0].TotalCountAll || 0) : 0;
+
+    res.json({
+      items: rows,
+      total: totalCount,
+      page,
+      limit
+    });
+  } catch (err) {
+    console.error("Error fetching buyer requests:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// @desc    Get single buyer purchase request details
+// @route   GET /api/admin/buyer-requests/:id
+// @access  Private (Admin)
+router.get("/buyer-requests/:id", protect, async (req, res) => {
+  if (req.user.role.toLowerCase() !== 'admin') {
+    return res.status(403).json({ message: "Access denied. Admins only." });
+  }
+
+  const uploadId = parseInt(req.params.id, 10);
+  if (!uploadId || isNaN(uploadId)) {
+    return res.status(400).json({ message: "Invalid request ID." });
+  }
+
+  try {
+    const query = `
+      SELECT 
+        bu."UploadID" as id,
+        bu."Title" as title,
+        bu."Description" as description,
+        bu."Notes" as notes,
+        bu."EndDate" as "endDate",
+        bu."FilePath" as "filePath",
+        bu."Status" as status,
+        bu."DateUploaded" as "dateUploaded",
+        bu."AdminFeedback" as "adminFeedback",
+        u."FullName" as "buyerName",
+        u."Email" as "buyerEmail",
+        u."UserID" as "buyerId"
+      FROM "BuyerUploads" bu
+      JOIN "Users" u ON u."UserID" = bu."UserID"
+      WHERE bu."UploadID" = $1
+    `;
+
+    const { rows } = await pool.query(query, [uploadId]);
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "Request not found." });
+    }
+
+    res.json(rows[0]);
+  } catch (err) {
+    console.error("Error fetching buyer request details:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// @desc    Update buyer purchase request status and feedback
+// @route   PATCH /api/admin/buyer-requests/:id/status
+// @access  Private (Admin)
+router.patch("/buyer-requests/:id/status", protect, async (req, res) => {
+  if (req.user.role.toLowerCase() !== 'admin') {
+    return res.status(403).json({ message: "Access denied. Admins only." });
+  }
+
+  const uploadId = parseInt(req.params.id, 10);
+  const { status, feedback } = req.body;
+
+  const allowedStatuses = ['PENDING', 'REVIEWED', 'IN_PROGRESS', 'COMPLETED', 'REJECTED'];
+  
+  if (!status || !allowedStatuses.includes(status.toUpperCase())) {
+    return res.status(400).json({ 
+      message: `Invalid status. Allowed values: ${allowedStatuses.join(', ')}` 
+    });
+  }
+
+  try {
+    const updateQuery = `
+      UPDATE "BuyerUploads"
+      SET "Status" = $1, 
+          "AdminFeedback" = $2
+      WHERE "UploadID" = $3
+      RETURNING 
+        "UploadID" as id,
+        "Title" as title,
+        "Status" as status,
+        "AdminFeedback" as "adminFeedback",
+        "DateUploaded" as "dateUploaded"
+    `;
+    
+    const { rows } = await pool.query(updateQuery, [
+      status.toUpperCase(), 
+      feedback || null, 
+      uploadId
+    ]);
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Request not found' });
+    }
+
+    res.json({ 
+      message: 'Status updated successfully', 
+      request: rows[0] 
+    });
+  } catch (err) {
+    console.error("Error updating buyer request:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// @desc    Get buyer request statistics
+// @route   GET /api/admin/buyer-requests/stats/summary
+// @access  Private (Admin)
+router.get("/buyer-requests/stats/summary", protect, async (req, res) => {
+  if (req.user.role.toLowerCase() !== 'admin') {
+    return res.status(403).json({ message: "Access denied. Admins only." });
+  }
+
+  try {
+    const query = `
+      SELECT
+        COUNT(*) FILTER (WHERE "Status" = 'PENDING') as pending,
+        COUNT(*) FILTER (WHERE "Status" = 'REVIEWED') as reviewed,
+        COUNT(*) FILTER (WHERE "Status" = 'IN_PROGRESS') as "inProgress",
+        COUNT(*) FILTER (WHERE "Status" = 'COMPLETED') as completed,
+        COUNT(*) FILTER (WHERE "Status" = 'REJECTED') as rejected,
+        COUNT(*) as total
+      FROM "BuyerUploads"
+    `;
+
+    const { rows } = await pool.query(query);
+    res.json(rows[0]);
+  } catch (err) {
+    console.error("Error fetching buyer request stats:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 module.exports = router;

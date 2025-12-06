@@ -81,3 +81,43 @@
 .stat-card1.pulse {
   animation: pulse-animation 2s infinite;
 }
+
+/* Container layout: make stats horizontal by default and responsive */
+.stats-container {
+  display: flex;
+  flex-direction: row; /* horizontal layout */
+  align-items: stretch;
+  gap: 14px;
+  padding: 12px 8px;
+  flex-wrap: wrap; /* wrap to next line on small screens */
+}
+
+/* Limit card width so they align nicely in a row */
+.stats-container .stat-card1 {
+  min-width: 160px;
+  max-width: 1fr;
+  flex: 1 1 160px; /* grow and shrink, base 160px */
+}
+
+/* Simple fade-in when loaded */
+.stats-container.loaded {
+  animation: fadeInUp 300ms ease both;
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* On very small screens stack vertically with full width */
+@media (max-width: 520px) {
+  .stats-container {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .stats-container .stat-card1 {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+}

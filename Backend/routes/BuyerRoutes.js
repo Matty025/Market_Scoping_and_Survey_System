@@ -490,4 +490,77 @@ router.get('/market-stats', protect, async (req, res) => {
     res.status(500).json({ error: 'Server error while fetching market stats.' });
   }
 });
+
+// @desc    Delete a buyer purchase request
+// @route   DELETE /api/buyer/requests/:id
+// @access  Private (Buyer - own requests only)
+router.delete('/requests/:id', protect, async (req, res) => {
+  try {
+    const uploadId = parseInt(req.params.id, 10);
+    const userId = req.user.UserID || req.user.userID || req.user.id;
+
+    if (!uploadId || isNaN(uploadId)) {
+      return res.status(400).json({ error: 'Invalid request ID' });
+    }
+
+    // Verify ownership and get file info
+    const checkQuery = `
+      SELECT "UserID", "Status", "FilePath" 
+      FROM "BuyerUploads" 
+      WHERE "UploadID" = $1
+    `;
+    const checkResult = await db.query(checkQuery, [uploadId]);
+
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Request not found' });
+    }
+
+    const request = checkResult.rows[0];
+    
+    // Authorization: Only allow deletion of own requests
+    if (request.UserID !== userId) {
+      return res.status(403).json({ error: 'Access denied. You can only delete your own requests.' });
+    }
+
+    // Business rule: Only allow deletion of pending requests
+    if (request.Status !== 'PENDING') {
+      return res.status(400).json({ 
+        error: `Cannot delete ${request.Status.toLowerCase()} requests. Only pending requests can be deleted.` 
+      });
+    }
+
+    // Delete from database first
+    const deleteQuery = 'DELETE FROM "BuyerUploads" WHERE "UploadID" = $1';
+    await db.query(deleteQuery, [uploadId]);
+
+    // Clean up file if it exists on local disk (not S3/Spaces URL)
+    const filePath = request.FilePath;
+    if (filePath && !filePath.startsWith('http')) {
+      // It's a local file path
+      const fullPath = path.isAbsolute(filePath) 
+        ? filePath 
+        : path.join(__dirname, '..', filePath);
+      
+      fs.unlink(fullPath, (err) => {
+        if (err) {
+          console.warn('[BuyerRoutes.js] Failed to delete file from disk:', err.message);
+        } else {
+          console.log('[BuyerRoutes.js] File deleted from disk:', fullPath);
+        }
+      });
+    }
+    // Note: For S3/Spaces files, you would need to add deletion logic here
+    // using the AWS SDK if you want to remove them from cloud storage
+
+    console.log(`[BuyerRoutes.js] Request ${uploadId} deleted by user ${userId}`);
+    res.json({ 
+      success: true, 
+      message: 'Purchase request deleted successfully' 
+    });
+
+  } catch (err) {
+    console.error('[BuyerRoutes.js] Delete error:', err);
+    res.status(500).json({ error: 'Server error while deleting request.' });
+  }
+});
 module.exports = router;
