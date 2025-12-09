@@ -76,6 +76,23 @@ const fileFilter = (req, file, cb) => {
 
 const upload = multer({ storage: storage, fileFilter: fileFilter });
 
+// Helper: add a history entry for a purchase request
+async function addPurchaseRequestHistory(uploadId, action, details) {
+  try {
+    const q = `INSERT INTO "PurchaseRequestHistory" ("UploadID", "Action", "Details") VALUES ($1, $2, $3) RETURNING *`;
+    const vals = [uploadId, action, details || null];
+    const res = await db.query(q, vals);
+    return res.rows[0];
+  } catch (err) {
+    console.error('[BuyerRoutes.js] addPurchaseRequestHistory error:', err && err.message);
+    // Don't rethrow to avoid breaking calling flows
+    return null;
+  }
+}
+
+// expose helper via router so other modules (e.g., admin routes) can call it
+router.addPurchaseRequestHistory = addPurchaseRequestHistory;
+
 // POST /api/buyer/upload
 router.post('/upload', protect, upload.single('file'), async (req, res) => {
   console.log('[BuyerRoutes.js] POST /api/buyer/upload route hit.');
@@ -97,6 +114,19 @@ router.post('/upload', protect, upload.single('file'), async (req, res) => {
     const result = await db.query(query, values);
     // Optionally notify admin here
     console.log('[BuyerRoutes.js] Upload successful:', result.rows[0]);
+    // Record history entry for creation
+    try {
+      const uploadId = result.rows[0].uploadid || result.rows[0].UploadID || result.rows[0].UploadId || null;
+      if (uploadId) {
+        // Prefer human-readable name if available (no id appended)
+        const userName = req.user && (req.user.FullName || req.user.fullName || req.user.name || req.user.email) || userId;
+        const details = `By: ${userName}`;
+        // Non-blocking: fire-and-forget, but log failures
+        await addPurchaseRequestHistory(uploadId, 'Created', details);
+      }
+    } catch (histErr) {
+      console.warn('[BuyerRoutes.js] Failed to write creation history:', histErr && histErr.message);
+    }
     res.status(201).json({ success: true, upload: result.rows[0] });
   } catch (err) {
     console.error('[BuyerRoutes.js] Error during upload:', err);
@@ -115,6 +145,7 @@ router.get('/requests', protect, async (req, res) => {
         "Title" as title, 
         "Description" as description, 
         "Notes" as notes, 
+        "AdminFeedback" as "AdminFeedback", 
         "EndDate" as endDate, 
         "FilePath" as filePath, 
         "Status" as status, 
@@ -144,6 +175,7 @@ router.get('/requests', protect, async (req, res) => {
         title: row.title,
         description: row.description,
         notes: row.notes,
+        adminFeedback: row.adminfeedback || row.AdminFeedback || row.adminFeedback || row.admin_feedback || null,
         status: row.status,
         filePath: fileUrl, // This field now contains the full URL
         endDate: row.enddate || row.endDate,
@@ -295,6 +327,24 @@ router.get('/market-items', protect, async (req, res) => {
   } catch (err) {
     console.error('[BuyerRoutes.js] Error fetching market items:', err);
     res.status(500).json({ error: 'Server error while fetching market items.' });
+  }
+});
+
+// GET /api/buyer/requests/:id/history
+router.get('/requests/:id/history', protect, async (req, res) => {
+  try {
+    const uploadId = parseInt(req.params.id, 10);
+    if (!uploadId || isNaN(uploadId)) {
+      return res.status(400).json({ error: 'Invalid request ID' });
+    }
+
+    const q = `SELECT "HistoryID" as historyID, "UploadID" as uploadID, "Action" as action, "Details" as details, "ChangedAt" as changedAt FROM "PurchaseRequestHistory" WHERE "UploadID" = $1 ORDER BY "ChangedAt" DESC`;
+    const result = await db.query(q, [uploadId]);
+    const rows = result.rows || [];
+    res.json({ history: rows });
+  } catch (err) {
+    console.error('[BuyerRoutes.js] Error fetching history:', err);
+    res.status(500).json({ error: 'Server error while fetching history.' });
   }
 });
 
@@ -530,6 +580,15 @@ router.delete('/requests/:id', protect, async (req, res) => {
     }
 
     // Delete from database first
+    // record deletion in history before actual delete
+    try {
+      const userName = req.user && (req.user.FullName || req.user.fullName || req.user.name || req.user.email) || userId;
+      const details = `By: ${userName}`;
+      await addPurchaseRequestHistory(uploadId, 'Deleted', details);
+    } catch (histErr) {
+      console.warn('[BuyerRoutes.js] Failed to write deletion history:', histErr && histErr.message);
+    }
+
     const deleteQuery = 'DELETE FROM "BuyerUploads" WHERE "UploadID" = $1';
     await db.query(deleteQuery, [uploadId]);
 

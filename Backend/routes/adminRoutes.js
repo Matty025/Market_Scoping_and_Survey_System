@@ -6,6 +6,8 @@ const { protect } = require("./authMiddleware");
 const pool = require("../db.js");
 const archiver = require("archiver");
 const fs = require("fs");
+// Require buyer routes to reuse history helper
+const buyerRoutes = require('./BuyerRoutes');
 
 const FALLBACK_CATEGORY_NAME = "Uncategorized";
 
@@ -2077,6 +2079,28 @@ router.patch("/buyer-requests/:id/status", protect, async (req, res) => {
     
     if (rows.length === 0) {
       return res.status(404).json({ message: 'Request not found' });
+    }
+
+    // Record history: status change and optional feedback
+    try {
+      const updated = rows[0];
+      const adminId = req.user.UserID || req.user.userID || req.user.id || 'admin';
+      const adminName = req.user.FullName || req.user.fullName || req.user.name || req.user.email || '';
+      const adminRole = req.user.role || 'admin';
+
+      // Keep Action concise; put actor info & feedback into Details for richer audit
+      const statusAction = `Status updated to ${String(updated.status).toUpperCase()}`;
+      let details = `By: ${adminName || 'Admin'}`;
+      if (feedback) {
+        details += `\nFeedback: ${feedback}`;
+      }
+
+      // Use helper from BuyerRoutes; it's resilient and logs errors internally
+      if (typeof buyerRoutes.addPurchaseRequestHistory === 'function') {
+        await buyerRoutes.addPurchaseRequestHistory(uploadId, statusAction, details);
+      }
+    } catch (histErr) {
+      console.warn('[adminRoutes.js] Failed to write purchase request history:', histErr && histErr.message);
     }
 
     res.json({ 

@@ -164,6 +164,13 @@ const Market = () => {
     }
   };
 
+  const clearFilters = () => {
+    setSearchQuery("");
+    setSelectedCategory("All");
+    setSelectedSupplier("All");
+    setDateFilter("");
+  };
+
   const downloadCSV = () => {
     let itemsToExport = cart.filter((i) => selectedCheckout.includes(i.id));
     if (itemsToExport.length === 0) itemsToExport = cart;
@@ -259,6 +266,7 @@ const Market = () => {
             </select>
 
             <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} className="market-date-input" />
+            <button className="see-more-btn" type="button" onClick={clearFilters} title="Clear filters">Clear</button>
           </div>
 
           <div className="market-grid">

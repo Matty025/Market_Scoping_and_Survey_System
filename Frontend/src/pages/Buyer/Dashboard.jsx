@@ -8,7 +8,9 @@ import {
   FaClock, 
   FaTimesCircle, 
   FaFilePdf, 
-  FaExclamationTriangle
+  FaExclamationTriangle,
+  FaChevronDown,
+  FaChevronUp
 } from "react-icons/fa";
 import "./Dashboard.css";
 
@@ -29,16 +31,28 @@ const Dashboard = () => {
   const [deleteStatus, setDeleteStatus] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [history, setHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState("");
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   // Helper: Status Colors
   const getStatusConfig = (status) => {
     const s = String(status || "").toUpperCase();
     switch (s) {
-      case "PENDING": return { color: "#f59e0b", icon: <FaClock />, label: "Pending Review" };
-      case "COMPLETED": return { color: "#22c55e", icon: <FaCheckCircle />, label: "Completed" };
+      // Pending: yellow
+      case "PENDING": return { color: "#f59e0b", icon: <FaClock />, label: "Pending" };
+      // In progress: purple
+      case "IN_PROGRESS": return { color: "#7c3aed", icon: <FaClock />, label: "In Progress" };
+      // Reviewed: blue
       case "REVIEWED": return { color: "#2563eb", icon: <FaCheckCircle />, label: "Reviewed" };
-      case "QUOTED": return { color: "#8b5cf6", icon: <FaCheckCircle />, label: "Quoted" };
+      // Completed: darker green
+      case "COMPLETED": return { color: "#15803d", icon: <FaCheckCircle />, label: "Completed" };
+      // Quoted / other informative states: purple
+      case "QUOTED": return { color: "#7c3aed", icon: <FaCheckCircle />, label: "Quoted" };
+      // Rejected: red
       case "REJECTED": return { color: "#ef4444", icon: <FaTimesCircle />, label: "Rejected" };
+      // Fallback: neutral gray
       default: return { color: "#6b7280", icon: <FaClock />, label: status || "Unknown" };
     }
   };
@@ -226,11 +240,21 @@ const Dashboard = () => {
   const handleViewDetails = (request) => {
     setSelectedRequest(request);
     setDetailsModalOpen(true);
+    // preload history for the selected request so it's ready if user expands
+    if (request && request.id) {
+      fetchHistory(request.id);
+      setHistoryOpen(false);
+    }
   };
 
   const handleCloseDetailsModal = () => {
     setDetailsModalOpen(false);
     setSelectedRequest(null);
+    // clear history when closing details
+    setHistory([]);
+    setHistoryError("");
+    setHistoryLoading(false);
+    setHistoryOpen(false);
   };
 
   const handleDeleteRequest = async (e, id) => {
@@ -272,6 +296,77 @@ const Dashboard = () => {
   const getMinDate = () => {
     const today = new Date();
     return today.toISOString().split('T')[0];
+  };
+
+  // Fetch history entries for a purchase request (backend route to be added later)
+  const fetchHistory = async (uploadId) => {
+    setHistory([]);
+    setHistoryError("");
+    setHistoryLoading(true);
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setHistoryError("Not authenticated");
+      setHistoryLoading(false);
+      return;
+    }
+
+    try {
+      const res = await fetch(`http://localhost:3001/api/buyer/requests/${uploadId}/history`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setHistory(data.history || []);
+      } else {
+        // backend route may not exist yet; surface a friendly message
+        let err = {};
+        try { err = await res.json(); } catch (e) {}
+        setHistoryError(err.error || 'History not available yet');
+      }
+    } catch (err) {
+      console.error('History fetch error', err);
+      setHistoryError('Server error while fetching history.');
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  // UI helpers for history display
+  const formatTimestamp = (ts) => {
+    if (!ts) return '';
+    const d = new Date(ts);
+    return d.toLocaleString();
+  };
+
+  const parseDetails = (details) => {
+    if (!details) return { actor: null, body: null };
+    const lines = String(details).split('\n').map(l => l.trim()).filter(Boolean);
+    if (lines.length === 0) return { actor: null, body: null };
+    // If the first line begins with "By:", treat it as the actor line
+    let actor = null;
+    let bodyLines = lines.slice();
+    if (/^By:/i.test(lines[0])) {
+      actor = lines[0].replace(/^By:\s*/i, '').trim();
+      bodyLines = lines.slice(1);
+    }
+    return { actor, body: bodyLines.join('\n') || null };
+  };
+
+  // relative time helper (simple)
+  const timeAgo = (ts) => {
+    if (!ts) return '';
+    const d = new Date(ts);
+    const diff = Date.now() - d.getTime();
+    const sec = Math.floor(diff / 1000);
+    if (sec < 60) return `${sec}s ago`;
+    const min = Math.floor(sec / 60);
+    if (min < 60) return `${min}m ago`;
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return `${hr}h ago`;
+    const days = Math.floor(hr / 24);
+    return `${days}d ago`;
   };
 
   return (
@@ -672,16 +767,126 @@ const Dashboard = () => {
               )}
               
               {selectedRequest.adminFeedback && (
-                <div className="detail-row detail-row-full feedback-box">
-                  <span className="detail-label">
-                    <FaCheckCircle style={{ marginRight: '6px' }} />
-                    Admin Feedback
-                  </span>
-                  <p className="detail-value" style={{ whiteSpace: 'pre-wrap' }}>
-                    {selectedRequest.adminFeedback}
-                  </p>
+                <div className="detail-row detail-row-full feedback-box" style={{ display: 'flex', alignItems: 'flex-start', gap: '24px', background: '#f3f4f6', borderRadius: '8px', padding: '16px', marginTop: '12px' }}>
+                  <div style={{ flex: 1 }}>
+                    <span className="detail-label" style={{ color: '#2563eb', fontWeight: 600, fontSize: '1rem', display: 'flex', alignItems: 'center', marginBottom: '6px' }}>
+                      <FaCheckCircle style={{ marginRight: '8px', color: '#2563eb' }} />
+                      Admin Feedback
+                    </span>
+                    <p className="detail-value" style={{ whiteSpace: 'pre-wrap', color: '#1e293b', fontSize: '1rem', margin: 0 }}>
+                      {selectedRequest.adminFeedback}
+                    </p>
+                  </div>
                 </div>
               )}
+
+              {/* History Section (collapsible) */}
+              <div className="detail-row detail-row-full" style={{ marginTop: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <span className="detail-label">History</span>
+                    <span style={{ background: '#eef2ff', color: '#1e3a8a', padding: '4px 8px', borderRadius: 999, fontSize: 12, fontWeight: 600 }}>{history.length}</span>
+                    {/* latest preview */}
+                    {history.length > 0 && (
+                      (() => {
+                        const latest = history[0];
+                        const rawDetails = latest.Details || latest.details || '';
+                        const { actor } = parseDetails(rawDetails);
+                        const when = latest.ChangedAt || latest.changedAt || latest.changedAt;
+                        return (
+                          <div style={{ color: '#475569', fontSize: 13 }}>
+                            {actor ? `Last: ${actor}` : 'Last'} · <span style={{ color: '#0f172a', fontWeight: 600 }}>{timeAgo(when)}</span>
+                          </div>
+                        );
+                      })()
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    className="status-action-btn"
+                    onClick={() => setHistoryOpen((s) => !s)}
+                    aria-expanded={historyOpen}
+                    aria-controls={`history-list-${selectedRequest ? selectedRequest.id : 'none'}`}
+                    style={{ padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 8 }}
+                  >
+                    <span style={{ fontWeight: 600 }}>{historyOpen ? 'Hide History' : 'Show History'}</span>
+                    {historyOpen ? <FaChevronUp /> : <FaChevronDown />}
+                  </button>
+                </div>
+
+                {historyOpen && (
+                  <div style={{ marginTop: 12 }}>
+                    {historyLoading ? (
+                      <p>Loading history...</p>
+                    ) : historyError ? (
+                      <p style={{ color: '#b91c1c' }}>{historyError}</p>
+                    ) : history.length === 0 ? (
+                      <p style={{ color: '#475569' }}>No history available for this request.</p>
+                    ) : (
+                      <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                        {history.map((h, idx) => {
+                          const id = h.HistoryID || h.historyID || h.id || `history-${idx}`;
+                          const when = h.ChangedAt || h.changedAt || h.changedAt;
+                          const action = h.Action || h.action || '';
+                          const rawDetails = h.Details || h.details || '';
+                          const { actor, body } = parseDetails(rawDetails);
+                          return (
+                            <li key={id} style={{ display: 'flex', gap: 12, padding: '12px 0', borderBottom: '1px solid #eef2f7' }}>
+                              {/* left: timestamp + timeline */}
+                              <div style={{ width: 110, textAlign: 'right', paddingRight: 12 }}>
+                                <div style={{ fontSize: 12, color: '#94a3b8' }}>{formatTimestamp(when)}</div>
+                              </div>
+
+                              {/* center: dot/line (color reflects action/status) */}
+                              <div style={{ width: 18, display: 'flex', justifyContent: 'center' }}>
+                                {(() => {
+                                  // determine dot color: status change -> use status color; Created -> gray; Deleted -> red; fallback blue
+                                  const act = (action || '').toString();
+                                  let dotColor = '#2563eb';
+                                  if (/^Created$/i.test(act)) {
+                                    dotColor = '#94a3b8'; // neutral gray
+                                  } else if (/Deleted/i.test(act)) {
+                                    dotColor = '#ef4444'; // red
+                                  } else {
+                                    const m = act.match(/Status updated to\s+(\w+)/i);
+                                    if (m && m[1]) {
+                                      try {
+                                        const statusCfg = getStatusConfig(m[1].toUpperCase());
+                                        if (statusCfg && statusCfg.color) dotColor = statusCfg.color;
+                                      } catch (e) {}
+                                    }
+                                  }
+                                  return <div style={{ width: 10, height: 10, borderRadius: 10, background: dotColor, marginTop: 6 }} />;
+                                })()}
+                              </div>
+
+                              {/* right: content */}
+                              <div style={{ flex: 1 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <div style={{ fontWeight: 700, color: '#0f172a' }}>{action}</div>
+                                </div>
+
+                                {actor && (
+                                  <div style={{ marginTop: 6, fontSize: 13, color: '#1f2937' }}>
+                                    <strong>By:</strong> {actor}
+                                  </div>
+                                )}
+
+                                {body && (
+                                  <div style={{ marginTop: 8, whiteSpace: 'pre-wrap', color: '#344054' }}>
+                                    {body}
+                                  </div>
+                                )}
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
             
             <div className="modal-actions">
