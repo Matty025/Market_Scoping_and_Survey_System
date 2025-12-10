@@ -1,9 +1,19 @@
 /* ========== MAIN CONTAINER ========== */
+/* FORCE MARKET PAGE TO ALWAYS USE FULL WIDTH */
 .market-container {
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+  width: 100% !important;
+  flex: 1 !important;
+  margin-left: 0 !important;
+  max-width: 100% !important;
+  box-sizing: border-box;
+}
+
+/* Ensure the admin layout cannot reduce the width */
+.admin-layout .market-container,
+.admin-layout.collapsed .market-container {
+  width: 100% !important;
+  margin-left: 0 !important;
+  max-width: 100% !important;
 }
 
 /* Header */
@@ -241,4 +251,20 @@
     font-size: 0.8rem;
     padding: 5px 8px;
   }
+}
+
+/* Page-specific overrides to keep Market page flush with the sidebar */
+.admin-layout.collapsed .market-container,
+.admin-layout .market-container {
+  /* Ensure Market container stays within the main content flow for all states */
+  width: 100%;
+  margin-left: 0;
+}
+
+@media (max-width: 1024px) and (min-width: 768px) {
+  .admin-layout .market-container { width: 100%; margin-left: 0; }
+}
+
+@media (max-width: 767px) {
+  .admin-layout .market-container { width: 100%; margin-left: 0; }
 }

@@ -281,6 +281,9 @@ const Market = () => {
                 return (
                   <div key={item.id} className="market-card" onClick={() => setModalItem(item)}>
                     <h4>{item.product}</h4>
+                    {item.description && (
+                      <p className="market-desc">{item.description.length > 140 ? `${item.description.slice(0, 140)}...` : item.description}</p>
+                    )}
                     <p><strong>Supplier:</strong> {item.company}</p>
                     <p><strong>₱{Number(item.price).toLocaleString()}</strong></p>
                     <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
@@ -355,6 +358,9 @@ const Market = () => {
           <div className="market-modal-content" onClick={(e) => e.stopPropagation()}>
             <button className="modal-close-btn" onClick={() => setModalItem(null)}>✖</button>
             <h2>{modalItem.product}</h2>
+            {modalItem.description && (
+              <p className="market-modal-desc"><strong>Description:</strong> {modalItem.description}</p>
+            )}
             <p><strong>Supplier:</strong> {modalItem.company}</p>
             <p><strong>Categories:</strong> {modalItem.categories.join(', ')}</p>
             <p><strong>Updated:</strong> {modalItem.updated ? new Date(modalItem.updated).toLocaleString() : 'N/A'}</p>

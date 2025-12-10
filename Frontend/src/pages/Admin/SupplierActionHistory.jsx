@@ -63,11 +63,45 @@ const SupplierActionHistory = ({ supplierId }) => {
       // If the item is deleted, use the name we saved in the details
       targetName = `'${action.details.deletedItemName}' (Deleted)`;
     }
+
+    // If details is present and may contain multiple changes, create a concise preview
     if (action.details) {
-      const { field, oldValue, newValue } = action.details;
-      // Check for a detailed update action
-      if (field) {
-        return `Updated ${field.toLowerCase()} for ${targetName} from '${oldValue}' to '${newValue}'`;
+      const d = action.details;
+
+      // Case: details contains an array of changes (common shape for bulk updates)
+      const changeArray = Array.isArray(d.changes) ? d.changes : (Array.isArray(d) ? d : null);
+      if (changeArray && changeArray.length > 0) {
+        const fields = changeArray.map((c) => c.field || c.name || Object.keys(c || {})[0]).filter(Boolean);
+        const uniq = [...new Set(fields)];
+        const previewFields = uniq.slice(0, 2).join(', ');
+        const more = uniq.length > 2 ? ` +${uniq.length - 2} more` : '';
+        return `Updated ${previewFields}${more} for ${targetName}`;
+      }
+
+      // Case: single-field update with explicit field/oldValue/newValue
+      if (d.field && (d.oldValue !== undefined || d.newValue !== undefined)) {
+        return `Updated ${d.field.toLowerCase()} for ${targetName} from '${d.oldValue}' to '${d.newValue}'`;
+      }
+
+      // Case: createdItem structure
+      if (d.createdItem && (d.createdItem.name || Object.keys(d.createdItem).length > 0)) {
+        return `Created new product: ${d.createdItem.name || targetName}`;
+      }
+
+      // Case: deleted item name (already handled for targetName but return short text)
+      if (d.deletedItemName) {
+        return `Deleted product: '${d.deletedItemName}' (Deleted)`;
+      }
+
+      // Generic object with multiple keys — summarize the keys changed
+      if (typeof d === 'object' && Object.keys(d).length > 0) {
+        const skip = ['deletedItemName', 'createdItem', 'field', 'oldValue', 'newValue'];
+        const changed = Object.keys(d).filter((k) => !skip.includes(k));
+        if (changed.length > 0) {
+          const preview = changed.slice(0, 3).join(', ');
+          const more = changed.length > 3 ? ` +${changed.length - 3} more` : '';
+          return `Updated ${preview}${more} for ${targetName}`;
+        }
       }
     }
   
@@ -211,8 +245,35 @@ const SupplierActionHistory = ({ supplierId }) => {
             <div className="modal-body">
               <p><strong>User:</strong> {selectedRecord.userName}</p>
               <p><strong>Action:</strong> {selectedRecord.actionType.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}</p>
-              <p><strong>Details:</strong> {formatDetails(selectedRecord)}</p>
               <p><strong>Date & Time:</strong> {selectedRecord.createdAt ? new Date(selectedRecord.createdAt).toLocaleString() : 'N/A'}</p>
+
+              <div className="details-block">
+                <strong>Details:</strong>
+                {selectedRecord.details ? (
+                  selectedRecord.actionType === 'ITEM_UPDATED' && selectedRecord.details.field ? (
+                    <div className="details-table">
+                      <div className="row"><span className="label">Field</span><span className="value">{selectedRecord.details.field}</span></div>
+                      <div className="row"><span className="label">Old</span><span className="value">{String(selectedRecord.details.oldValue)}</span></div>
+                      <div className="row"><span className="label">New</span><span className="value">{String(selectedRecord.details.newValue)}</span></div>
+                    </div>
+                  ) : selectedRecord.actionType === 'ITEM_CREATED' && selectedRecord.details.createdItem ? (
+                    <div className="details-table">
+                      {Object.entries(selectedRecord.details.createdItem).map(([k, v]) => (
+                        <div className="row" key={k}><span className="label">{k}</span><span className="value">{String(v)}</span></div>
+                      ))}
+                    </div>
+                  ) : selectedRecord.details.deletedItemName ? (
+                    <div className="details-table">
+                      <div className="row"><span className="label">Deleted Item Name</span><span className="value">{selectedRecord.details.deletedItemName}</span></div>
+                    </div>
+                  ) : (
+                    <pre className="details-raw">{typeof selectedRecord.details === 'string' ? selectedRecord.details : JSON.stringify(selectedRecord.details, null, 2)}</pre>
+                  )
+                ) : (
+                  <div className="no-details">— No additional details —</div>
+                )}
+              </div>
+
               {selectedRecord.details && (
                 <div className="summary-container">
                   <strong>Summary of Changes:</strong>

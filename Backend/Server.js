@@ -89,6 +89,17 @@ app.use("/api/buyer", buyerRoutes);
 const reportRoutes = require("./routes/reportRoutes");
 console.log("[Server.js] reportRoutes loaded.");
 app.use("/api/reports", reportRoutes);
+// Lightweight health endpoint for container healthchecks
+app.get('/health', async (req, res) => {
+  try {
+    await pool.query('SELECT 1');
+    return res.status(200).json({ status: 'ok', db: 'connected' });
+  } catch (err) {
+    console.error('[Health] DB check failed:', err && err.message ? err.message : err);
+    return res.status(503).json({ status: 'error', db: 'unreachable', error: String(err && err.message ? err.message : err) });
+  }
+});
+
 // Check DB connection and start server
 const startServer = async () => {
   try {

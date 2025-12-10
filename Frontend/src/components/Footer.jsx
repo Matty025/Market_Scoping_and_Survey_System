@@ -9,7 +9,7 @@ const Footer = () => {
           © {new Date().getFullYear()} Market Research Scoping and Survey System
         </p>
         <p className="footer-subtext">
-          Developed by <strong>Team MRSSS</strong> | All Rights Reserved
+          Developed by <strong>Team MSSS</strong> | All Rights Reserved
         </p>
       </div>
     </footer>

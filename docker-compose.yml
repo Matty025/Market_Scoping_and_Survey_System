@@ -1,0 +1,35 @@
+version: "3.9"
+
+services:
+  backend:
+    build: ./Backend
+    container_name: msss-backend
+    ports:
+      - "5000:5000"
+    # Use a container-specific env file so local .env is not changed
+    env_file:
+      - ./Backend/.env.docker
+    depends_on:
+      - db
+    restart: always
+
+  db:
+    image: postgres:18
+    container_name: msss-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: msss
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    ports:
+      - "5432:5432"
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d msss"]
+      interval: 5s
+      timeout: 2s
+      retries: 10
+
+volumes:
+  postgres_data:
