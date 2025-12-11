@@ -1,20 +1,37 @@
 const express = require("express");
 const router = express.Router();
 const multer = require('multer');
+let useAzure = false;
+let azureClient;
+try {
+  if (process.env.AZURE_STORAGE_CONNECTION_STRING) {
+    const { BlobServiceClient } = require('@azure/storage-blob');
+    azureClient = { BlobServiceClient };
+    useAzure = true;
+    console.log('[SupplierRoutes.js] Azure Blob Storage configured via AZURE_STORAGE_CONNECTION_STRING');
+  }
+} catch (e) {
+  console.warn('[SupplierRoutes.js] Azure storage SDK not available or failed to initialize.');
+}
 const path = require('path');
 const xlsx = require('xlsx'); // For reading Excel files
 const fs = require('fs');     // For file system operations (deleting temp files)
 
 // configure multer storage
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'uploads/');
-  },
-  filename: function (req, file, cb) {
-    const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, file.fieldname + '-' + unique + path.extname(file.originalname));
-  }
-});
+let storage;
+if (useAzure) {
+  storage = multer.memoryStorage();
+} else {
+  storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+      cb(null, 'uploads/');
+    },
+    filename: function (req, file, cb) {
+      const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
+      cb(null, file.fieldname + '-' + unique + path.extname(file.originalname));
+    }
+  });
+}
 const upload = multer({ storage });
 const { protect } = require("./authMiddleware");
 const pool = require("../db.js"); // Your database connection pool
@@ -387,15 +404,23 @@ router.post('/uploads', protect, upload.single('file'), async (req, res) => { //
     const supplierId = userQ.rows[0]?.SupplierID;
     if (!supplierId) return res.status(404).json({ message: 'Supplier profile not found' });
 
-    // 2. Log the upload attempt with 'PROCESSING' status
-    const logResult = await pool.query(
-      `INSERT INTO "SupplierUploads" ("SupplierID", "FilePath", "FileName", "Status") VALUES ($1, $2, $3, 'PROCESSING') RETURNING "UploadID"`,
-      [supplierId, file.path, file.originalname]
-    );
+      // 2. Log the upload attempt with 'PROCESSING' status
+      // For Azure memory uploads we won't have a disk path yet; store a temporary placeholder and update later if needed
+      const tempPath = file.path || null;
+      const logResult = await pool.query(
+        `INSERT INTO "SupplierUploads" ("SupplierID", "FilePath", "FileName", "Status") VALUES ($1, $2, $3, 'PROCESSING') RETURNING "UploadID"`,
+        [supplierId, tempPath, file.originalname]
+      );
     uploadLogId = logResult.rows[0].UploadID;
 
     // 3. Find and read the correct sheet from the Excel file
-    const workbook = xlsx.readFile(file.path);
+    let workbook;
+    const { uploadBuffer } = require('../utils/azureBlob');
+    if (useAzure && file.buffer) {
+      workbook = xlsx.read(file.buffer, { type: 'buffer' });
+    } else {
+      workbook = xlsx.readFile(file.path);
+    }
     let products = [];
     let sheetFound = false;
 
@@ -537,6 +562,18 @@ router.post('/uploads', protect, upload.single('file'), async (req, res) => { //
             }
           }
 
+            // If Azure is used, upload the original file buffer to Azure Blob and update the SupplierUploads record with the blob URL
+            if (useAzure && file.buffer) {
+              try {
+                const containerName = process.env.AZURE_EXCEL_CONTAINER || 'excels';
+                const safeName = (file.originalname || 'upload').replace(/[^a-zA-Z0-9._-]/g, '_');
+                const blobName = `supplier-uploads/${Date.now()}-${Math.round(Math.random()*1e9)}-${safeName}`;
+                const blobUrl = await uploadBuffer(containerName, blobName, file.buffer, file.mimetype || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+                await pool.query('UPDATE "SupplierUploads" SET "FilePath" = $1 WHERE "UploadID" = $2', [blobUrl, uploadLogId]);
+              } catch (azureErr) {
+                console.error('[SupplierRoutes] Failed to upload excel file to Azure Blob:', azureErr);
+              }
+            }
           // 3. Insert all unique, valid category IDs that were found into the ItemCategories table.
           for (const categoryId of foundCategoryIds) {
             if (categoryId) { // Final safety check

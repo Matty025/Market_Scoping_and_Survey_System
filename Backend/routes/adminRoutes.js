@@ -161,17 +161,29 @@ const recordStatusHistory = async (client, {
 };
 
 // --- Multer Configuration for File Uploads ---
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, "uploads/");
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname));
-  },
-});
+let adminUseAzure = false;
+try {
+  adminUseAzure = Boolean(process.env.AZURE_STORAGE_CONNECTION_STRING);
+} catch (e) {
+  adminUseAzure = false;
+}
 
-const upload = multer({ storage: storage });
+let adminStorage;
+if (adminUseAzure) {
+  adminStorage = multer.memoryStorage();
+} else {
+  adminStorage = multer.diskStorage({
+    destination: function (req, file, cb) {
+      cb(null, "uploads/");
+    },
+    filename: function (req, file, cb) {
+      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+      cb(null, file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname));
+    },
+  });
+}
+
+const upload = multer({ storage: adminStorage });
 
 // @desc    Get all procurement announcements
 // @route   GET /api/admin/announcements
@@ -317,7 +329,23 @@ router.post("/announcements", protect, upload.single("file"), async (req, res) =
   const normalizedSendType = String(sendType || 'category').toLowerCase() === 'supplier' ? 'supplier' : 'category';
   const createdByUserId = coerceToInt(req.user?.userID || req.user?.id);
 
-  const filePath = req.file ? req.file.path : null;
+  const { uploadBuffer } = require('../utils/azureBlob');
+  let filePath = null;
+  if (req.file) {
+    if (adminUseAzure && req.file.buffer) {
+      try {
+        const containerName = process.env.AZURE_PDF_CONTAINER || 'pdfs';
+        const safeName = (req.file.originalname || 'upload').replace(/[^a-zA-Z0-9._-]/g, '_');
+        const blobName = `announcements/${Date.now()}-${Math.round(Math.random()*1e9)}-${safeName}`;
+        filePath = await uploadBuffer(containerName, blobName, req.file.buffer, req.file.mimetype);
+      } catch (azureErr) {
+        console.error('[adminRoutes] Azure upload failed for announcement file:', azureErr);
+        filePath = req.file.path || null;
+      }
+    } else {
+      filePath = req.file.path || null;
+    }
+  }
 
   console.log(`[Announcements POST] user=${req.user?.userID} role=${req.user?.role}`);
   console.log(`[Announcements POST] title=${title} categoryId=${categoryId} end=${end}`);
@@ -487,7 +515,23 @@ router.put("/announcements/:id", protect, upload.single("file"), async (req, res
     }
 
     const endDateToSet = typeof end === 'string' && end.trim().length > 0 ? end.trim() : existing.EndDate;
-    const filePathToSet = req.file ? req.file.path : existing.FilePath;
+    const { uploadBuffer } = require('../utils/azureBlob');
+    let filePathToSet = existing.FilePath;
+    if (req.file) {
+      if (adminUseAzure && req.file.buffer) {
+        try {
+          const containerName = process.env.AZURE_PDF_CONTAINER || 'pdfs';
+          const safeName = (req.file.originalname || 'upload').replace(/[^a-zA-Z0-9._-]/g, '_');
+          const blobName = `announcements/${Date.now()}-${Math.round(Math.random()*1e9)}-${safeName}`;
+          filePathToSet = await uploadBuffer(containerName, blobName, req.file.buffer, req.file.mimetype);
+        } catch (azureErr) {
+          console.error('[adminRoutes] Azure upload failed for announcement edit file:', azureErr);
+          filePathToSet = req.file.path || existing.FilePath;
+        }
+      } else {
+        filePathToSet = req.file.path || existing.FilePath;
+      }
+    }
     const existingSendTypeNormalized = String(existing.SendType || 'category').toLowerCase() === 'supplier' ? 'supplier' : 'category';
     const effectiveSendType = sendTypeInput === 'supplier'
       ? 'supplier'

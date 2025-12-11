@@ -404,10 +404,10 @@ const Dashboard = () => {
             </div>
           ) : (
             <div className="announcements-container">
-              {requests.map((req) => {
+                {requests.map((req) => {
                 const statusConfig = getStatusConfig(req.status);
-                const base = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-                const fullFileUrl = req.fileUrl ? `${base}${req.fileUrl}` : '#';
+                // The backend now returns full file URLs (e.g., Azure blob URL) in `filePath`/`fileUrl`.
+                const fullFileUrl = req.filePath || req.fileUrl || '#';
                 return (
                   <div 
                     key={req.id} 
@@ -731,19 +731,14 @@ const Dashboard = () => {
               <div className="detail-row">
                 <span className="detail-label">File Attachment</span>
                 {selectedRequest.filePath ? (
-                  (() => {
-                    const base = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-                    return (
-                      <a
-                        href={selectedRequest.fileUrl ? `${base}${selectedRequest.fileUrl}` : '#'}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="status-action-btn status-action-btn--primary"
-                      >
-                        <FaFilePdf /> View Attachment
-                      </a>
-                    );
-                  })()
+                  <a
+                    href={selectedRequest.filePath || selectedRequest.fileUrl || '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="status-action-btn status-action-btn--primary"
+                  >
+                    <FaFilePdf /> View Attachment
+                  </a>
                 ) : (
                   <p className="detail-value">No file attached</p>
                 )}

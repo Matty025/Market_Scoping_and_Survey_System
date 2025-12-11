@@ -6,20 +6,34 @@ const db = require('../db');
 const { protect } = require('./authMiddleware');
 const fs = require('fs');
 
-// Optional: aws-sdk + multer-s3. If not installed, we'll fall back to local disk storage.
+// Prefer Azure Blob Storage when connection string is provided; fall back to DigitalOcean S3 (aws-sdk) or local disk.
 let aws;
 let multerS3;
+let useAzure = false;
+let azureClient;
+try {
+  if (process.env.AZURE_STORAGE_CONNECTION_STRING) {
+    const { BlobServiceClient } = require('@azure/storage-blob');
+    azureClient = { BlobServiceClient };
+    useAzure = true;
+    console.log('[BuyerRoutes.js] Azure Blob Storage configured via AZURE_STORAGE_CONNECTION_STRING');
+  }
+} catch (e) {
+  console.warn('[BuyerRoutes.js] Azure storage SDK not available or failed to initialize.');
+}
+
 try {
   aws = require('aws-sdk');
   multerS3 = require('multer-s3');
 } catch (e) {
-  console.warn('[BuyerRoutes.js] Optional package missing: aws-sdk or multer-s3 not installed. Falling back to local disk uploads.');
+  // optional
 }
 
-// Configure storage: prefer DigitalOcean Spaces via aws-sdk + multer-s3 when available,
-// otherwise fall back to local disk storage under uploads/buyer-pr
 let storage;
-if (aws && multerS3) {
+if (useAzure) {
+  // use memory storage so we can upload buffer to Azure Blob Storage
+  storage = multer.memoryStorage();
+} else if (aws && multerS3) {
   try {
     const spacesEndpoint = new aws.Endpoint(process.env.DO_SPACES_ENDPOINT);
     const s3 = new aws.S3({
@@ -31,7 +45,7 @@ if (aws && multerS3) {
     storage = multerS3({
       s3: s3,
       bucket: process.env.DO_SPACES_BUCKET,
-      acl: 'public-read', // Make files publicly readable
+      acl: 'public-read',
       key: function (req, file, cb) {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
         const filePath = `buyer-pr/${uniqueSuffix}-${file.originalname}`;
@@ -106,8 +120,22 @@ router.post('/upload', protect, upload.single('file'), async (req, res) => {
       console.warn('[BuyerRoutes.js] Missing required fields.', { title, description, endDate, file: !!req.file });
       return res.status(400).json({ error: 'Missing required fields.' });
     }
-    // IMPORTANT: prefer req.file.location (DigitalOcean Spaces). Fallback to filesystem path/filename for disk storage.
-    const filePath = (req.file && (req.file.location || req.file.path || req.file.filename)) || null;
+    // IMPORTANT: prefer req.file.location (DigitalOcean Spaces) or Azure blob URL; fallback to filesystem path/filename for disk storage.
+    let filePath = null;
+    const { uploadBuffer } = require('../utils/azureBlob');
+    if (useAzure && req.file && req.file.buffer) {
+      try {
+        const containerName = process.env.AZURE_PDF_CONTAINER || 'pdfs';
+        const safeName = (req.file.originalname || 'upload').replace(/[^a-zA-Z0-9._-]/g, '_');
+        const blobName = `buyer-pr/${Date.now()}-${Math.round(Math.random()*1e9)}-${safeName}`;
+        filePath = await uploadBuffer(containerName, blobName, req.file.buffer, req.file.mimetype);
+      } catch (azureErr) {
+        console.error('[BuyerRoutes.js] Azure upload failed:', azureErr);
+        filePath = (req.file && (req.file.location || req.file.path || req.file.filename)) || null;
+      }
+    } else {
+      filePath = (req.file && (req.file.location || req.file.path || req.file.filename)) || null;
+    }
     const query = `INSERT INTO "BuyerUploads" ("UserID", "Title", "Description", "Notes", "EndDate", "FilePath") VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`;
     const values = [userId, title, description, notes || '', endDate, filePath];
     console.log('[BuyerRoutes.js] Inserting into BuyerUploads:', values);

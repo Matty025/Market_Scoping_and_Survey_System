@@ -2,19 +2,26 @@ const express = require("express");
 const router = express.Router();
 const multer = require("multer");
 const path = require("path");
+const { uploadBuffer, blobServiceClient } = require("../utils/azureBlob");
 const { protect } = require("./authMiddleware");
 const pool = require("../db.js");
 
-// Use the same multer storage configuration as in adminRoutes
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, "uploads/");
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname));
-  },
-});
+// Configure multer: use memory storage when Azure Blob is configured, otherwise disk storage
+let storage;
+if (blobServiceClient) {
+  storage = multer.memoryStorage();
+} else {
+  // Use the same multer storage configuration as in adminRoutes (disk fallback)
+  storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+      cb(null, "uploads/");
+    },
+    filename: function (req, file, cb) {
+      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+      cb(null, file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname));
+    },
+  });
+}
 
 const upload = multer({ storage: storage });
 
@@ -28,13 +35,29 @@ const getSupplierIdForUser = async (client, userId) => {
 // @access  Private (Supplier)
 router.post("/", protect, upload.single("responseFile"), async (req, res) => {
   const { supplierFileId } = req.body;
-  const responseFilePath = req.file ? req.file.path : null;
 
-  if (!supplierFileId || !responseFilePath) {
+  if (!supplierFileId || !req.file) {
     return res.status(400).json({ message: "Missing supplier file ID or uploaded file." });
   }
 
-  const client = await pool.connect();
+  // Determine file path: prefer Azure blob URL when buffer is available and upload succeeds
+  let responseFilePath = null;
+  if (req.file && req.file.buffer && blobServiceClient) {
+    try {
+      const containerName = process.env.AZURE_PDF_CONTAINER || 'pdfs';
+      const safeName = (req.file.originalname || 'response').replace(/[^a-zA-Z0-9._-]/g, '_');
+      const blobName = `responses/${Date.now()}-${Math.round(Math.random()*1e9)}-${safeName}`;
+      responseFilePath = await uploadBuffer(containerName, blobName, req.file.buffer, req.file.mimetype);
+    } catch (azureErr) {
+      console.error('[responseRoutes] Azure upload failed:', azureErr && azureErr.message);
+      // fallback to disk path if available
+      responseFilePath = req.file.path || null;
+    }
+  } else {
+    responseFilePath = req.file ? req.file.path : null;
+  }
+
+    const client = await pool.connect();
   try {
     await client.query("BEGIN");
 

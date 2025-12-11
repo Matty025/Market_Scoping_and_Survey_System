@@ -4,8 +4,6 @@ import { useAuth } from "../../components/AuthContext";
 import Toast from "../../components/Toast";
 import "./UploadProducts.css";
 
-const backendBase = import.meta.env.VITE_API_URL || "http://localhost:3001";
-
 const UploadProducts = () => {
   const { token } = useAuth();
   const [uploadHistory, setUploadHistory] = useState([]);
