@@ -1,26 +1,39 @@
 const express = require("express");
 const cors = require("cors");
-const pool = require("./db.js"); // Import the database pool
+const pool = require("./db.js");
 require("dotenv").config();
 const fs = require("fs");
 const path = require("path");
 
 const app = express();
 
-const allowedOrigin = process.env.FRONTEND_ORIGIN || "http://localhost:5173";
+// ✅ FIXED: Allow multiple origins (local + deployed frontend)
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  process.env.FRONTEND_ORIGIN // Your deployed frontend URL from env
+].filter(Boolean); // Remove any undefined values
 
 app.use(
   cors({
-    origin: allowedOrigin,
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps, Postman, curl)
+      if (!origin) return callback(null, true);
+      
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.warn(`[CORS] Blocked origin: ${origin}`);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
-console.log(`[CORS] Configured. Allowed origin: ${allowedOrigin}`);
-
-// ❌ REMOVE ANY app.options() ROUTE — EXPRESS v5 breaks completely
+console.log(`[CORS] Configured. Allowed origins:`, allowedOrigins);
 
 app.use(express.json());
 
@@ -43,7 +56,6 @@ if (!fs.existsSync(uploadsDir)) {
 }
 
 // --- Serve static files from specific sub-directories ---
-// This is the key change: It maps the URL '/uploads/buyer-pr' to the correct physical directory.
 const buyerPrUploadsDir = path.join(uploadsDir, 'buyer-pr');
 app.use('/uploads/buyer-pr', express.static(buyerPrUploadsDir));
 console.log(`[Static] Serving files from ${buyerPrUploadsDir} at /uploads/buyer-pr`);
@@ -59,7 +71,7 @@ app.use("/auth", (req, res, next) => {
   next();
 }, authRoutes);
 
-const supplierRoutes = require("./routes/SupplierRoutes"); // Corrected: Ensure this path is correct, matching file casing
+const supplierRoutes = require("./routes/SupplierRoutes");
 console.log("[Server.js] supplierRoutes loaded.");
 app.use("/api/supplier-files", (req, res, next) => {
   console.log(`[Server.js] Incoming request to /api/supplier-files. Method: ${req.method}`);
@@ -93,6 +105,7 @@ app.use("/api/reports", reportRoutes);
 const fileRoutes = require("./routes/fileRoutes");
 console.log("[Server.js] fileRoutes loaded.");
 app.use("/api/files", fileRoutes);
+
 // Lightweight health endpoint for container healthchecks
 app.get('/health', async (req, res) => {
   try {
