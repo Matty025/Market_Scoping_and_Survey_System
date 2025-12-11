@@ -388,6 +388,14 @@ router.get("/:supplierFileId/status-history", protect, async (req, res) => {
 router.post('/uploads', protect, upload.single('file'), async (req, res) => { // The 'file' name must match the frontend FormData key
   console.log('[SupplierRoutes] POST /uploads hit');
   const file = req.file;
+  console.log('[SupplierRoutes] req.user:', req.user && { userID: req.user.userID, role: req.user.role });
+  console.log('[SupplierRoutes] incoming file summary:', file ? {
+    originalname: file.originalname,
+    mimetype: file.mimetype,
+    size: file.size,
+    path: file.path || null,
+    hasBuffer: Boolean(file.buffer && file.buffer.length)
+  } : null);
   let uploadLogId;
 
   if (!file) {
@@ -610,11 +618,15 @@ router.post('/uploads', protect, upload.single('file'), async (req, res) => { //
     }
     res.status(500).json({ message: 'Server error while processing file', error: err.message });
   } finally {
-    // 6. Clean up by deleting the temporary file from the 'uploads/' folder
-    if (file) {
-      fs.unlink(file.path, (unlinkErr) => {
-        if (unlinkErr) console.error('Failed to delete temporary file:', file.path);
-      });
+    // 6. Clean up by deleting the temporary file from the 'uploads/' folder (only when path exists)
+    try {
+      if (file && file.path) {
+        fs.unlink(file.path, (unlinkErr) => {
+          if (unlinkErr) console.error('Failed to delete temporary file:', file.path, unlinkErr);
+        });
+      }
+    } catch (cleanupErr) {
+      console.error('Error during upload cleanup:', cleanupErr && cleanupErr.message ? cleanupErr.message : cleanupErr);
     }
   }
 });
