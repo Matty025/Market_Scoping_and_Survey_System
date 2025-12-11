@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../api';
 import { FaFilePdf, FaUser, FaCalendar, FaCheckCircle, FaClock, FaTimesCircle } from 'react-icons/fa';
 
 const BuyerRequestsSection = ({ token, toast, setToast, noWrapper = false }) => {
@@ -30,7 +30,7 @@ const BuyerRequestsSection = ({ token, toast, setToast, noWrapper = false }) => 
 
   const fetchStats = async () => {
     try {
-      const response = await axios.get('http://localhost:3001/api/admin/buyer-requests/stats/summary', {
+      const response = await api.get('/api/admin/buyer-requests/stats/summary', {
         headers: { Authorization: `Bearer ${token}` },
       });
       setStats(response.data || {});
@@ -46,7 +46,7 @@ const BuyerRequestsSection = ({ token, toast, setToast, noWrapper = false }) => 
       if (filterStatus !== 'All') params.status = filterStatus;
       if (searchQuery.trim()) params.search = searchQuery.trim();
 
-      const response = await axios.get('http://localhost:3001/api/admin/buyer-requests', {
+      const response = await api.get('/api/admin/buyer-requests', {
         headers: { Authorization: `Bearer ${token}` },
         params,
       });
@@ -79,7 +79,7 @@ const BuyerRequestsSection = ({ token, toast, setToast, noWrapper = false }) => 
 
     setIsUpdating(true);
     try {
-      await axios.patch(`http://localhost:3001/api/admin/buyer-requests/${selectedRequest.id}/status`, statusForm, {
+      await api.patch(`/api/admin/buyer-requests/${selectedRequest.id}/status`, statusForm, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -98,7 +98,8 @@ const BuyerRequestsSection = ({ token, toast, setToast, noWrapper = false }) => 
   const getFileUrl = (filePath) => {
     if (!filePath) return '#';
     if (filePath.startsWith('http')) return filePath;
-    return `http://localhost:3001${filePath}`;
+    const base = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    return `${base}${filePath}`;
   };
 
   const inner = (

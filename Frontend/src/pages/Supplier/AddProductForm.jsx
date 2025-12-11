@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../../api";
 import dayjs from "dayjs";
 import { useAuth } from "../../components/AuthContext";
 import toast from "react-hot-toast";
 import "./AddProductForm.css";
 
-const API_URL = import.meta.env?.VITE_API_URL || 'http://localhost:3001';
 
 const AddProductForm = ({ editing, onClose, onCreated }) => {
   const { token } = useAuth();
@@ -30,12 +29,7 @@ const AddProductForm = ({ editing, onClose, onCreated }) => {
     const fetchCategories = async () => {
       try {
         setFetchingCategories(true);
-        const res = await axios.get(
-          `${API_URL}/api/supplier-files/categories`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
+        const res = await api.get(`/api/supplier-files/categories`);
         setAvailableCategories(res.data || []);
       } catch (err) {
         console.error("Error fetching categories:", err);
@@ -139,24 +133,12 @@ const AddProductForm = ({ editing, onClose, onCreated }) => {
 
       if (editing) {
         // Update existing product
-        await axios.put(
-          `${API_URL}/api/supplier-files/items/${editing.id}`,
-          payload,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
+        await api.put(`/api/supplier-files/items/${editing.id}`, payload);
         // 💡 FIX 7: Call toast.success() directly
         toast.success("Product updated successfully");
       } else {
         // Create new product
-        await axios.post(
-          `${API_URL}/api/supplier-files/items`,
-          payload,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
+        await api.post(`/api/supplier-files/items`, payload);
         // 💡 FIX 8: Call toast.success() directly
         toast.success("Product created successfully");
       }

@@ -13,6 +13,7 @@ import {
   FaChevronUp
 } from "react-icons/fa";
 import "./Dashboard.css";
+import api from "../../api";
 
 const Dashboard = () => {
   const [showModal, setShowModal] = useState(false);
@@ -188,15 +189,18 @@ const Dashboard = () => {
       data.append("endDate", form.endDate);
       data.append("file", form.file);
 
-      const res = await fetch("http://localhost:3001/api/buyer/upload", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: data,
-      });
-
-      if (!res.ok) {
-        const error = await res.json();
-        setUploadStatus(error.error || "Upload failed.");
+      try {
+        const response = await api.post("/api/buyer/upload", data, {
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "multipart/form-data" },
+        });
+        if (!(response && (response.status === 200 || response.status === 201))) {
+          setUploadStatus((response?.data && (response.data.error || response.data.message)) || "Upload failed.");
+          setIsSubmitting(false);
+          return;
+        }
+      } catch (uploadErr) {
+        const errMsg = uploadErr.response?.data?.error || uploadErr.response?.data?.message || "Upload failed.";
+        setUploadStatus(errMsg);
         setIsSubmitting(false);
         return;
       }
@@ -221,14 +225,8 @@ const Dashboard = () => {
       if (!token) return;
       
       try {
-        const res = await fetch("http://localhost:3001/api/buyer/requests", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        
-        if (res.ok) {
-          const data = await res.json();
-          setRequests(data.requests || []);
-        }
+        const res = await api.get("/api/buyer/requests", { headers: { Authorization: `Bearer ${token}` } });
+        setRequests(res.data.requests || []);
       } catch (err) {
         console.error("Fetch error", err);
       }
@@ -270,19 +268,19 @@ const Dashboard = () => {
     setDeleteStatus("Deleting...");
 
     try {
-      const res = await fetch(`http://localhost:3001/api/buyer/requests/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      
-      const data = await res.json();
-      
-      if (res.ok) {
-        setDeleteStatus("Request deleted successfully.");
-        setRefreshKey(old => old + 1);
-        setTimeout(() => setDeleteStatus(""), 3000);
-      } else {
-        setDeleteStatus(data.error || "Failed to delete request.");
+      try {
+        const response = await api.delete(`/api/buyer/requests/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+        if (response.status >= 200 && response.status < 300) {
+          setDeleteStatus("Request deleted successfully.");
+          setRefreshKey(old => old + 1);
+          setTimeout(() => setDeleteStatus(""), 3000);
+        } else {
+          setDeleteStatus(response.data?.error || "Failed to delete request.");
+          setTimeout(() => setDeleteStatus(""), 5000);
+        }
+      } catch (delErr) {
+        console.error("Delete error:", delErr);
+        setDeleteStatus(delErr.response?.data?.error || "Server error while deleting.");
         setTimeout(() => setDeleteStatus(""), 5000);
       }
     } catch (err) {
@@ -312,18 +310,13 @@ const Dashboard = () => {
     }
 
     try {
-      const res = await fetch(`http://localhost:3001/api/buyer/requests/${uploadId}/history`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setHistory(data.history || []);
-      } else {
-        // backend route may not exist yet; surface a friendly message
-        let err = {};
-        try { err = await res.json(); } catch (e) {}
-        setHistoryError(err.error || 'History not available yet');
+      try {
+        const res = await api.get(`/api/buyer/requests/${uploadId}/history`, { headers: { Authorization: `Bearer ${token}` } });
+        setHistory(res.data.history || []);
+      } catch (histErr) {
+        let msg = 'History not available yet';
+        if (histErr.response && histErr.response.data) msg = histErr.response.data.error || histErr.response.data.message || msg;
+        setHistoryError(msg);
       }
     } catch (err) {
       console.error('History fetch error', err);
@@ -413,7 +406,8 @@ const Dashboard = () => {
             <div className="announcements-container">
               {requests.map((req) => {
                 const statusConfig = getStatusConfig(req.status);
-                const fullFileUrl = req.fileUrl ? `http://localhost:3001${req.fileUrl}` : '#';
+                const base = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+                const fullFileUrl = req.fileUrl ? `${base}${req.fileUrl}` : '#';
                 return (
                   <div 
                     key={req.id} 
@@ -737,14 +731,19 @@ const Dashboard = () => {
               <div className="detail-row">
                 <span className="detail-label">File Attachment</span>
                 {selectedRequest.filePath ? (
-                  <a
-                    href={selectedRequest.fileUrl ? `http://localhost:3001${selectedRequest.fileUrl}` : '#'}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="status-action-btn status-action-btn--primary"
-                  >
-                    <FaFilePdf /> View Attachment
-                  </a>
+                  (() => {
+                    const base = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+                    return (
+                      <a
+                        href={selectedRequest.fileUrl ? `${base}${selectedRequest.fileUrl}` : '#'}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="status-action-btn status-action-btn--primary"
+                      >
+                        <FaFilePdf /> View Attachment
+                      </a>
+                    );
+                  })()
                 ) : (
                   <p className="detail-value">No file attached</p>
                 )}

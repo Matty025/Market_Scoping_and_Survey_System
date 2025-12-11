@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import axios from "axios";
+import api from "../api";
 import { useAuth } from "./AuthContext";
 import "./ResponseModal.css";
 
@@ -80,14 +80,11 @@ const ResponseModal = ({ announcement, responses, onClose, isLoading }) => {
       if (announcement?.attemptNumber) {
         params.attemptNumber = announcement.attemptNumber;
       }
-      const res = await axios.get(
-        `http://localhost:3001/api/admin/announcements/${announcement.id}/download-all`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-          params,
-          responseType: "blob", // important for ZIP/binary files
-        }
-      );
+      const res = await api.get(`/api/admin/announcements/${announcement.id}/download-all`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params,
+        responseType: "blob",
+      });
 
       const fileNameParts = ["Quotations"];
       if (announcement?.procurementId) {
@@ -118,7 +115,8 @@ const ResponseModal = ({ announcement, responses, onClose, isLoading }) => {
 
   const buildFileUrl = (filePath) => {
     if (!filePath) return null;
-    return `http://localhost:3001/${filePath.replace(/\\/g, "/")}`;
+    const base = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    return `${base}/${filePath.replace(/\\/g, "/")}`;
   };
 
   const openHistoryViewer = (supplierName, files = []) => {

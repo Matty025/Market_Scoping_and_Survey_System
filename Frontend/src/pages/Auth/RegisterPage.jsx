@@ -1,7 +1,7 @@
 // ===== LIBRARIES =====
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../../api";
 
 // ===== COMPONENTS =====
 import Toast from "../../components/Toast";
@@ -13,7 +13,7 @@ import "./RegisterPage.css";
 // ===== CUSTOM HOOK =====
 const useRegistrationForm = () => {
   const navigate = useNavigate();
-  const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3001";
+  // Using centralized `api` (baseURL comes from `import.meta.env.VITE_API_URL` at build time)
 
   const initialFormData = {
     fullName: "",
@@ -51,7 +51,7 @@ const useRegistrationForm = () => {
 
     const fetchCategories = async () => {
       try {
-        const res = await axios.get(`${API_BASE}/api/public/categories`);
+        const res = await api.get(`/api/public/categories`);
         const data = res?.data;
 
         if (!data || !Array.isArray(data)) {
@@ -93,7 +93,7 @@ const useRegistrationForm = () => {
     };
 
     fetchCategories();
-  }, [role, API_BASE]);
+  }, [role]);
 
   // ===== HANDLERS =====
   const handleChange = e => {
@@ -166,7 +166,7 @@ const useRegistrationForm = () => {
         };
       }
 
-      const res = await axios.post(`${API_BASE}/auth/register`, payload);
+      const res = await api.post(`/auth/register`, payload);
       showToast("success", res.data?.message || `${role} registered successfully.`);
       setFormData(initialFormData);
       setTimeout(() => navigate("/"), 800);

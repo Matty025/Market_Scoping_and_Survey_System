@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import axios from "axios";
+import api from "../../api";
 import { FaSitemap, FaPlusCircle, FaSave, FaSyncAlt } from "react-icons/fa";
 import { useAuth } from "../../components/AuthContext";
 import Toast from "../../components/Toast";
@@ -85,7 +85,7 @@ const Settings = () => {
     }
     setLoading(true);
     try {
-      const { data } = await axios.get("http://localhost:3001/api/admin/categories", {
+      const { data } = await api.get("/api/admin/categories", {
         headers: { Authorization: `Bearer ${token}` },
       });
       setCategories(Array.isArray(data) ? data : []);
@@ -262,8 +262,8 @@ const Settings = () => {
 
     setIsCreating(true);
     try {
-      await axios.post(
-        "http://localhost:3001/api/admin/categories",
+      await api.post(
+        "/api/admin/categories",
         { name: trimmed, parentCategoryId: parentPayload },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -296,8 +296,8 @@ const Settings = () => {
 
     setIsSaving(true);
     try {
-      await axios.put(
-        `http://localhost:3001/api/admin/categories/${selectedCategoryId}`,
+      await api.put(
+        `/api/admin/categories/${selectedCategoryId}`,
         { name: trimmed, parentCategoryId: parentPayload },
         { headers: { Authorization: `Bearer ${token}` } }
       );

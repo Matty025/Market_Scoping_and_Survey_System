@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../../api";
 import { useAuth } from "../../components/AuthContext";
 import "./MarketSuppliers.css";
 import SupplierActionHistory from "./SupplierActionHistory";
 import Modal from "../../components/Modal"; // Correctly import a real Modal component
 
-const backendBase = "http://localhost:3001";
+const backendBase = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
 const MarketSuppliers = () => {
   const { token } = useAuth();
@@ -25,7 +25,7 @@ const MarketSuppliers = () => {
       }
       try {
         setIsLoading(true);
-        const res = await axios.get(`${backendBase}/api/admin/suppliers`, {
+        const res = await api.get(`/api/admin/suppliers`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         setSuppliers(res.data || []);

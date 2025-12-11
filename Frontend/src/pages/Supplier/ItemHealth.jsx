@@ -1,13 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import axios from "axios";
+import api from "../../api";
 import dayjs from "dayjs";
 import { useAuth } from "../../components/AuthContext";
 import Toast from "../../components/Toast";
 import AddProductForm from "./AddProductForm";
 import "./ItemHealth.css";
 
-const API_URL = import.meta.env?.VITE_API_URL || "http://localhost:3001";
-
+ 
 const STALE_THRESHOLD_DAYS = 30;
 
 const healthBadge = (daysStale) => {
@@ -122,15 +121,8 @@ export default function SupplierItemHealth() {
     setLoading(true);
     setError(null);
     try {
-      const params = new URLSearchParams();
-      params.set("page", "1");
-      params.set("q", search);
-      const { data } = await axios.get(
-        `${API_URL}/api/supplier-files/items?${params.toString()}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const params = { page: "1", q: search };
+      const { data } = await api.get(`/api/supplier-files/items`, { params });
       const itemsWithHealth = Array.isArray(data?.items)
         ? data.items.map((item) => {
             const referenceDate = item.dateUpdated || item.datePosted;
@@ -166,9 +158,7 @@ export default function SupplierItemHealth() {
       }
 
       try {
-        await axios.delete(`${API_URL}/api/supplier-files/items/${item.id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        await api.delete(`/api/supplier-files/items/${item.id}`);
         showToast("success", "Item deleted successfully.");
         fetchSupplierItems();
       } catch (err) {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import axios from "axios";
+import api from "../../api";
 import dayjs from "dayjs";
 import { useAuth } from "../../components/AuthContext";
 import AddProductForm from "./AddProductForm"; 
@@ -8,7 +8,6 @@ import toast from 'react-hot-toast';
 import "./Market.css";
 
 // --- CONFIGURATION ---
-const API_URL = import.meta.env?.VITE_API_URL || 'http://localhost:3001';
 const PAGE_SIZE = 50; 
 
 const formatDate = (value) => {
@@ -106,21 +105,11 @@ const SupplierMarket = () => {
         setLoading(true);
         setError(null);
         
-        const searchQuery = search ? `q=${search}` : '';
-        let filterQuery = '';
-        if (categoryFilter) {
-             filterQuery = `&categoryStatus=${categoryFilter}`; 
-        }
-
-        const pageQuery = `&page=${page}`;
+        const params = { page, q: search };
+        if (categoryFilter) params.categoryStatus = categoryFilter;
 
         try {
-            const res = await axios.get(
-                `${API_URL}/api/supplier-files/items?${searchQuery}${filterQuery}${pageQuery}`, 
-                {
-                    headers: { Authorization: `Bearer ${token}` },
-                }
-            );
+            const res = await api.get(`/api/supplier-files/items`, { params });
 
             const normalizedItems = (res.data.items || []).map((item) => ({
                 ...item,
@@ -146,10 +135,7 @@ const SupplierMarket = () => {
     const fetchCategories = async () => {
         if (!token) return;
         try {
-            const res = await axios.get(
-                `${API_URL}/api/supplier-files/categories`,
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+            const res = await api.get(`/api/supplier-files/categories`);
             const groupedCategories = res.data.reduce((acc, cat) => {
                 // Assuming ParentCategoryID is the grouping key
                 const parentId = cat.ParentCategoryID || 'GOODS'; 
@@ -211,9 +197,7 @@ const SupplierMarket = () => {
         try {
             const productToDelete = products.find(p => p.id === id);
 
-            await axios.delete(`${API_URL}/api/supplier-files/items/${id}`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
+            await api.delete(`/api/supplier-files/items/${id}`);
             
             // Success toast uses the beautiful toast utility
             toast.success(`Product '${productToDelete?.name || id}' deleted successfully!`);
@@ -268,16 +252,7 @@ const SupplierMarket = () => {
             const formData = new FormData();
             formData.append('file', uploadFile);
 
-            const res = await axios.post(
-                `${API_URL}/api/supplier-files/uploads`,
-                formData,
-                {
-                    headers: { 
-                        Authorization: `Bearer ${token}`,
-                        'Content-Type': 'multipart/form-data'
-                    },
-                }
-            );
+            const res = await api.post(`/api/supplier-files/uploads`, formData);
 
             notify(res.data.message || "File uploaded successfully", 'success');
             

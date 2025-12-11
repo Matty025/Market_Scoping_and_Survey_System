@@ -1,7 +1,7 @@
   // Clean version with unified filter and dynamic categories
   import React, { useState, useEffect, useMemo } from "react";
   import { useNavigate } from "react-router-dom";
-  import axios from "axios";
+  import api from "../../api";
   import AnnouncementForm from "../../components/AnnouncementForm";
   import StatsSection from "../../components/StatsSection";
   import ResponseModal from "../../components/ResponseModal";
@@ -1078,11 +1078,11 @@
         try {
           const announcementParams = { page: 1, limit: PAGE_SIZE };
           const [announcementsRes, statsRes, categoriesRes, fileCatsRes, suppliersRes] = await Promise.all([
-            axios.get("http://localhost:3001/api/admin/announcements", { headers: { Authorization: `Bearer ${token}` }, params: announcementParams }),
-            axios.get("http://localhost:3001/api/admin/stats", { headers: { Authorization: `Bearer ${token}` } }),
-            axios.get("http://localhost:3001/api/admin/categories", { headers: { Authorization: `Bearer ${token}` } }),
-            axios.get("http://localhost:3001/api/admin/file-categories", { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: [] })),
-            axios.get("http://localhost:3001/api/admin/suppliers", { headers: { Authorization: `Bearer ${token}` } }),
+            api.get("/api/admin/announcements", { headers: { Authorization: `Bearer ${token}` }, params: announcementParams }),
+            api.get("/api/admin/stats", { headers: { Authorization: `Bearer ${token}` } }),
+            api.get("/api/admin/categories", { headers: { Authorization: `Bearer ${token}` } }),
+            api.get("/api/admin/file-categories", { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: [] })),
+            api.get("/api/admin/suppliers", { headers: { Authorization: `Bearer ${token}` } }),
           ]);
 
           const catMap = {};
@@ -1198,7 +1198,7 @@
             params.to = postedDate;
           }
 
-          const announcementsRes = await axios.get("http://localhost:3001/api/admin/announcements", {
+          const announcementsRes = await api.get("/api/admin/announcements", {
             headers: { Authorization: `Bearer ${token}` },
             params,
           });
@@ -1240,7 +1240,7 @@
       }
 
       try {
-        await axios.post("http://localhost:3001/api/admin/announcements", data, {
+        await api.post("/api/admin/announcements", data, {
           headers: { "Content-Type": "multipart/form-data", Authorization: `Bearer ${token}` },
         });
         setToast({ visible: true, type: "success", message: "Announcement posted successfully" });
@@ -1291,7 +1291,7 @@
 
       try {
         const response = await axios.put(
-          `http://localhost:3001/api/admin/announcements/${editingAnnouncement.id}`,
+          `/api/admin/announcements/${editingAnnouncement.id}`,
           data,
           {
             headers: { "Content-Type": "multipart/form-data", Authorization: `Bearer ${token}` },
@@ -1359,7 +1359,7 @@
         if (announcement.attemptNumber) {
           params.attemptNumber = announcement.attemptNumber;
         }
-        const response = await axios.get(`http://localhost:3001/api/admin/announcements/${announcement.id}/responses`, {
+        const response = await api.get(`/api/admin/announcements/${announcement.id}/responses`, {
           headers: { Authorization: `Bearer ${token}` },
           params,
         });
@@ -1402,8 +1402,8 @@
       });
 
       try {
-        const response = await axios.get(
-          `http://localhost:3001/api/admin/announcements/${announcement.id}/status-history`,
+        const response = await api.get(
+          `/api/admin/announcements/${announcement.id}/status-history`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         const items = Array.isArray(response.data) ? response.data : [];
@@ -1524,8 +1524,8 @@
           payload.awardedSupplierId = supplierIdValue;
         }
 
-        const response = await axios.patch(
-          `http://localhost:3001/api/admin/announcements/${announcement.id}/status`,
+        const response = await api.patch(
+          `/api/admin/announcements/${announcement.id}/status`,
           payload,
           { headers: { Authorization: `Bearer ${token}` } }
         );

@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useEffect } from "react";
-import axios from "axios";
+import api from "../../api";
 import { useAuth } from "../../components/AuthContext";
 import Toast from "../../components/Toast";
 import "./ManageAccounts.css";
 
-const backendBase = "http://localhost:3001";
+// Use Vite env or centralized api for backend requests
+const backendBase = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
 const mapBackendToUI = (backendStatus) => {
   const s = (backendStatus || "").toString().toUpperCase();
@@ -53,7 +54,7 @@ const ManageAccounts = () => {
   const fetchUsers = async () => {
     if (!token) return setToast({ visible: true, message: "Not authenticated", type: "error" });
     try {
-      const res = await axios.get(`${backendBase}/api/admin/users`, {
+      const res = await api.get(`/api/admin/users`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const mapped = res.data.map((u) => ({
@@ -76,8 +77,8 @@ const ManageAccounts = () => {
     if (!token) return setToast({ visible: true, message: "Not authenticated", type: "error" });
     const backendStatus = mapUIToBackend(newUIStatus);
     try {
-      await axios.patch(
-        `${backendBase}/api/admin/users/${userId}`,
+      await api.patch(
+        `/api/admin/users/${userId}`,
         { status: backendStatus },
         { headers: { Authorization: `Bearer ${token}` } }
       );

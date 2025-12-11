@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../api";
 import { FaEnvelope, FaLock } from "react-icons/fa";
 import { useAuth } from "./AuthContext"; // Import context
 import msssLogo from "../assets/MSSSlogo.png"; // Import the logo
@@ -41,7 +41,7 @@ export default function LoginCard() {
 
     try {
       const payload = { email: email.trim(), password };
-      const res = await axios.post("http://localhost:3001/auth/login", payload);
+      const res = await api.post("/auth/login", payload);
       const { token, user } = res.data;
       const userRoleLower = user.role.toLowerCase();
 

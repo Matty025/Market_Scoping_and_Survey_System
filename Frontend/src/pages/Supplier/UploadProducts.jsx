@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../../api";
 import { useAuth } from "../../components/AuthContext";
 import Toast from "../../components/Toast";
 import "./UploadProducts.css";
 
-const backendBase = "http://localhost:3001";
+const backendBase = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
 const UploadProducts = () => {
   const { token } = useAuth();
@@ -21,7 +21,7 @@ const UploadProducts = () => {
   const fetchHistory = async () => {
     if (!token) return;
     try {
-      const res = await axios.get(`${backendBase}/api/supplier-files/uploads/history`, {
+      const res = await api.get(`/api/supplier-files/uploads/history`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setUploadHistory(res.data || []);
@@ -59,7 +59,7 @@ const UploadProducts = () => {
     formData.append('file', selectedFile);
 
     try {
-      const res = await axios.post(`${backendBase}/api/supplier-files/uploads`, formData, {
+      const res = await api.post(`/api/supplier-files/uploads`, formData, {
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
       });
       setToast({ visible: true, message: res.data.message || 'File processed successfully!', type: 'success' });
@@ -81,7 +81,7 @@ const UploadProducts = () => {
     }
 
     try {
-      await axios.delete(`${backendBase}/api/supplier-files/uploads/${uploadId}`, {
+      await api.delete(`/api/supplier-files/uploads/${uploadId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setToast({ visible: true, message: 'Upload deleted successfully.', type: 'success' });

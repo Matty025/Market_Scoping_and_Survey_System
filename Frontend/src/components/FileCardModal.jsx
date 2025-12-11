@@ -37,7 +37,8 @@ const FileCardModal = ({
   const requiresDecision = Boolean(file.requiresDecision);
   const hasDecisionActions = Boolean(file.hasDecisionActions);
   const lastResponse = file.lastResponse;
-  const lastResponseUrl = lastResponse?.filePath ? `http://localhost:3001/${lastResponse.filePath.replace(/\\/g, "/")}` : null;
+  const base = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+  const lastResponseUrl = lastResponse?.filePath ? `${base}/${lastResponse.filePath.replace(/\\/g, "/")}` : null;
   const lastResponseTimestamp = lastResponse?.uploadedAt instanceof Date && !Number.isNaN(lastResponse.uploadedAt.getTime())
     ? lastResponse.uploadedAt.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })
     : null;
@@ -185,14 +186,19 @@ const FileCardModal = ({
 
         <div className="modal-buttons">
           {sanitizedPath ? (
-            <a
-              href={`http://localhost:3001/${sanitizedPath}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="download-btn"
-            >
-              📄 View PDF
-            </a>
+            (() => {
+              const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+              return (
+                <a
+                  href={`${baseUrl}/${sanitizedPath}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="download-btn"
+                >
+                  📄 View PDF
+                </a>
+              );
+            })()
           ) : (
             <button type="button" className="download-btn" disabled>
               PDF Unavailable

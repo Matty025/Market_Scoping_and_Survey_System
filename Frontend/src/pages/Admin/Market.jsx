@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import dayjs from "dayjs";
 import "./Market.css";
-import axios from "axios";
+import api from "../../api";
 import { useAuth } from "../../components/AuthContext";
 
 const computeEffectiveStatus = (rawValue) => {
@@ -114,8 +114,8 @@ const Market = () => {
       if (!token) return;
       setIsLoading(true);
       try {
-        const res = await axios.get(
-          "http://localhost:3001/api/admin/market-items",
+        const res = await api.get(
+          "/api/admin/market-items",
           {
             headers: { Authorization: `Bearer ${token}` },
             params: currentFilters,
@@ -166,10 +166,10 @@ const Market = () => {
       setIsLoading(true);
       try {
         const [suppliersRes, categoriesRes] = await Promise.all([
-          axios.get("http://localhost:3001/api/admin/suppliers", {
+          api.get("/api/admin/suppliers", {
             headers: { Authorization: `Bearer ${token}` },
           }),
-          axios.get("http://localhost:3001/api/admin/categories", {
+          api.get("/api/admin/categories", {
             headers: { Authorization: `Bearer ${token}` },
           }),
         ]);

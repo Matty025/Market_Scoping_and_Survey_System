@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import axios from "axios";
+import api from "../../api";
 import { useAuth } from "../../components/AuthContext";
 import StatusHistoryModal from "../../components/StatusHistoryModal";
 import ResponseModal from "../../components/ResponseModal";
@@ -321,7 +321,7 @@ const AnnouncementDetail = () => {
       try {
         setIsLoading(true);
         setError(null);
-        const response = await axios.get(`http://localhost:3001/api/admin/announcements/${id}/detail`, {
+        const response = await api.get(`/api/admin/announcements/${id}/detail`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (response.data?.announcement || response.data) {
@@ -370,8 +370,8 @@ const AnnouncementDetail = () => {
     });
 
     try {
-      const response = await axios.get(
-        `http://localhost:3001/api/admin/announcements/${targetAnnouncement.id}/status-history`,
+      const response = await api.get(
+        `/api/admin/announcements/${targetAnnouncement.id}/status-history`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const items = Array.isArray(response.data) ? response.data : [];
@@ -408,8 +408,8 @@ const AnnouncementDetail = () => {
       if (targetAnnouncement.attemptNumber) {
         params.attemptNumber = targetAnnouncement.attemptNumber;
       }
-      const response = await axios.get(
-        `http://localhost:3001/api/admin/announcements/${targetAnnouncement.id}/responses`,
+      const response = await api.get(
+        `/api/admin/announcements/${targetAnnouncement.id}/responses`,
         { headers: { Authorization: `Bearer ${token}` }, params }
       );
       setResponses(response.data || []);

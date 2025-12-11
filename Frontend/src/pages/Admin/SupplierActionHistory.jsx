@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../../api";
 import { useAuth } from "../../components/AuthContext";
 import "./SupplierActionHistory.css";
 
-const backendBase = "http://localhost:3001";
+const backendBase = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
 const SupplierActionHistory = ({ supplierId }) => {
   const { token } = useAuth();
@@ -25,10 +25,10 @@ const SupplierActionHistory = ({ supplierId }) => {
       setIsLoading(true);
       setError(null);
       try {
-        const historyRes = await axios.get(
-          `${backendBase}/api/admin/suppliers/${supplierId}/history`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+          const historyRes = await api.get(
+            `/api/admin/suppliers/${supplierId}/history`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
         setHistory(historyRes.data || []);
         setFilteredHistory(historyRes.data || []);
       } catch (err) {

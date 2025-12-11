@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
-import axios from "axios";
+import api from "../../api";
 import { useAuth } from "../../components/AuthContext";
 import "./Market.css";
 
@@ -69,7 +69,7 @@ const Market = () => {
     if (!token) return;
     setIsLoading(true);
     try {
-      const res = await axios.get("http://localhost:3001/api/buyer/market-items", {
+      const res = await api.get("/api/buyer/market-items", {
         headers: { Authorization: `Bearer ${token}` },
         params: buildParams(),
       });
@@ -102,7 +102,7 @@ const Market = () => {
   const fetchMarketStats = useCallback(async () => {
     if (!token) return;
     try {
-      const res = await axios.get("http://localhost:3001/api/buyer/market-stats", {
+      const res = await api.get("/api/buyer/market-stats", {
         headers: { Authorization: `Bearer ${token}` },
         params: buildParams(),
       });

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../../api";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from "recharts";
@@ -13,8 +13,8 @@ const Reports = () => {
   useEffect(() => {
     const fetchReports = async () => {
       try {
-        const { data: suppliersList } = await axios.get(
-          "http://localhost:3001/api/reports/supplier-reports"
+        const { data: suppliersList } = await api.get(
+          "/api/reports/supplier-reports"
         );
 
         if (!suppliersList || suppliersList.length === 0) {
@@ -25,8 +25,8 @@ const Reports = () => {
         const fullReports = await Promise.all(
           suppliersList.map(async (s) => {
             try {
-              const { data: fullReport } = await axios.get(
-                `http://localhost:3001/api/reports/all-reports/${s.supplier_id}`
+              const { data: fullReport } = await api.get(
+                `/api/reports/all-reports/${s.supplier_id}`
               );
               return { ...s, ...fullReport };
             } catch {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import "./AnnouncementForm.css";
-import axios from "axios";
+import api from "../api";
 import { useAuth } from "./AuthContext";
 import Toast from "./Toast";
 
@@ -51,7 +51,8 @@ const AnnouncementForm = ({ onSubmit, onCancel, initialValues = null, mode = "cr
       return form.filePath;
     }
     const normalized = form.filePath.startsWith("/") ? form.filePath : `/${form.filePath}`;
-    return `http://localhost:3001${normalized}`;
+    const base = import.meta.env.VITE_API_URL || "http://localhost:3001";
+    return `${base}${normalized}`;
   }, [form.filePath]);
 
   useEffect(() => {
@@ -62,10 +63,10 @@ const AnnouncementForm = ({ onSubmit, onCancel, initialValues = null, mode = "cr
     const fetchOptions = async () => {
       try {
         const [categoriesRes, suppliersRes] = await Promise.all([
-          axios.get("http://localhost:3001/api/admin/categories", {
+          api.get("/api/admin/categories", {
             headers: { Authorization: `Bearer ${token}` },
           }),
-          axios.get("http://localhost:3001/api/admin/suppliers", {
+          api.get("/api/admin/suppliers", {
             headers: { Authorization: `Bearer ${token}` },
           }),
         ]);

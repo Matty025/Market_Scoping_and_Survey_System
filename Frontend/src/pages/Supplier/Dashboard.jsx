@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import axios from "axios";
+import api from "../../api";
 import { useAuth } from "../../components/AuthContext";
 import FileCardModal from "../../components/FileCardModal.jsx";
 import Toast from "../../components/Toast";
@@ -76,7 +76,7 @@ const SupplierDashboard = () => {
     }
 
     try {
-      const response = await axios.get("http://localhost:3001/api/supplier-files", {
+      const response = await api.get("/api/supplier-files", {
         headers: { Authorization: `Bearer ${token}` },
       });
       const rows = response.data || [];
@@ -172,8 +172,8 @@ const SupplierDashboard = () => {
       });
 
       try {
-        const response = await axios.get(
-          `http://localhost:3001/api/supplier-files/${file.SupplierFileID}/status-history`,
+        const response = await api.get(
+          `/api/supplier-files/${file.SupplierFileID}/status-history`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         const records = Array.isArray(response.data) ? response.data : [];
@@ -200,7 +200,7 @@ const SupplierDashboard = () => {
     formData.append("responseFile", uploadFile); // The PDF file from the supplier
 
     try {
-      await axios.post("http://localhost:3001/api/supplier-responses", formData, {
+      await api.post("/api/supplier-responses", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
           Authorization: `Bearer ${token}`,
@@ -227,8 +227,8 @@ const SupplierDashboard = () => {
     setDecisionState({ loading: true, action: "opt-in" });
 
     try {
-      const response = await axios.post(
-        `http://localhost:3001/api/supplier-files/${file.SupplierFileID}/opt-in`,
+      const response = await api.post(
+        `/api/supplier-files/${file.SupplierFileID}/opt-in`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -252,8 +252,8 @@ const SupplierDashboard = () => {
     setDecisionState({ loading: true, action: "decline" });
 
     try {
-      const response = await axios.post(
-        `http://localhost:3001/api/supplier-files/${file.SupplierFileID}/decline`,
+      const response = await api.post(
+        `/api/supplier-files/${file.SupplierFileID}/decline`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
