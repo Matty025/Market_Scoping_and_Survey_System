@@ -494,7 +494,6 @@ const SupplierDashboard = () => {
         isNotWinner,
         isFinalized,
         awardedSupplierName,
-        isFailedPosting,
         hasViewed,
       };
     });
