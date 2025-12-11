@@ -413,8 +413,8 @@ router.post('/uploads', protect, upload.single('file'), async (req, res) => { //
     if (!supplierId) return res.status(404).json({ message: 'Supplier profile not found' });
 
       // 2. Log the upload attempt with 'PROCESSING' status
-      // For Azure memory uploads we won't have a disk path yet; store a temporary placeholder and update later if needed
-      const tempPath = file.path || null;
+      // For Azure memory uploads we won't have a disk path yet; insert an empty string to satisfy DB NOT NULL constraint
+      const tempPath = file.path || '';
       const logResult = await pool.query(
         `INSERT INTO "SupplierUploads" ("SupplierID", "FilePath", "FileName", "Status") VALUES ($1, $2, $3, 'PROCESSING') RETURNING "UploadID"`,
         [supplierId, tempPath, file.originalname]
