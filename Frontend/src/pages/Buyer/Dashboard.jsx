@@ -362,6 +362,22 @@ const Dashboard = () => {
     return `${days}d ago`;
   };
 
+  const openProtectedUrl = async (url) => {
+    if (!url) return;
+    try {
+      if (/\.blob\.core\.windows\.net\//i.test(url) && !url.includes('?')) {
+        const resp = await api.get('/api/files/sas', { params: { blobUrl: url } });
+        const sas = resp.data?.url || url;
+        window.open(sas, '_blank');
+        return;
+      }
+      window.open(url, '_blank');
+    } catch (err) {
+      console.error('Failed to open protected URL', err);
+      window.open(url, '_blank');
+    }
+  };
+
   return (
     <div className="dashboard-container">
       {/* Header Section */}
@@ -442,11 +458,9 @@ const Dashboard = () => {
                       </span>
                       {req.filePath && (
                         <a
-                          href={fullFileUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                          href="#"
                           className="badge badge-file"
-                          onClick={(e) => e.stopPropagation()}
+                          onClick={(e) => { e.stopPropagation(); e.preventDefault(); openProtectedUrl(fullFileUrl); }}
                         >
                           <FaFilePdf /> View File
                         </a>
@@ -732,10 +746,9 @@ const Dashboard = () => {
                 <span className="detail-label">File Attachment</span>
                 {selectedRequest.filePath ? (
                   <a
-                    href={selectedRequest.filePath || selectedRequest.fileUrl || '#'}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    href="#"
                     className="status-action-btn status-action-btn--primary"
+                    onClick={(e) => { e.preventDefault(); openProtectedUrl(selectedRequest.filePath || selectedRequest.fileUrl); }}
                   >
                     <FaFilePdf /> View Attachment
                   </a>

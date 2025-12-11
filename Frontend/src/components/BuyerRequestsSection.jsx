@@ -102,6 +102,22 @@ const BuyerRequestsSection = ({ token, toast, setToast, noWrapper = false }) => 
     return `${base}${filePath}`;
   };
 
+  const openProtectedUrl = async (url) => {
+    if (!url) return;
+    try {
+      if (/\.blob\.core\.windows\.net\//i.test(url) && !url.includes('?')) {
+        const resp = await api.get('/api/files/sas', { params: { blobUrl: url } });
+        const sas = resp.data?.url || url;
+        window.open(sas, '_blank');
+        return;
+      }
+      window.open(url, '_blank');
+    } catch (err) {
+      console.error('Failed to open protected URL', err);
+      window.open(url, '_blank');
+    }
+  };
+
   const inner = (
     <div>
       {/* Stats summary */}
@@ -175,7 +191,7 @@ const BuyerRequestsSection = ({ token, toast, setToast, noWrapper = false }) => 
                     <span className="badge" style={{ backgroundColor: '#6b7280' }}><FaUser /> {request.buyerName}</span>
                     <span className="badge badge-date"><FaCalendar /> Due: {request.endDate ? new Date(request.endDate).toLocaleDateString() : 'N/A'}</span>
                     {request.filePath && (
-                      <a href={getFileUrl(request.filePath)} target="_blank" rel="noopener noreferrer" className="badge badge-file" onClick={(e) => e.stopPropagation()}>
+                      <a href="#" onClick={(e) => { e.stopPropagation(); e.preventDefault(); openProtectedUrl(getFileUrl(request.filePath)); }} className="badge badge-file">
                         <FaFilePdf /> View File
                       </a>
                     )}

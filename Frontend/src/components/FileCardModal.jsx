@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import api from "../api";
 import "./FileCardModal.css";
 
 const FileCardModal = ({
@@ -37,8 +38,31 @@ const FileCardModal = ({
   const requiresDecision = Boolean(file.requiresDecision);
   const hasDecisionActions = Boolean(file.hasDecisionActions);
   const lastResponse = file.lastResponse;
-  const base = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-  const lastResponseUrl = lastResponse?.filePath ? `${base}/${lastResponse.filePath.replace(/\\/g, "/")}` : null;
+  const makeUrl = (p) => {
+    if (!p) return null;
+    const normalized = String(p).replace(/\\/g, "/");
+    if (/^https?:\/\//i.test(normalized)) return normalized;
+    const base = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    return `${base}${normalized.startsWith('/') ? '' : '/'}${normalized}`;
+  };
+  const lastResponseUrl = lastResponse?.filePath ? makeUrl(lastResponse.filePath) : null;
+
+  const openProtectedUrl = async (url) => {
+    if (!url) return;
+    try {
+      // If it's an Azure blob URL without SAS, request SAS from backend
+      if (/\.blob\.core\.windows\.net\//i.test(url) && !url.includes('?')) {
+        const resp = await api.get('/api/files/sas', { params: { blobUrl: url } });
+        const sas = resp.data?.url || url;
+        window.open(sas, '_blank');
+        return;
+      }
+      window.open(url, '_blank');
+    } catch (err) {
+      console.error('Failed to open protected URL', err);
+      window.open(url, '_blank');
+    }
+  };
   const lastResponseTimestamp = lastResponse?.uploadedAt instanceof Date && !Number.isNaN(lastResponse.uploadedAt.getTime())
     ? lastResponse.uploadedAt.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })
     : null;
@@ -186,19 +210,15 @@ const FileCardModal = ({
 
         <div className="modal-buttons">
           {sanitizedPath ? (
-            (() => {
-              const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-              return (
-                <a
-                  href={`${baseUrl}/${sanitizedPath}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="download-btn"
-                >
-                  📄 View PDF
-                </a>
-              );
-            })()
+            (
+              <a
+                href="#"
+                onClick={(e) => { e.preventDefault(); openProtectedUrl(makeUrl(sanitizedPath)); }}
+                className="download-btn"
+              >
+                📄 View PDF
+              </a>
+            )
           ) : (
             <button type="button" className="download-btn" disabled>
               PDF Unavailable

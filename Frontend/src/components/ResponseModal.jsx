@@ -115,8 +115,26 @@ const ResponseModal = ({ announcement, responses, onClose, isLoading }) => {
 
   const buildFileUrl = (filePath) => {
     if (!filePath) return null;
+    const normalized = String(filePath).replace(/\\/g, "/");
+    if (/^https?:\/\//i.test(normalized)) return normalized;
     const base = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-    return `${base}/${filePath.replace(/\\/g, "/")}`;
+    return `${base}${normalized.startsWith('/') ? '' : '/'}${normalized}`;
+  };
+
+  const openProtectedUrl = async (url) => {
+    if (!url) return;
+    try {
+      if (/\.blob\.core\.windows\.net\//i.test(url) && !url.includes('?')) {
+        const resp = await api.get('/api/files/sas', { params: { blobUrl: url } });
+        const sas = resp.data?.url || url;
+        window.open(sas, '_blank');
+        return;
+      }
+      window.open(url, '_blank');
+    } catch (err) {
+      console.error('Failed to open protected URL', err);
+      window.open(url, '_blank');
+    }
   };
 
   const openHistoryViewer = (supplierName, files = []) => {
@@ -200,9 +218,8 @@ const ResponseModal = ({ announcement, responses, onClose, isLoading }) => {
                             return (
                               <div className="response-file-actions">
                                 <a
-                                  href={latestFileUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
+                                  href="#"
+                                  onClick={(e) => { e.preventDefault(); openProtectedUrl(latestFileUrl); }}
                                   className="download-btn"
                                 >
                                   View Latest Quotation
@@ -264,11 +281,10 @@ const ResponseModal = ({ announcement, responses, onClose, isLoading }) => {
                           <span className="response-history-date">{formatDateTime(file?.dateUploaded)}</span>
                           {file?.isReused ? <span className="response-history-tag">Reused</span> : null}
                         </div>
-                        {fileUrl ? (
+                          {fileUrl ? (
                           <a
-                            href={fileUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                            href="#"
+                            onClick={(e) => { e.preventDefault(); openProtectedUrl(fileUrl); }}
                             className="download-btn"
                           >
                             View File

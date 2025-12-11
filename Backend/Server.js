@@ -89,6 +89,10 @@ app.use("/api/buyer", buyerRoutes);
 const reportRoutes = require("./routes/reportRoutes");
 console.log("[Server.js] reportRoutes loaded.");
 app.use("/api/reports", reportRoutes);
+
+const fileRoutes = require("./routes/fileRoutes");
+console.log("[Server.js] fileRoutes loaded.");
+app.use("/api/files", fileRoutes);
 // Lightweight health endpoint for container healthchecks
 app.get('/health', async (req, res) => {
   try {
