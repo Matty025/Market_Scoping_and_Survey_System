@@ -33,7 +33,8 @@ const FileCardModal = ({
 
   const statusLabel = file.statusDisplay || file.Status || "Pending";
   const badgeClass = (file.statusClass || statusLabel.toLowerCase()).replace(/\s+/g, "-");
-  const sanitizedPath = file.filePath ? file.filePath.replace(/\\/g, "/") : null;
+  // Prefer server-provided SAS URLs if available, otherwise fall back to stored filePath
+  const sanitizedPath = (file.fileUrl || file.filePath) ? (file.fileUrl || file.filePath).replace(/\\/g, "/") : null;
   const optInStatus = file.optInStatus || "PENDING";
   const requiresDecision = Boolean(file.requiresDecision);
   const hasDecisionActions = Boolean(file.hasDecisionActions);
@@ -45,7 +46,8 @@ const FileCardModal = ({
     const base = import.meta.env.VITE_API_URL || 'http://localhost:3001';
     return `${base}${normalized.startsWith('/') ? '' : '/'}${normalized}`;
   };
-  const lastResponseUrl = lastResponse?.filePath ? makeUrl(lastResponse.filePath) : null;
+  // Prefer server-provided SAS for the last response if present
+  const lastResponseUrl = lastResponse?.lastResponseFileUrl ? lastResponse.lastResponseFileUrl : (lastResponse?.filePath ? makeUrl(lastResponse.filePath) : null);
 
   const openProtectedUrl = async (url) => {
     if (!url) return;
