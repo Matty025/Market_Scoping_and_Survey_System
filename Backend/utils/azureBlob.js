@@ -22,7 +22,10 @@ const sharedKeyCredential = accountName && accountKey ? new StorageSharedKeyCred
 async function uploadBuffer(containerName, blobName, buffer, contentType = 'application/octet-stream') {
   if (!blobServiceClient) throw new Error('Azure BlobServiceClient not configured');
   const containerClient = blobServiceClient.getContainerClient(containerName);
-  await containerClient.createIfNotExists({ access: 'container' }).catch(() => {});
+  
+  // FIXED: Remove public access - use private container
+  await containerClient.createIfNotExists().catch(() => {});
+  
   const blockBlobClient = containerClient.getBlockBlobClient(blobName);
   await blockBlobClient.uploadData(buffer, { blobHTTPHeaders: { blobContentType: contentType } });
   return blockBlobClient.url;
@@ -43,4 +46,33 @@ function generateSasUrl(containerName, blobName, expiresMinutes = 15) {
   return url;
 }
 
-module.exports = { uploadBuffer, generateSasUrl, blobServiceClient };
+// NEW: Download blob as stream
+async function downloadBlob(containerName, blobName) {
+  if (!blobServiceClient) throw new Error('Azure BlobServiceClient not configured');
+  const containerClient = blobServiceClient.getContainerClient(containerName);
+  const blobClient = containerClient.getBlobClient(blobName);
+  
+  // Check if blob exists
+  const exists = await blobClient.exists();
+  if (!exists) {
+    throw new Error(`Blob not found: ${containerName}/${blobName}`);
+  }
+  
+  return await blobClient.download();
+}
+
+// NEW: Check if blob exists
+async function blobExists(containerName, blobName) {
+  if (!blobServiceClient) return false;
+  const containerClient = blobServiceClient.getContainerClient(containerName);
+  const blobClient = containerClient.getBlobClient(blobName);
+  return await blobClient.exists();
+}
+
+module.exports = { 
+  uploadBuffer, 
+  generateSasUrl, 
+  downloadBlob, 
+  blobExists, 
+  blobServiceClient 
+};

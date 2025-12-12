@@ -16,6 +16,7 @@ try {
 const path = require('path');
 const xlsx = require('xlsx'); // For reading Excel files
 const fs = require('fs');     // For file system operations (deleting temp files)
+const { generateSasUrl, downloadBlob, uploadBuffer } = require('../utils/azureBlob');
 
 // configure multer storage
 let storage;
@@ -163,16 +164,44 @@ const getSupplierIdForUser = async (client, userId) => {
   );
   return result.rows[0]?.SupplierID || null;
 };
+const generateSupplierFileSasUrls = (rows) => {
+  const containerName = process.env.AZURE_PDF_CONTAINER || 'pdfs';
   
+  return rows.map(row => {
+    // Generate SAS URL for announcement PDF
+    if (row.filePath) {
+      try {
+        row.fileUrl = generateSasUrl(containerName, row.filePath, 60);
+      } catch (error) {
+        console.error('Error generating SAS URL for announcement:', error);
+        row.fileUrl = null;
+      }
+    }
+    
+    // Generate SAS URL for supplier response PDF
+    if (row.lastResponseFilePath) {
+      try {
+        row.lastResponseFileUrl = generateSasUrl(containerName, row.lastResponseFilePath, 60);
+      } catch (error) {
+        console.error('Error generating SAS URL for response:', error);
+        row.lastResponseFileUrl = null;
+      }
+    }
+    
+    return row;
+  });
+};
+// @desc    Get assigned procurement files for a logged-in supplier
+// @route   GET /api/supplier-files
+// @access  Private
 // @desc    Get assigned procurement files for a logged-in supplier
 // @route   GET /api/supplier-files
 // @access  Private
 router.get("/", protect, async (req, res) => {
   console.log("[SupplierRoutes.js] GET / route hit.");
-  const loggedInUserId = req.user.userID; // From JWT payload via 'protect' middleware
+  const loggedInUserId = req.user.userID;
 
   try {
-    // Find the SupplierID linked to the UserID
     const supplierId = await getSupplierIdForUser(pool, loggedInUserId);
 
     if (!supplierId) {
@@ -181,8 +210,12 @@ router.get("/", protect, async (req, res) => {
     }
 
     const assignedFiles = await fetchSupplierFiles({ client: pool, supplierId });
-    res.json(assignedFiles);
-    console.log("[SupplierRoutes.js] Successfully fetched assigned files.");
+    
+    // Generate SAS URLs for all files
+    const filesWithUrls = generateSupplierFileSasUrls(assignedFiles);
+    
+    res.json(filesWithUrls);
+    console.log("[SupplierRoutes.js] Successfully fetched assigned files with SAS URLs.");
   } catch (err) {
     console.error("Error fetching supplier files:", err.message);
     res.status(500).json({ message: "Server error while fetching files." });
@@ -1029,6 +1062,63 @@ router.delete('/uploads/:id', protect, async (req, res) => {
   } catch (err) {
     console.error('Error deleting upload:', err);
     res.status(500).json({ message: 'Server error while deleting upload.', error: err.message });
+  }
+});
+
+// @desc    Download supplier response PDF file
+// @route   GET /api/supplier-files/:supplierFileId/response-file
+// @access  Private (Supplier)
+router.get("/:supplierFileId/response-file", protect, async (req, res) => {
+  const supplierFileId = parseInt(req.params.supplierFileId, 10);
+
+  if (!Number.isInteger(supplierFileId)) {
+    return res.status(400).json({ message: "Invalid supplier file id." });
+  }
+
+  const loggedInUserId = req.user.userID;
+
+  try {
+    const supplierId = await getSupplierIdForUser(pool, loggedInUserId);
+    if (!supplierId) {
+      return res.status(404).json({ message: "Supplier profile not found for this user." });
+    }
+
+    // Get the response file path
+    const query = `
+      SELECT sr."ResponseFilePath", pf."Title"
+      FROM "SupplierResponses" sr
+      JOIN "SupplierFiles" sf ON sr."SupplierFileID" = sf."SupplierFileID"
+      JOIN "ProcurementFiles" pf ON sf."FileID" = pf."FileID"
+      WHERE sr."SupplierFileID" = $1 AND sf."SupplierID" = $2
+      ORDER BY sr."DateUploaded" DESC
+      LIMIT 1
+    `;
+
+    const { rows } = await pool.query(query, [supplierFileId, supplierId]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "Response file not found." });
+    }
+
+    const filePath = rows[0].ResponseFilePath;
+    const title = rows[0].Title;
+    const containerName = process.env.AZURE_PDF_CONTAINER || 'pdfs';
+
+    // Download from Azure
+    const downloadResponse = await downloadBlob(containerName, filePath);
+    
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${title}-response.pdf"`);
+    
+    downloadResponse.readableStreamBody.pipe(res);
+  } catch (err) {
+    console.error("Error downloading response file:", err);
+    
+    if (err.message.includes('not found')) {
+      return res.status(404).json({ message: "File not found in storage" });
+    }
+    
+    res.status(500).json({ message: "Error downloading file" });
   }
 });
 module.exports = router;
