@@ -19,8 +19,30 @@ const blobServiceClient = connectionString ? BlobServiceClient.fromConnectionStr
 const { accountName, accountKey } = parseConnectionString(connectionString || '');
 const sharedKeyCredential = accountName && accountKey ? new StorageSharedKeyCredential(accountName, accountKey) : null;
 
+function parseBlobUrl(url) {
+  try {
+    const parsed = new URL(url);
+    const pathname = parsed.pathname.replace(/^\//, '');
+    const parts = pathname.split('/');
+    const cont = parts.shift();
+    const bname = parts.join('/');
+    return { container: cont, blob: bname };
+  } catch (e) {
+    return null;
+  }
+}
+
 async function uploadBuffer(containerName, blobName, buffer, contentType = 'application/octet-stream') {
   if (!blobServiceClient) throw new Error('Azure BlobServiceClient not configured');
+  // If a full URL was provided as blobName, parse it
+  if (typeof blobName === 'string' && blobName.startsWith('http')) {
+    const parsed = parseBlobUrl(blobName);
+    if (parsed) {
+      containerName = parsed.container;
+      blobName = parsed.blob;
+    }
+  }
+
   const containerClient = blobServiceClient.getContainerClient(containerName);
   
   // FIXED: Remove public access - use private container
@@ -33,20 +55,6 @@ async function uploadBuffer(containerName, blobName, buffer, contentType = 'appl
 
 function generateSasUrl(containerName, blobName, expiresMinutes = 15) {
   if (!sharedKeyCredential) throw new Error('Storage account key required for SAS generation');
-
-  // Helper: parse full blob URL into containerName + blobName
-  const parseBlobUrl = (url) => {
-    try {
-      const parsed = new URL(url);
-      const pathname = parsed.pathname.replace(/^\//, '');
-      const parts = pathname.split('/');
-      const cont = parts.shift();
-      const bname = parts.join('/');
-      return { container: cont, blob: bname };
-    } catch (e) {
-      return null;
-    }
-  };
 
   // Accept either a full URL passed in as `blobName` or `containerName` mistakenly.
   if (typeof blobName === 'string' && blobName.startsWith('http')) {
@@ -79,21 +87,37 @@ function generateSasUrl(containerName, blobName, expiresMinutes = 15) {
 // NEW: Download blob as stream
 async function downloadBlob(containerName, blobName) {
   if (!blobServiceClient) throw new Error('Azure BlobServiceClient not configured');
+  // Allow callers to pass a full blob URL as `blobName`.
+  if (typeof blobName === 'string' && blobName.startsWith('http')) {
+    const parsed = parseBlobUrl(blobName);
+    if (parsed) {
+      containerName = parsed.container;
+      blobName = parsed.blob;
+    }
+  }
+
   const containerClient = blobServiceClient.getContainerClient(containerName);
   const blobClient = containerClient.getBlobClient(blobName);
-  
+
   // Check if blob exists
   const exists = await blobClient.exists();
   if (!exists) {
     throw new Error(`Blob not found: ${containerName}/${blobName}`);
   }
-  
+
   return await blobClient.download();
 }
 
 // NEW: Check if blob exists
 async function blobExists(containerName, blobName) {
   if (!blobServiceClient) return false;
+  if (typeof blobName === 'string' && blobName.startsWith('http')) {
+    const parsed = parseBlobUrl(blobName);
+    if (parsed) {
+      containerName = parsed.container;
+      blobName = parsed.blob;
+    }
+  }
   const containerClient = blobServiceClient.getContainerClient(containerName);
   const blobClient = containerClient.getBlobClient(blobName);
   return await blobClient.exists();

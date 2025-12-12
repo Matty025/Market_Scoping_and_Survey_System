@@ -1097,12 +1097,15 @@ router.get("/:supplierFileId/response-file", protect, async (req, res) => {
     const { rows } = await pool.query(query, [supplierFileId, supplierId]);
 
     if (rows.length === 0) {
+      console.warn(`[SupplierRoutes.js] response-file: no rows returned for SupplierFileID=${supplierFileId}, SupplierID=${supplierId}`);
       return res.status(404).json({ message: "Response file not found." });
     }
 
     const filePath = rows[0].ResponseFilePath;
     const title = rows[0].Title;
     const containerName = process.env.AZURE_PDF_CONTAINER || 'pdfs';
+
+    console.log(`[SupplierRoutes.js] response-file: found record. SupplierFileID=${supplierFileId} SupplierID=${supplierId} ResponseFilePath=${filePath} Title=${title}`);
 
     // Download from Azure
     const downloadResponse = await downloadBlob(containerName, filePath);
