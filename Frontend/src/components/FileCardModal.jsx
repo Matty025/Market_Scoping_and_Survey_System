@@ -76,8 +76,9 @@ const FileCardModal = ({
           setTimeout(() => window.URL.revokeObjectURL(blobUrl), 60 * 1000);
           return;
         } catch (fetchErr) {
-          console.error('Authenticated fetch failed, falling back to direct open', fetchErr);
-          // continue to direct open fallback
+          console.error('Authenticated fetch failed; not opening unauthenticated URL', fetchErr);
+          alert('Unable to fetch the protected file. Please ensure you are logged in and try again.');
+          return;
         }
       }
 

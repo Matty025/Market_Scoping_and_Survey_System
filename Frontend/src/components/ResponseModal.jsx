@@ -130,6 +130,25 @@ const ResponseModal = ({ announcement, responses, onClose, isLoading }) => {
         window.open(sas, '_blank');
         return;
       }
+
+      const backendBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const isApiUrl = url.startsWith(backendBase) || url.startsWith('/api/') || url.includes('/api/');
+      if (isApiUrl) {
+        try {
+          const absoluteUrl = url.startsWith('http') ? url : `${backendBase}${url.startsWith('/') ? '' : '/'}${url}`;
+          const resp = await api.get(absoluteUrl.replace(backendBase, ''), { responseType: 'blob' });
+          const blob = new Blob([resp.data], { type: resp.headers['content-type'] || 'application/pdf' });
+          const blobUrl = window.URL.createObjectURL(blob);
+          window.open(blobUrl, '_blank');
+          setTimeout(() => window.URL.revokeObjectURL(blobUrl), 60 * 1000);
+          return;
+        } catch (fetchErr) {
+          console.error('Authenticated fetch failed; not opening unauthenticated URL', fetchErr);
+          alert('Unable to fetch the protected file. Please ensure you are logged in and try again.');
+          return;
+        }
+      }
+
       window.open(url, '_blank');
     } catch (err) {
       console.error('Failed to open protected URL', err);
