@@ -61,6 +61,26 @@ const FileCardModal = ({
         window.open(sas, '_blank');
         return;
       }
+
+      // If the URL points to our backend API (protected), fetch it via axios so the Authorization header is sent.
+      const backendBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const isApiUrl = url.startsWith(backendBase) || url.startsWith('/api/') || url.includes('/api/');
+      if (isApiUrl) {
+        try {
+          const absoluteUrl = url.startsWith('http') ? url : `${backendBase}${url.startsWith('/') ? '' : '/'}${url}`;
+          const resp = await api.get(absoluteUrl.replace(backendBase, ''), { responseType: 'blob' });
+          const blob = new Blob([resp.data], { type: resp.headers['content-type'] || 'application/pdf' });
+          const blobUrl = window.URL.createObjectURL(blob);
+          window.open(blobUrl, '_blank');
+          // Revoke URL after some delay to allow the new tab to load
+          setTimeout(() => window.URL.revokeObjectURL(blobUrl), 60 * 1000);
+          return;
+        } catch (fetchErr) {
+          console.error('Authenticated fetch failed, falling back to direct open', fetchErr);
+          // continue to direct open fallback
+        }
+      }
+
       window.open(url, '_blank');
     } catch (err) {
       console.error('Failed to open protected URL', err);
