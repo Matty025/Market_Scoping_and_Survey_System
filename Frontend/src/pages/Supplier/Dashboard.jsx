@@ -445,7 +445,10 @@ const SupplierDashboard = () => {
         decisionBanner = `You opted in${optedInLabel}. Please upload your quotation to complete this round.`;
         decisionBannerClass = "opted-in";
       } else if (optInStatus === "SUBMITTED") {
-        decisionBanner = "Quotation submitted.";
+        decisionBanner = "You submitted. Waiting for the Results.";
+        if (latestStatusNote) {
+          decisionBanner = `${decisionBanner} ${latestStatusNote}`.trim();
+        }
         decisionBannerClass = "submitted";
       }
 

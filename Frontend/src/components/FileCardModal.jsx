@@ -91,6 +91,11 @@ const FileCardModal = ({
   const lastResponseTimestamp = lastResponse?.uploadedAt instanceof Date && !Number.isNaN(lastResponse.uploadedAt.getTime())
     ? lastResponse.uploadedAt.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })
     : null;
+  const latestNoteText = typeof file.latestStatusNote === 'string'
+    ? file.latestStatusNote.trim()
+    : (typeof file.latestNote === 'string' ? file.latestNote.trim() : "");
+  const latestNoteAt = file.latestStatusAt || file.latestChangedAt || null;
+  const latestNoteTimestamp = latestNoteAt ? new Date(latestNoteAt).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" }) : null;
   const decisionBusy = Boolean(isDecisionPending);
   const isJoinBusy = decisionBusy && decisionAction === "opt-in";
   const isDeclineBusy = decisionBusy && decisionAction === "decline";
@@ -155,6 +160,14 @@ const FileCardModal = ({
           </button>
         )}
 
+        {latestNoteText && (
+          <div className="latest-note-card">
+            <h4>Latest Note</h4>
+            <p className="latest-note-text">{latestNoteText}</p>
+            {latestNoteTimestamp && <span className="latest-note-time">{latestNoteTimestamp}</span>}
+          </div>
+        )}
+
         {hasDecisionActions && (
           <div className="modal-decision-block">
             <h3>{optInStatus === "DECLINED" ? "You declined this attempt" : "Join this attempt?"}</h3>
@@ -205,7 +218,15 @@ const FileCardModal = ({
 
         {optInStatus === "SUBMITTED" && !hasDecisionActions && (
           <div className="modal-decision-block info">
-            <p>Quotation submitted for this attempt.</p>
+            <p>You submitted. Waiting for the Results.</p>
+            {file.latestStatusNote && (
+              <p className="modal-decision-subtext">
+                {file.latestStatusNote}
+                {file.latestStatusAt && (
+                  <span>{" • "}{new Date(file.latestStatusAt).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                )}
+              </p>
+            )}
             {lastResponseTimestamp && (
               <p className="modal-decision-subtext">
                 Submitted on {lastResponseTimestamp}
@@ -222,7 +243,7 @@ const FileCardModal = ({
           </div>
         )}
 
-        {!effectiveCanSubmit && !requiresDecision && optInStatus !== "DECLINED" && (
+        {!effectiveCanSubmit && !requiresDecision && optInStatus !== "DECLINED" && optInStatus !== "SUBMITTED" && (
           <p className="submission-locked">Submission period has ended. You can still view the announcement PDF.</p>
         )}
 
