@@ -33,6 +33,36 @@ async function uploadBuffer(containerName, blobName, buffer, contentType = 'appl
 
 function generateSasUrl(containerName, blobName, expiresMinutes = 15) {
   if (!sharedKeyCredential) throw new Error('Storage account key required for SAS generation');
+
+  // Helper: parse full blob URL into containerName + blobName
+  const parseBlobUrl = (url) => {
+    try {
+      const parsed = new URL(url);
+      const pathname = parsed.pathname.replace(/^\//, '');
+      const parts = pathname.split('/');
+      const cont = parts.shift();
+      const bname = parts.join('/');
+      return { container: cont, blob: bname };
+    } catch (e) {
+      return null;
+    }
+  };
+
+  // Accept either a full URL passed in as `blobName` or `containerName` mistakenly.
+  if (typeof blobName === 'string' && blobName.startsWith('http')) {
+    const parsed = parseBlobUrl(blobName);
+    if (parsed) {
+      containerName = parsed.container;
+      blobName = parsed.blob;
+    }
+  } else if (typeof containerName === 'string' && containerName.startsWith('http') && !blobName) {
+    const parsed = parseBlobUrl(containerName);
+    if (parsed) {
+      containerName = parsed.container;
+      blobName = parsed.blob;
+    }
+  }
+
   const startsOn = new Date();
   const expiresOn = new Date(startsOn.getTime() + expiresMinutes * 60 * 1000);
   const sasToken = generateBlobSASQueryParameters({
