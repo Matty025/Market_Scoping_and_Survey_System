@@ -46,8 +46,10 @@ const FileCardModal = ({
     const base = import.meta.env.VITE_API_URL || 'http://localhost:3001';
     return `${base}${normalized.startsWith('/') ? '' : '/'}${normalized}`;
   };
-  // Prefer server-provided SAS for the last response if present
-  const lastResponseUrl = lastResponse?.lastResponseFileUrl ? lastResponse.lastResponseFileUrl : (lastResponse?.filePath ? makeUrl(lastResponse.filePath) : null);
+  // Prefer backend streaming endpoint for the last response (enforces ownership).
+  // Fallback to server-provided SAS or stored filePath if streaming endpoint isn't available.
+  const responseStreamUrl = file && file.SupplierFileID ? makeUrl(`/api/supplier-files/${file.SupplierFileID}/response-file`) : null;
+  const lastResponseUrl = responseStreamUrl || (lastResponse?.lastResponseFileUrl ? lastResponse.lastResponseFileUrl : (lastResponse?.filePath ? makeUrl(lastResponse.filePath) : null));
 
   const openProtectedUrl = async (url) => {
     if (!url) return;
@@ -146,7 +148,7 @@ const FileCardModal = ({
                 {lastResponseUrl && (
                   <>
                     {" • "}
-                    <a href={lastResponseUrl} target="_blank" rel="noopener noreferrer">
+                    <a href="#" onClick={(e) => { e.preventDefault(); openProtectedUrl(lastResponseUrl); }} target="_blank" rel="noopener noreferrer">
                       View PDF
                     </a>
                   </>
@@ -189,7 +191,7 @@ const FileCardModal = ({
                 {lastResponseUrl && (
                   <>
                     {" • "}
-                    <a href={lastResponseUrl} target="_blank" rel="noopener noreferrer">
+                    <a href="#" onClick={(e) => { e.preventDefault(); openProtectedUrl(lastResponseUrl); }} target="_blank" rel="noopener noreferrer">
                       View PDF
                     </a>
                   </>
