@@ -251,7 +251,7 @@ const BuyerRequestsSection = ({ token, toast, setToast, noWrapper = false }) => 
               <div className="detail-row">
                 <span className="detail-label">Attachment</span>
                 {selectedRequest.filePath ? (
-                  <a href={getFileUrl(selectedRequest.filePath)} target="_blank" rel="noopener noreferrer" className="status-action-btn status-action-btn--primary">
+                  <a href="#" onClick={(e) => { e.preventDefault(); e.stopPropagation(); openProtectedUrl(getFileUrl(selectedRequest.filePath)); }} className="status-action-btn status-action-btn--primary">
                     <FaFilePdf /> View PDF
                   </a>
                 ) : (

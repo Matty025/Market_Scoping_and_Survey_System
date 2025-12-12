@@ -10,6 +10,7 @@ const fs = require("fs");
 const buyerRoutes = require('./BuyerRoutes');
 
 const FALLBACK_CATEGORY_NAME = "Uncategorized";
+const { generateSasUrl, downloadBlob } = require('../utils/azureBlob');
 
 const parseBooleanQuery = (value) => {
   if (typeof value !== "string") {
@@ -2024,8 +2025,22 @@ router.get("/buyer-requests", protect, async (req, res) => {
     const { rows } = await pool.query(query, params);
     const totalCount = rows.length > 0 ? Number(rows[0].TotalCountAll || 0) : 0;
 
+    // Generate SAS URLs for all items
+    const containerName = process.env.AZURE_PDF_CONTAINER || 'pdfs';
+    const itemsWithUrls = rows.map(item => {
+      if (item.filePath) {
+        try {
+          item.fileUrl = generateSasUrl(containerName, item.filePath, 60);
+        } catch (error) {
+          console.error('Error generating SAS URL for item:', item.id, error);
+          item.fileUrl = null;
+        }
+      }
+      return item;
+    });
+
     res.json({
-      items: rows,
+      items: itemsWithUrls,
       total: totalCount,
       page,
       limit
@@ -2036,7 +2051,7 @@ router.get("/buyer-requests", protect, async (req, res) => {
   }
 });
 
-// @desc    Get single buyer purchase request details
+// @desc    Get single buyer purchase request details with SAS URL
 // @route   GET /api/admin/buyer-requests/:id
 // @access  Private (Admin)
 router.get("/buyer-requests/:id", protect, async (req, res) => {
@@ -2075,10 +2090,65 @@ router.get("/buyer-requests/:id", protect, async (req, res) => {
       return res.status(404).json({ message: "Request not found." });
     }
 
-    res.json(rows[0]);
+    const result = rows[0];
+    
+    // Generate SAS URL for the PDF (60 minutes expiry)
+    if (result.filePath) {
+      try {
+        const containerName = process.env.AZURE_PDF_CONTAINER || 'pdfs';
+        result.fileUrl = generateSasUrl(containerName, result.filePath, 60);
+      } catch (error) {
+        console.error('Error generating SAS URL:', error);
+        result.fileUrl = null;
+      }
+    }
+
+    res.json(result);
   } catch (err) {
     console.error("Error fetching buyer request details:", err);
     res.status(500).json({ message: "Server error" });
+  }
+});
+
+// @desc    Download buyer request PDF file
+// @route   GET /api/admin/buyer-requests/:id/file
+// @access  Private (Admin)
+router.get("/buyer-requests/:id/file", protect, async (req, res) => {
+  if (req.user.role.toLowerCase() !== 'admin') {
+    return res.status(403).json({ message: "Access denied. Admins only." });
+  }
+
+  const uploadId = parseInt(req.params.id, 10);
+
+  try {
+    const { rows } = await pool.query(
+      'SELECT "FilePath", "Title" FROM "BuyerUploads" WHERE "UploadID" = $1',
+      [uploadId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "Request not found." });
+    }
+
+    const filePath = rows[0].FilePath; // e.g., "buyer-pr/announcements/filename.pdf"
+    const title = rows[0].Title;
+    const containerName = process.env.AZURE_PDF_CONTAINER || 'pdfs';
+
+    // Download from Azure
+    const downloadResponse = await downloadBlob(containerName, filePath);
+    
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${title}.pdf"`);
+    
+    downloadResponse.readableStreamBody.pipe(res);
+  } catch (err) {
+    console.error("Error downloading file:", err);
+    
+    if (err.message.includes('not found')) {
+      return res.status(404).json({ message: "File not found in storage" });
+    }
+    
+    res.status(500).json({ message: "Error downloading file" });
   }
 });
 
@@ -2184,4 +2254,5 @@ router.get("/buyer-requests/stats/summary", protect, async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
 module.exports = router;
