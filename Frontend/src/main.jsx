@@ -41,7 +41,7 @@ function setFavicon(href) {
 }
 
 // Prefer the public PNG icon so it doesn't rely on bundling.
-setFavicon('/icons.png');
+setFavicon('/icons1.png');
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
