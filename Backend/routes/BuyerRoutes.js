@@ -369,10 +369,62 @@ router.get('/requests/:id/history', protect, async (req, res) => {
     const q = `SELECT "HistoryID" as historyID, "UploadID" as uploadID, "Action" as action, "Details" as details, "ChangedAt" as changedAt FROM "PurchaseRequestHistory" WHERE "UploadID" = $1 ORDER BY "ChangedAt" DESC`;
     const result = await db.query(q, [uploadId]);
     const rows = result.rows || [];
-    res.json({ history: rows });
+
+    // Post-process: if Details contains an actor as a numeric id (e.g. "By: 3"), resolve FullName from Users table
+    const nameCache = {};
+    const processed = [];
+    for (const r of rows) {
+      let details = r.details || '';
+      // Look for a leading "By: <actor>" line
+      const lines = String(details).split('\n').map(l => l.trim()).filter(Boolean);
+      if (lines.length > 0 && /^By:/i.test(lines[0])) {
+        const actorRaw = lines[0].replace(/^By:\s*/i, '').trim();
+        if (/^\d+$/.test(actorRaw)) {
+          const uid = parseInt(actorRaw, 10);
+          if (!isNaN(uid)) {
+            try {
+              if (!nameCache[uid]) {
+                const uq = 'SELECT "FullName" FROM "Users" WHERE "UserID" = $1 LIMIT 1';
+                const ur = await db.query(uq, [uid]);
+                nameCache[uid] = (ur.rows && ur.rows[0] && ur.rows[0].FullName) || null;
+              }
+              const resolved = nameCache[uid];
+              if (resolved) {
+                lines[0] = `By: ${resolved}`;
+                details = lines.join('\n');
+              }
+            } catch (e) {
+              // ignore lookup errors
+              console.warn('[BuyerRoutes] user lookup failed for history actor', uid, e && e.message);
+            }
+          }
+        }
+      }
+
+      processed.push({ ...r, details });
+    }
+
+    res.json({ history: processed });
   } catch (err) {
     console.error('[BuyerRoutes.js] Error fetching history:', err);
     res.status(500).json({ error: 'Server error while fetching history.' });
+  }
+});
+
+// GET /api/buyer/users/:id - return basic user info (FullName) for authenticated users
+router.get('/users/:id', protect, async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id, 10);
+    if (!userId || isNaN(userId)) return res.status(400).json({ error: 'Invalid user id' });
+
+    const q = 'SELECT "UserID", "FullName", "Email" FROM "Users" WHERE "UserID" = $1 LIMIT 1';
+    const { rows } = await db.query(q, [userId]);
+    if (!rows || rows.length === 0) return res.status(404).json({ error: 'User not found' });
+    const u = rows[0];
+    res.json({ user: { UserID: u.UserID, FullName: u.FullName, Email: u.Email } });
+  } catch (err) {
+    console.error('[BuyerRoutes.js] Error fetching user by id:', err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 

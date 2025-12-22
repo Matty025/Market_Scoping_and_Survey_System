@@ -36,6 +36,7 @@ const Dashboard = () => {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState("");
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [userNames, setUserNames] = useState({}); // cache of userId -> FullName
 
   // Helper: Status Colors
   const getStatusConfig = (status) => {
@@ -245,6 +246,8 @@ const Dashboard = () => {
     }
   };
 
+  
+
   const handleCloseDetailsModal = () => {
     setDetailsModalOpen(false);
     setSelectedRequest(null);
@@ -312,7 +315,17 @@ const Dashboard = () => {
     try {
       try {
         const res = await api.get(`/api/buyer/requests/${uploadId}/history`, { headers: { Authorization: `Bearer ${token}` } });
-        setHistory(res.data.history || []);
+        const hist = res.data.history || [];
+        setHistory(hist);
+        // prefetch any numeric actor ids found in history details
+        hist.forEach(h => {
+          const raw = h.Details || h.details || '';
+          const { actor } = parseDetails(raw);
+          if (actor && /^\d+$/.test(String(actor).trim())) {
+            const id = String(actor).trim();
+            if (!userNames[id]) fetchUserName(id);
+          }
+        });
       } catch (histErr) {
         let msg = 'History not available yet';
         if (histErr.response && histErr.response.data) msg = histErr.response.data.error || histErr.response.data.message || msg;
@@ -323,6 +336,22 @@ const Dashboard = () => {
       setHistoryError('Server error while fetching history.');
     } finally {
       setHistoryLoading(false);
+    }
+  };
+
+  const fetchUserName = async (id) => {
+    if (!id) return;
+    // already cached
+    if (userNames[id]) return;
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      const res = await api.get(`/api/buyer/users/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      const name = res.data && res.data.user && (res.data.user.FullName || res.data.user.fullName || res.data.user.Fullname) || null;
+      if (name) setUserNames(prev => ({ ...prev, [id]: name }));
+    } catch (err) {
+      // ignore failures; leave numeric id as fallback
+      console.warn('Failed to fetch user name for', id, err && err.message);
     }
   };
 
@@ -681,13 +710,15 @@ const Dashboard = () => {
         </div>
       )}
 
+      
+
       {/* Details Modal */}
       {detailsModalOpen && selectedRequest && (
         <div 
           className="modal-overlay" 
           onClick={(e) => e.target.classList.contains("modal-overlay") && handleCloseDetailsModal()}
         >
-          <div className="modal" style={{ maxWidth: '700px' }}>
+          <div className="modal" style={{ maxWidth: '700px', maxHeight: '80vh', overflow: 'auto' }}>
             <button 
               type="button" 
               className="modal-close-btn" 
@@ -800,15 +831,27 @@ const Dashboard = () => {
                         const rawDetails = latest.Details || latest.details || '';
                         const { actor } = parseDetails(rawDetails);
                         const when = latest.ChangedAt || latest.changedAt || latest.changedAt;
+                        const displayActor = actor && /^[0-9]+$/.test(String(actor).trim()) ? (userNames[String(actor).trim()] || `User ${String(actor).trim()}`) : actor;
+                        // If the latest action is 'Created', prefer showing "Created: FullName" instead of "Last: ... By: ..."
+                        const latestAction = latest.Action || latest.action || '';
+                        if (/^Created$/i.test(String(latestAction))) {
+                          const createdLabel = displayActor ? `Created: ${displayActor}` : 'Created';
+                          return (
+                            <div style={{ color: '#475569', fontSize: 13 }}>
+                              {createdLabel} · <span style={{ color: '#0f172a', fontWeight: 600 }}>{timeAgo(when)}</span>
+                            </div>
+                          );
+                        }
+
                         return (
                           <div style={{ color: '#475569', fontSize: 13 }}>
-                            {actor ? `Last: ${actor}` : 'Last'} · <span style={{ color: '#0f172a', fontWeight: 600 }}>{timeAgo(when)}</span>
+                            {displayActor ? `Last: ${displayActor}` : 'Last'} · <span style={{ color: '#0f172a', fontWeight: 600 }}>{timeAgo(when)}</span>
                           </div>
                         );
                       })()
                     )}
                   </div>
-
+                  
                   <button
                     type="button"
                     className="status-action-btn"
@@ -821,9 +864,9 @@ const Dashboard = () => {
                     {historyOpen ? <FaChevronUp /> : <FaChevronDown />}
                   </button>
                 </div>
-
+                
                 {historyOpen && (
-                  <div style={{ marginTop: 12 }}>
+                  <div style={{ marginTop: 12, maxHeight: '50vh', overflowY: 'auto' }} id={`history-list-${selectedRequest ? selectedRequest.id : 'none'}`}>
                     {historyLoading ? (
                       <p>Loading history...</p>
                     ) : historyError ? (
@@ -840,21 +883,18 @@ const Dashboard = () => {
                           const { actor, body } = parseDetails(rawDetails);
                           return (
                             <li key={id} style={{ display: 'flex', gap: 12, padding: '12px 0', borderBottom: '1px solid #eef2f7' }}>
-                              {/* left: timestamp + timeline */}
                               <div style={{ width: 110, textAlign: 'right', paddingRight: 12 }}>
                                 <div style={{ fontSize: 12, color: '#94a3b8' }}>{formatTimestamp(when)}</div>
                               </div>
 
-                              {/* center: dot/line (color reflects action/status) */}
                               <div style={{ width: 18, display: 'flex', justifyContent: 'center' }}>
                                 {(() => {
-                                  // determine dot color: status change -> use status color; Created -> gray; Deleted -> red; fallback blue
                                   const act = (action || '').toString();
                                   let dotColor = '#2563eb';
                                   if (/^Created$/i.test(act)) {
-                                    dotColor = '#94a3b8'; // neutral gray
+                                    dotColor = '#94a3b8';
                                   } else if (/Deleted/i.test(act)) {
-                                    dotColor = '#ef4444'; // red
+                                    dotColor = '#ef4444';
                                   } else {
                                     const m = act.match(/Status updated to\s+(\w+)/i);
                                     if (m && m[1]) {
@@ -868,17 +908,21 @@ const Dashboard = () => {
                                 })()}
                               </div>
 
-                              {/* right: content */}
                               <div style={{ flex: 1 }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                  <div style={{ fontWeight: 700, color: '#0f172a' }}>{action}</div>
+                                  <div style={{ fontWeight: 700, color: '#0f172a' }}>{
+                                    (/^Created$/i.test(String(action)) ? (() => {
+                                      const displayActor = actor && /^[0-9]+$/.test(String(actor).trim()) ? (userNames[String(actor).trim()] || `User ${String(actor).trim()}`) : actor;
+                                      return displayActor ? `Created: ${displayActor}` : 'Created';
+                                    })() : action)
+                                  }</div>
                                 </div>
 
-                                {actor && (
-                                  <div style={{ marginTop: 6, fontSize: 13, color: '#1f2937' }}>
-                                    <strong>By:</strong> {actor}
-                                  </div>
-                                )}
+                                      {actor && !/^Created$/i.test(String(action)) && (
+                                        <div style={{ marginTop: 6, fontSize: 13, color: '#1f2937' }}>
+                                          <strong>By:</strong> {(/^[0-9]+$/.test(String(actor).trim()) ? (userNames[String(actor).trim()] || `User ${String(actor).trim()}`) : actor)}
+                                        </div>
+                                      )}
 
                                 {body && (
                                   <div style={{ marginTop: 8, whiteSpace: 'pre-wrap', color: '#344054' }}>
