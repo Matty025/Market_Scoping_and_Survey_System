@@ -1,9 +1,10 @@
+if (process.env.NODE_ENV !== "production") {
+  require("dotenv").config();
+}
+
 const express = require("express");
 const cors = require("cors");
 const pool = require("./db.js");
-require("dotenv").config();
-const fs = require("fs");
-const path = require("path");
 
 const app = express();
 
@@ -13,6 +14,8 @@ const allowedOrigins = [
   "http://localhost:3000",
   process.env.FRONTEND_ORIGIN // Your deployed frontend URL from env
 ].filter(Boolean); // Remove any undefined values
+
+const allowCredentials = process.env.CORS_ALLOW_CREDENTIALS === "true";
 
 app.use(
   cors({
@@ -27,7 +30,7 @@ app.use(
         callback(new Error('Not allowed by CORS'));
       }
     },
-    credentials: true,
+    credentials: allowCredentials,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
@@ -47,18 +50,6 @@ app.use((req, res, next) => {
   );
   next();
 });
-
-// --- Ensure required directories exist ---
-const uploadsDir = path.join(__dirname, "uploads");
-if (!fs.existsSync(uploadsDir)) {
-  console.log(`[Server.js] 'uploads' directory not found. Creating...`);
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-// --- Serve static files from specific sub-directories ---
-const buyerPrUploadsDir = path.join(uploadsDir, 'buyer-pr');
-app.use('/uploads/buyer-pr', express.static(buyerPrUploadsDir));
-console.log(`[Static] Serving files from ${buyerPrUploadsDir} at /uploads/buyer-pr`);
 
 // ROUTES
 const authRoutes = require("./routes/authRoutes");
@@ -117,22 +108,21 @@ app.get('/health', async (req, res) => {
   }
 });
 
-// Check DB connection and start server
+// Check DB connection (non-fatal) and start server
 const startServer = async () => {
   try {
     const client = await pool.connect();
     console.log(`✅ Connected to database: ${client.database}`);
     client.release();
-
-    const PORT = process.env.PORT || 3001;
-    app.listen(PORT, () => {
-      console.log(`Server running on http://localhost:${PORT}`);
-      console.log("[Server.js] All routes configured.");
-    });
   } catch (err) {
-    console.error("❌ Failed to connect to the database. Server not started.", err);
-    process.exit(1);
+    console.error("⚠️ Failed to connect to the database at startup. Continuing to serve; check /health.", err);
   }
+
+  const PORT = Number(process.env.PORT || process.env.APP_PORT || 3000);
+  app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+    console.log("[Server.js] All routes configured.");
+  });
 };
 
 startServer();
