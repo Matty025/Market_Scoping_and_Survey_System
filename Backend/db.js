@@ -1,13 +1,27 @@
+/**
+ * db.js
+ * PostgreSQL connection for Supabase + Render
+ */
+
 require('dotenv').config();
 const { Pool } = require('pg');
 
+if (!process.env.DATABASE_URL) {
+  console.error('❌ DATABASE_URL is not set.');
+  process.exit(1);
+}
+
 const pool = new Pool({
-  user: process.env.DB_USER,       // 'SDOadmin'
-  host: process.env.DB_HOST,       // 'msss.postgres.database.azure.com'
-  database: process.env.DB_DATABASE, // 'mrsss'
-  password: process.env.DB_PASSWORD, // 'MRSSS'
-  port: process.env.DB_PORT || 5432,
-  ssl: { rejectUnauthorized: false } // required for Azure
+  connectionString: process.env.DATABASE_URL,
+});
+
+pool.on('connect', () => {
+  console.log('✅ Connected to PostgreSQL (Supabase)');
+});
+
+pool.on('error', (err) => {
+  console.error('❌ Unexpected PostgreSQL error', err);
+  process.exit(1);
 });
 
 module.exports = pool;
