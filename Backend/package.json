@@ -24,7 +24,8 @@
     "multer": "^2.0.2",
     "pg": "^8.16.3",
     "xlsx": "^0.18.5",
-    "safer-buffer": "^2.1.2"
+    "safer-buffer": "^2.1.2",
+    "iconv-lite": "0.4.24"
   },
   "devDependencies": {
     "nodemon": "^3.1.11"
