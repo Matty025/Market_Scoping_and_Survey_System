@@ -6,10 +6,11 @@
   "scripts": {
     "start": "node Server.js",
     "dev": "nodemon Server.js",
+    "build": "echo 'No build step required'",
     "test": "echo \"No test specified\""
   },
   "engines": {
-    "node": ">=22.0.0",
+    "node": "22.x",
     "npm": ">=10.0.0"
   },
   "dependencies": {
