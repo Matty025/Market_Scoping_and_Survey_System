@@ -1,31 +1,30 @@
-/**
- * db.js
- * PostgreSQL connection for Supabase + Render
- */
-
-require('dotenv').config();
-const { Pool } = require('pg');
+const { Pool } = require("pg");
 
 if (!process.env.DATABASE_URL) {
-  console.error('❌ DATABASE_URL is not set.');
-  process.exit(1);
+  console.error("❌ DATABASE_URL is not set.");
+  throw new Error("DATABASE_URL missing");
 }
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false,
-  },
-});
+// ✅ Cache the pool for serverless (IMPORTANT on Vercel)
+let pool;
 
+if (!global._pgPool) {
+  global._pgPool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+      rejectUnauthorized: false,
+    },
+  });
 
-pool.on('connect', () => {
-  console.log('✅ Connected to PostgreSQL (Supabase)');
-});
+  global._pgPool.on("connect", () => {
+    console.log("✅ Connected to PostgreSQL (Supabase)");
+  });
 
-pool.on('error', (err) => {
-  console.error('❌ Unexpected PostgreSQL error', err);
-  process.exit(1);
-});
+  global._pgPool.on("error", (err) => {
+    console.error("❌ PostgreSQL error", err);
+  });
+}
+
+pool = global._pgPool;
 
 module.exports = pool;
