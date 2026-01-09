@@ -22,6 +22,31 @@ try {
   console.warn('[BuyerRoutes.js] Azure storage SDK not available or failed to initialize.');
 }
 
+let buyerUploadsNotesColumnExists;
+const hasBuyerUploadsNotesColumn = async () => {
+  if (buyerUploadsNotesColumnExists !== undefined) {
+    return buyerUploadsNotesColumnExists;
+  }
+
+  try {
+    const { rows } = await db.query(`
+      SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'BuyerUploads'
+          AND column_name = 'Notes'
+      ) AS exists;
+    `);
+    buyerUploadsNotesColumnExists = Boolean(rows[0] && rows[0].exists);
+  } catch (err) {
+    console.warn('[BuyerRoutes.js] Failed to detect BuyerUploads.Notes column:', err.message);
+    buyerUploadsNotesColumnExists = false;
+  }
+
+  return buyerUploadsNotesColumnExists;
+};
+
 try {
   aws = require('aws-sdk');
   multerS3 = require('multer-s3');
@@ -136,8 +161,13 @@ router.post('/upload', protect, upload.single('file'), async (req, res) => {
     } else {
       filePath = (req.file && (req.file.location || req.file.path || req.file.filename)) || null;
     }
-    const query = `INSERT INTO "BuyerUploads" ("UserID", "Title", "Description", "Notes", "EndDate", "FilePath") VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`;
-    const values = [userId, title, description, notes || '', endDate, filePath];
+    const hasNotesColumn = await hasBuyerUploadsNotesColumn();
+    const query = hasNotesColumn
+      ? `INSERT INTO "BuyerUploads" ("UserID", "Title", "Description", "Notes", "EndDate", "FilePath") VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`
+      : `INSERT INTO "BuyerUploads" ("UserID", "Title", "Description", "EndDate", "FilePath") VALUES ($1, $2, $3, $4, $5) RETURNING *`;
+    const values = hasNotesColumn
+      ? [userId, title, description, notes || '', endDate, filePath]
+      : [userId, title, description, endDate, filePath];
     console.log('[BuyerRoutes.js] Inserting into BuyerUploads:', values);
     const result = await db.query(query, values);
     // Optionally notify admin here
@@ -165,6 +195,8 @@ router.post('/upload', protect, upload.single('file'), async (req, res) => {
 router.get('/requests', protect, async (req, res) => {
   try {
     const userId = req.user.UserID || req.user.userID || req.user.id;
+    const hasNotesColumn = await hasBuyerUploadsNotesColumn();
+    const notesSelect = hasNotesColumn ? '"Notes" as notes,' : 'NULL::text as notes,';
     
     // We fetch the data
     const query = `
@@ -172,7 +204,7 @@ router.get('/requests', protect, async (req, res) => {
         "UploadID" as id, 
         "Title" as title, 
         "Description" as description, 
-        "Notes" as notes, 
+        ${notesSelect} 
         "AdminFeedback" as "AdminFeedback", 
         "EndDate" as endDate, 
         "FilePath" as filePath, 

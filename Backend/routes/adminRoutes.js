@@ -80,6 +80,33 @@ const parseJsonArray = (payload) => {
   }
 };
 
+// Cache once to avoid repeated information_schema lookups.
+let buyerUploadsNotesColumnExists;
+const hasBuyerUploadsNotesColumn = async () => {
+  if (buyerUploadsNotesColumnExists !== undefined) {
+    return buyerUploadsNotesColumnExists;
+  }
+
+  try {
+    const { rows } = await pool.query(`
+      SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'BuyerUploads'
+          AND column_name = 'Notes'
+      ) AS exists;
+    `);
+
+    buyerUploadsNotesColumnExists = Boolean(rows[0] && rows[0].exists);
+  } catch (err) {
+    console.warn('[adminRoutes] Failed to detect BuyerUploads.Notes column:', err.message);
+    buyerUploadsNotesColumnExists = false;
+  }
+
+  return buyerUploadsNotesColumnExists;
+};
+
 const safeNumber = (value, fallback = null) => {
   if (value === null || value === undefined) {
     return fallback;
@@ -1958,6 +1985,9 @@ router.get("/buyer-requests", protect, async (req, res) => {
     const params = [];
     const where = [];
 
+    const hasNotesColumn = await hasBuyerUploadsNotesColumn();
+    const notesSelect = hasNotesColumn ? 'bu."Notes" as notes,' : 'NULL::text as notes,';
+
     if (status) {
       params.push(status.toUpperCase());
       where.push(`bu."Status" = $${params.length}`);
@@ -1987,7 +2017,7 @@ router.get("/buyer-requests", protect, async (req, res) => {
           bu."UploadID" as id,
           bu."Title" as title,
           bu."Description" as description,
-          bu."Notes" as notes,
+          ${notesSelect}
           bu."EndDate" as "endDate",
           bu."FilePath" as "filePath",
           bu."Status" as status,
@@ -2052,12 +2082,15 @@ router.get("/buyer-requests/:id", protect, async (req, res) => {
   }
 
   try {
+    const hasNotesColumn = await hasBuyerUploadsNotesColumn();
+    const notesSelect = hasNotesColumn ? 'bu."Notes" as notes,' : 'NULL::text as notes,';
+
     const query = `
       SELECT 
         bu."UploadID" as id,
         bu."Title" as title,
         bu."Description" as description,
-        bu."Notes" as notes,
+        ${notesSelect}
         bu."EndDate" as "endDate",
         bu."FilePath" as "filePath",
         bu."Status" as status,
