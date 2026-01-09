@@ -2,13 +2,15 @@ const express = require("express");
 const router = express.Router();
 const multer = require("multer");
 const path = require("path");
-const { uploadBuffer, blobServiceClient } = require("../utils/azureBlob");
+const { uploadBuffer } = require("../utils/supabaseStorage");
 const { protect } = require("./authMiddleware");
 const pool = require("../db.js");
 
-// Configure multer: use memory storage when Azure Blob is configured, otherwise disk storage
+// Configure multer: use memory storage when Supabase is configured, otherwise disk storage
+const useSupabase = Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+
 let storage;
-if (blobServiceClient) {
+if (useSupabase) {
   storage = multer.memoryStorage();
 } else {
   // Use the same multer storage configuration as in adminRoutes (disk fallback)
@@ -40,16 +42,15 @@ router.post("/", protect, upload.single("responseFile"), async (req, res) => {
     return res.status(400).json({ message: "Missing supplier file ID or uploaded file." });
   }
 
-  // Determine file path: prefer Azure blob URL when buffer is available and upload succeeds
+  // Determine file path: prefer Supabase blob path when buffer is available and upload succeeds
   let responseFilePath = null;
-  if (req.file && req.file.buffer && blobServiceClient) {
+  if (req.file && req.file.buffer && useSupabase) {
     try {
-      const containerName = process.env.AZURE_PDF_CONTAINER || 'pdfs';
       const safeName = (req.file.originalname || 'response').replace(/[^a-zA-Z0-9._-]/g, '_');
       const blobName = `responses/${Date.now()}-${Math.round(Math.random()*1e9)}-${safeName}`;
-      responseFilePath = await uploadBuffer(containerName, blobName, req.file.buffer, req.file.mimetype);
-    } catch (azureErr) {
-      console.error('[responseRoutes] Azure upload failed:', azureErr && azureErr.message);
+      responseFilePath = await uploadBuffer(blobName, req.file.buffer, req.file.mimetype);
+    } catch (supaErr) {
+      console.error('[responseRoutes] Supabase upload failed:', supaErr && supaErr.message);
       // fallback to disk path if available
       responseFilePath = req.file.path || null;
     }

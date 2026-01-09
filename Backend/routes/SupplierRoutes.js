@@ -1,26 +1,15 @@
 const express = require("express");
 const router = express.Router();
 const multer = require('multer');
-let useAzure = false;
-let azureClient;
-try {
-  if (process.env.AZURE_STORAGE_CONNECTION_STRING) {
-    const { BlobServiceClient } = require('@azure/storage-blob');
-    azureClient = { BlobServiceClient };
-    useAzure = true;
-    console.log('[SupplierRoutes.js] Azure Blob Storage configured via AZURE_STORAGE_CONNECTION_STRING');
-  }
-} catch (e) {
-  console.warn('[SupplierRoutes.js] Azure storage SDK not available or failed to initialize.');
-}
 const path = require('path');
 const xlsx = require('xlsx'); // For reading Excel files
 const fs = require('fs');     // For file system operations (deleting temp files)
-const { generateSasUrl, downloadBlob, uploadBuffer } = require('../utils/azureBlob');
+const { uploadBuffer, generateSignedUrl, downloadFile } = require('../utils/supabaseStorage');
+const useSupabase = Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 // configure multer storage
 let storage;
-if (useAzure) {
+if (useSupabase) {
   storage = multer.memoryStorage();
 } else {
   storage = multer.diskStorage({
@@ -164,32 +153,28 @@ const getSupplierIdForUser = async (client, userId) => {
   );
   return result.rows[0]?.SupplierID || null;
 };
-const generateSupplierFileSasUrls = (rows) => {
-  const containerName = process.env.AZURE_PDF_CONTAINER || 'pdfs';
-  
-  return rows.map(row => {
-    // Generate SAS URL for announcement PDF
+const generateSupplierFileSasUrls = async (rows) => {
+  return Promise.all(rows.map(async (row) => {
     if (row.filePath) {
       try {
-        row.fileUrl = generateSasUrl(containerName, row.filePath, 60);
+        row.fileUrl = await generateSignedUrl(row.filePath, 60);
       } catch (error) {
-        console.error('Error generating SAS URL for announcement:', error);
+        console.error('Error generating signed URL for announcement:', error);
         row.fileUrl = null;
       }
     }
-    
-    // Generate SAS URL for supplier response PDF
+
     if (row.lastResponseFilePath) {
       try {
-        row.lastResponseFileUrl = generateSasUrl(containerName, row.lastResponseFilePath, 60);
+        row.lastResponseFileUrl = await generateSignedUrl(row.lastResponseFilePath, 60);
       } catch (error) {
-        console.error('Error generating SAS URL for response:', error);
+        console.error('Error generating signed URL for response:', error);
         row.lastResponseFileUrl = null;
       }
     }
-    
+
     return row;
-  });
+  }));
 };
 // @desc    Get assigned procurement files for a logged-in supplier
 // @route   GET /api/supplier-files
@@ -211,8 +196,8 @@ router.get("/", protect, async (req, res) => {
 
     const assignedFiles = await fetchSupplierFiles({ client: pool, supplierId });
     
-    // Generate SAS URLs for all files
-    const filesWithUrls = generateSupplierFileSasUrls(assignedFiles);
+    // Generate signed URLs for all files
+    const filesWithUrls = await generateSupplierFileSasUrls(assignedFiles);
     
     res.json(filesWithUrls);
     console.log("[SupplierRoutes.js] Successfully fetched assigned files with SAS URLs.");
@@ -446,7 +431,7 @@ router.post('/uploads', protect, upload.single('file'), async (req, res) => { //
     if (!supplierId) return res.status(404).json({ message: 'Supplier profile not found' });
 
       // 2. Log the upload attempt with 'PROCESSING' status
-      // For Azure memory uploads we won't have a disk path yet; insert an empty string to satisfy DB NOT NULL constraint
+      // For memory uploads we won't have a disk path yet; insert an empty string to satisfy DB NOT NULL constraint
       const tempPath = file.path || '';
       const logResult = await pool.query(
         `INSERT INTO "SupplierUploads" ("SupplierID", "FilePath", "FileName", "Status") VALUES ($1, $2, $3, 'PROCESSING') RETURNING "UploadID"`,
@@ -456,8 +441,7 @@ router.post('/uploads', protect, upload.single('file'), async (req, res) => { //
 
     // 3. Find and read the correct sheet from the Excel file
     let workbook;
-    const { uploadBuffer } = require('../utils/azureBlob');
-    if (useAzure && file.buffer) {
+    if (file.buffer) {
       workbook = xlsx.read(file.buffer, { type: 'buffer' });
     } else {
       workbook = xlsx.readFile(file.path);
@@ -603,16 +587,15 @@ router.post('/uploads', protect, upload.single('file'), async (req, res) => { //
             }
           }
 
-            // If Azure is used, upload the original file buffer to Azure Blob and update the SupplierUploads record with the blob URL
-            if (useAzure && file.buffer) {
+            // If Supabase is used, upload the original file buffer and update the SupplierUploads record with the blob path
+            if (useSupabase && file.buffer) {
               try {
-                const containerName = process.env.AZURE_EXCEL_CONTAINER || 'excels';
                 const safeName = (file.originalname || 'upload').replace(/[^a-zA-Z0-9._-]/g, '_');
                 const blobName = `supplier-uploads/${Date.now()}-${Math.round(Math.random()*1e9)}-${safeName}`;
-                const blobUrl = await uploadBuffer(containerName, blobName, file.buffer, file.mimetype || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-                await pool.query('UPDATE "SupplierUploads" SET "FilePath" = $1 WHERE "UploadID" = $2', [blobUrl, uploadLogId]);
-              } catch (azureErr) {
-                console.error('[SupplierRoutes] Failed to upload excel file to Azure Blob:', azureErr);
+                const blobPath = await uploadBuffer(blobName, file.buffer, file.mimetype || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+                await pool.query('UPDATE "SupplierUploads" SET "FilePath" = $1 WHERE "UploadID" = $2', [blobPath, uploadLogId]);
+              } catch (supaErr) {
+                console.error('[SupplierRoutes] Failed to upload excel file to Supabase Storage:', supaErr);
               }
             }
           // 3. Insert all unique, valid category IDs that were found into the ItemCategories table.
@@ -1103,17 +1086,16 @@ router.get("/:supplierFileId/response-file", protect, async (req, res) => {
 
     const filePath = rows[0].ResponseFilePath;
     const title = rows[0].Title;
-    const containerName = process.env.AZURE_PDF_CONTAINER || 'pdfs';
 
     console.log(`[SupplierRoutes.js] response-file: found record. SupplierFileID=${supplierFileId} SupplierID=${supplierId} ResponseFilePath=${filePath} Title=${title}`);
 
-    // Download from Azure
-    const downloadResponse = await downloadBlob(containerName, filePath);
+    // Download from Supabase
+    const stream = await downloadFile(filePath);
     
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${title}-response.pdf"`);
     
-    downloadResponse.readableStreamBody.pipe(res);
+    stream.pipe(res);
   } catch (err) {
     console.error("Error downloading response file:", err);
     

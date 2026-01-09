@@ -6,21 +6,11 @@ const db = require('../db');
 const { protect } = require('./authMiddleware');
 const fs = require('fs');
 
-// Prefer Azure Blob Storage when connection string is provided; fall back to DigitalOcean S3 (aws-sdk) or local disk.
+// Prefer Supabase Storage; fall back to DigitalOcean S3 (aws-sdk) or local disk.
+const { uploadBuffer, generateSignedUrl } = require('../utils/supabaseStorage');
 let aws;
 let multerS3;
-let useAzure = false;
-let azureClient;
-try {
-  if (process.env.AZURE_STORAGE_CONNECTION_STRING) {
-    const { BlobServiceClient } = require('@azure/storage-blob');
-    azureClient = { BlobServiceClient };
-    useAzure = true;
-    console.log('[BuyerRoutes.js] Azure Blob Storage configured via AZURE_STORAGE_CONNECTION_STRING');
-  }
-} catch (e) {
-  console.warn('[BuyerRoutes.js] Azure storage SDK not available or failed to initialize.');
-}
+const useSupabase = Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 let buyerUploadsNotesColumnExists;
 const hasBuyerUploadsNotesColumn = async () => {
@@ -55,8 +45,7 @@ try {
 }
 
 let storage;
-if (useAzure) {
-  // use memory storage so we can upload buffer to Azure Blob Storage
+if (useSupabase) {
   storage = multer.memoryStorage();
 } else if (aws && multerS3) {
   try {
@@ -145,17 +134,15 @@ router.post('/upload', protect, upload.single('file'), async (req, res) => {
       console.warn('[BuyerRoutes.js] Missing required fields.', { title, description, endDate, file: !!req.file });
       return res.status(400).json({ error: 'Missing required fields.' });
     }
-    // IMPORTANT: prefer req.file.location (DigitalOcean Spaces) or Azure blob URL; fallback to filesystem path/filename for disk storage.
+    // IMPORTANT: prefer Supabase blob path; fallback to Spaces/disk path if needed.
     let filePath = null;
-    const { uploadBuffer } = require('../utils/azureBlob');
-    if (useAzure && req.file && req.file.buffer) {
+    if (useSupabase && req.file && req.file.buffer) {
       try {
-        const containerName = process.env.AZURE_PDF_CONTAINER || 'pdfs';
         const safeName = (req.file.originalname || 'upload').replace(/[^a-zA-Z0-9._-]/g, '_');
         const blobName = `buyer-pr/${Date.now()}-${Math.round(Math.random()*1e9)}-${safeName}`;
-        filePath = await uploadBuffer(containerName, blobName, req.file.buffer, req.file.mimetype);
-      } catch (azureErr) {
-        console.error('[BuyerRoutes.js] Azure upload failed:', azureErr);
+        filePath = await uploadBuffer(blobName, req.file.buffer, req.file.mimetype);
+      } catch (supaErr) {
+        console.error('[BuyerRoutes.js] Supabase upload failed:', supaErr);
         filePath = (req.file && (req.file.location || req.file.path || req.file.filename)) || null;
       }
     } else {

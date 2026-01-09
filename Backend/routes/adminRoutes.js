@@ -10,7 +10,7 @@ const fs = require("fs");
 const buyerRoutes = require('./BuyerRoutes');
 
 const FALLBACK_CATEGORY_NAME = "Uncategorized";
-const { generateSasUrl, downloadBlob } = require('../utils/azureBlob');
+const { generateSignedUrl, downloadFile, uploadBuffer } = require('../utils/supabaseStorage');
 
 const parseBooleanQuery = (value) => {
   if (typeof value !== "string") {
@@ -189,15 +189,10 @@ const recordStatusHistory = async (client, {
 };
 
 // --- Multer Configuration for File Uploads ---
-let adminUseAzure = false;
-try {
-  adminUseAzure = Boolean(process.env.AZURE_STORAGE_CONNECTION_STRING);
-} catch (e) {
-  adminUseAzure = false;
-}
+const adminUseSupabase = Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 let adminStorage;
-if (adminUseAzure) {
+if (adminUseSupabase) {
   adminStorage = multer.memoryStorage();
 } else {
   adminStorage = multer.diskStorage({
@@ -344,17 +339,15 @@ router.post("/announcements", protect, upload.single("file"), async (req, res) =
   const normalizedSendType = String(sendType || 'category').toLowerCase() === 'supplier' ? 'supplier' : 'category';
   const createdByUserId = coerceToInt(req.user?.userID || req.user?.id);
 
-  const { uploadBuffer } = require('../utils/azureBlob');
   let filePath = null;
   if (req.file) {
-    if (adminUseAzure && req.file.buffer) {
+    if (adminUseSupabase && req.file.buffer) {
       try {
-        const containerName = process.env.AZURE_PDF_CONTAINER || 'pdfs';
         const safeName = (req.file.originalname || 'upload').replace(/[^a-zA-Z0-9._-]/g, '_');
         const blobName = `announcements/${Date.now()}-${Math.round(Math.random()*1e9)}-${safeName}`;
-        filePath = await uploadBuffer(containerName, blobName, req.file.buffer, req.file.mimetype);
-      } catch (azureErr) {
-        console.error('[adminRoutes] Azure upload failed for announcement file:', azureErr);
+        filePath = await uploadBuffer(blobName, req.file.buffer, req.file.mimetype);
+      } catch (supaErr) {
+        console.error('[adminRoutes] Supabase upload failed for announcement file:', supaErr);
         filePath = req.file.path || null;
       }
     } else {
@@ -530,17 +523,15 @@ router.put("/announcements/:id", protect, upload.single("file"), async (req, res
     }
 
     const endDateToSet = typeof end === 'string' && end.trim().length > 0 ? end.trim() : existing.EndDate;
-    const { uploadBuffer } = require('../utils/azureBlob');
     let filePathToSet = existing.FilePath;
     if (req.file) {
-      if (adminUseAzure && req.file.buffer) {
+      if (adminUseSupabase && req.file.buffer) {
         try {
-          const containerName = process.env.AZURE_PDF_CONTAINER || 'pdfs';
           const safeName = (req.file.originalname || 'upload').replace(/[^a-zA-Z0-9._-]/g, '_');
           const blobName = `announcements/${Date.now()}-${Math.round(Math.random()*1e9)}-${safeName}`;
-          filePathToSet = await uploadBuffer(containerName, blobName, req.file.buffer, req.file.mimetype);
-        } catch (azureErr) {
-          console.error('[adminRoutes] Azure upload failed for announcement edit file:', azureErr);
+          filePathToSet = await uploadBuffer(blobName, req.file.buffer, req.file.mimetype);
+        } catch (supaErr) {
+          console.error('[adminRoutes] Supabase upload failed for announcement edit file:', supaErr);
           filePathToSet = req.file.path || existing.FilePath;
         }
       } else {
@@ -2042,19 +2033,18 @@ router.get("/buyer-requests", protect, async (req, res) => {
     const { rows } = await pool.query(query, params);
     const totalCount = rows.length > 0 ? Number(rows[0].TotalCountAll || 0) : 0;
 
-    // Generate SAS URLs for all items
-    const containerName = process.env.AZURE_PDF_CONTAINER || 'pdfs';
-    const itemsWithUrls = rows.map(item => {
+    // Generate signed URLs for all items
+    const itemsWithUrls = await Promise.all(rows.map(async (item) => {
       if (item.filePath) {
         try {
-          item.fileUrl = generateSasUrl(containerName, item.filePath, 60);
+          item.fileUrl = await generateSignedUrl(item.filePath, 60);
         } catch (error) {
-          console.error('Error generating SAS URL for item:', item.id, error);
+          console.error('Error generating signed URL for item:', item.id, error);
           item.fileUrl = null;
         }
       }
       return item;
-    });
+    }));
 
     res.json({
       items: itemsWithUrls,
@@ -2112,13 +2102,12 @@ router.get("/buyer-requests/:id", protect, async (req, res) => {
 
     const result = rows[0];
     
-    // Generate SAS URL for the PDF (60 minutes expiry)
+    // Generate signed URL for the PDF (60 minutes expiry)
     if (result.filePath) {
       try {
-        const containerName = process.env.AZURE_PDF_CONTAINER || 'pdfs';
-        result.fileUrl = generateSasUrl(containerName, result.filePath, 60);
+        result.fileUrl = await generateSignedUrl(result.filePath, 60);
       } catch (error) {
-        console.error('Error generating SAS URL:', error);
+        console.error('Error generating signed URL:', error);
         result.fileUrl = null;
       }
     }
@@ -2152,15 +2141,14 @@ router.get("/buyer-requests/:id/file", protect, async (req, res) => {
 
     const filePath = rows[0].FilePath; // e.g., "buyer-pr/announcements/filename.pdf"
     const title = rows[0].Title;
-    const containerName = process.env.AZURE_PDF_CONTAINER || 'pdfs';
 
-    // Download from Azure
-    const downloadResponse = await downloadBlob(containerName, filePath);
+    // Download from Supabase
+    const stream = await downloadFile(filePath);
     
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${title}.pdf"`);
     
-    downloadResponse.readableStreamBody.pipe(res);
+    stream.pipe(res);
   } catch (err) {
     console.error("Error downloading file:", err);
     
