@@ -20,8 +20,6 @@ export default function LoginCard() {
   const showToast = (type, message, duration = 3000) =>
     setToast({ visible: true, type, message, duration });
   const hideToast = () => setToast({ visible: false, type: "info", message: "" });
-const BACKEND_URL = "https://msss-backend-1aoc.onrender.com";
-
   // Prefill remembered email and reset fields on mount
   useEffect(() => {
     setEmail("");
