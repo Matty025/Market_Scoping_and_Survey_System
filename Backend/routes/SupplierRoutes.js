@@ -47,8 +47,8 @@ const supplierFileSelectColumns = `
         sf."OptInStatus" AS "optInStatus",
         sf."OptedInAt" AS "optedInAt",
         sf."DeclinedAt" AS "declinedAt",
-        sf."ReuseResponseID" AS "reuseResponseId",
-        sf."LastReusedAt" AS "lastReusedAt",
+        NULL::int AS "reuseResponseId",
+        NULL::timestamptz AS "lastReusedAt",
         pf."FileID",
         pf."Title",
         pf."Description",
@@ -93,8 +93,6 @@ const supplierFileGroupBy = `
         sf."OptInStatus",
         sf."OptedInAt",
         sf."DeclinedAt",
-        sf."ReuseResponseID",
-        sf."LastReusedAt",
         pf."FileID",
         pf."Title",
         pf."Description",
@@ -232,9 +230,7 @@ router.post("/:supplierFileId/opt-in", protect, async (req, res) => {
        SET "Status" = 'PENDING',
            "OptInStatus" = 'OPTED_IN',
            "OptedInAt" = NOW(),
-           "DeclinedAt" = NULL,
-           "ReuseResponseID" = NULL,
-           "LastReusedAt" = NULL
+           "DeclinedAt" = NULL
        WHERE "SupplierFileID" = $1`,
       [supplierFileId]
     );
@@ -299,9 +295,7 @@ router.post("/:supplierFileId/decline", protect, async (req, res) => {
       `UPDATE "SupplierFiles"
        SET "Status" = 'PENDING',
            "OptInStatus" = 'DECLINED',
-           "DeclinedAt" = NOW(),
-           "ReuseResponseID" = NULL,
-           "LastReusedAt" = NULL
+           "DeclinedAt" = NOW()
        WHERE "SupplierFileID" = $1`,
       [supplierFileId]
     );

@@ -437,9 +437,7 @@ router.post("/announcements", protect, upload.single("file"), async (req, res) =
           END,
           "OptInStatus" = 'PENDING',
           "OptedInAt" = NULL,
-          "DeclinedAt" = NULL,
-          "ReuseResponseID" = NULL,
-          "LastReusedAt" = NULL;
+          "DeclinedAt" = NULL;
       `;
       await client.query(supplierFileInsertQuery, [supplierIdsToNotify, newFileId]);
     }
@@ -610,12 +608,10 @@ router.put("/announcements/:id", protect, upload.single("file"), async (req, res
                THEN COALESCE("SupplierFiles"."CurrentAttemptNumber", 1) + 1
              ELSE GREATEST(COALESCE("SupplierFiles"."CurrentAttemptNumber", 1), 1)
            END,
-           "OptInStatus" = 'PENDING',
-           "OptedInAt" = NULL,
-           "DeclinedAt" = NULL,
-           "ReuseResponseID" = NULL,
-           "LastReusedAt" = NULL`,
-        [supplierIdsToNotify, fileId]
+            "OptInStatus" = 'PENDING',
+            "OptedInAt" = NULL,
+            "DeclinedAt" = NULL`,
+          [supplierIdsToNotify, fileId]
       );
     }
 
@@ -1505,7 +1501,7 @@ router.get("/announcements/:id/responses", protect, async (req, res) => {
         sf."CurrentAttemptNumber" AS "currentAttemptNumber",
         sf."OptedInAt"            AS "optedInAt",
         sf."DeclinedAt"           AS "declinedAt",
-        sf."LastReusedAt"         AS "lastReusedAt",
+        NULL::timestamptz          AS "lastReusedAt",
         sf."DateResponded"        AS "dateResponded",
         latest."ResponseID"       AS "responseId",
         latest."ResponseFilePath" AS "responseFilePath",
