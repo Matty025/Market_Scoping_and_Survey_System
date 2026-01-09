@@ -260,27 +260,13 @@ router.get("/announcements", protect, async (req, res) => {
       WITH filtered AS (
         SELECT
           pf.*,
-          COALESCE(attempts.attempt_count, 1) AS "AttemptNumber",
-          attempts.latest_active_at AS "AttemptSentAt",
-          attempts.latest_status AS "AttemptStatus",
+          1 AS "AttemptNumber",
+          NULL::timestamptz AS "AttemptSentAt",
+          NULL::text AS "AttemptStatus",
           COALESCE(response_stats.responder_distinct, 0) AS "DistinctResponderCount",
           COALESCE(response_stats.response_total, 0) AS "RawResponseCount",
           COUNT(*) OVER() AS "TotalCountAll"
         FROM "ProcurementFiles" AS pf
-        LEFT JOIN LATERAL (
-          SELECT
-            COUNT(*) FILTER (WHERE h."NewStatus" = 'ACTIVE') AS attempt_count,
-            MAX(CASE WHEN h."NewStatus" = 'ACTIVE' THEN h."ChangedAt" END) AS latest_active_at,
-            (
-              SELECT h2."NewStatus"
-              FROM "ProcurementStatusHistory" h2
-              WHERE h2."FileID" = pf."FileID"
-              ORDER BY h2."ChangedAt" DESC
-              LIMIT 1
-            ) AS latest_status
-          FROM "ProcurementStatusHistory" h
-          WHERE h."FileID" = pf."FileID"
-        ) AS attempts ON TRUE
         LEFT JOIN LATERAL (
           SELECT
             COUNT(*) AS response_total,
