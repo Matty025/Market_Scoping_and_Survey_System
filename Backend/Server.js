@@ -125,4 +125,10 @@ const startServer = async () => {
   });
 };
 
-startServer();
+// In Vercel serverless we export the app; only start listener when not on Vercel
+if (!process.env.VERCEL) {
+  startServer();
+}
+
+module.exports = app;
+module.exports.startServer = startServer;
