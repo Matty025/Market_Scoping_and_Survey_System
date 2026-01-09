@@ -55,10 +55,10 @@ const supplierFileSelectColumns = `
         pf."FilePath" as "filePath",
         pf."DatePosted" as "datePosted",
         pf."EndDate" as "endDate",
-        attempts.attempt_count AS "attemptCount",
-        latest."latestStatus",
-        latest."latestNote",
-        latest."latestChangedAt",
+        1 AS "attemptCount",
+        pf."Status" AS "latestStatus",
+        NULL::text AS "latestNote",
+        pf."DatePosted" AS "latestChangedAt",
         lastResponse."ResponseID" AS "lastResponseId",
         lastResponse."ResponseFilePath" AS "lastResponseFilePath",
         lastResponse."DateUploaded" AS "lastResponseDate",
@@ -73,21 +73,6 @@ const supplierFileJoins = `
       JOIN "ProcurementFiles" pf ON sf."FileID" = pf."FileID"
       LEFT JOIN "ProcurementFileCategories" pfc ON pfc."FileID" = pf."FileID"
       LEFT JOIN "Categories" c ON c."CategoryID" = pfc."CategoryID"
-      LEFT JOIN LATERAL (
-        SELECT COUNT(*) FILTER (WHERE h."NewStatus" = 'ACTIVE') AS attempt_count
-        FROM "ProcurementStatusHistory" h
-        WHERE h."FileID" = pf."FileID"
-      ) attempts ON TRUE
-      LEFT JOIN LATERAL (
-        SELECT
-          h."NewStatus" AS "latestStatus",
-          h."Notes" AS "latestNote",
-          h."ChangedAt" AS "latestChangedAt"
-        FROM "ProcurementStatusHistory" h
-        WHERE h."FileID" = pf."FileID"
-        ORDER BY h."ChangedAt" DESC
-        LIMIT 1
-      ) latest ON TRUE
       LEFT JOIN LATERAL (
         SELECT
           sr."ResponseID",
@@ -116,10 +101,6 @@ const supplierFileGroupBy = `
         pf."FilePath",
         pf."DatePosted",
         pf."EndDate",
-        attempts.attempt_count,
-        latest."latestStatus",
-        latest."latestNote",
-        latest."latestChangedAt",
         lastResponse."ResponseID",
         lastResponse."ResponseFilePath",
         lastResponse."DateUploaded"`;
@@ -381,7 +362,7 @@ router.get("/:supplierFileId/status-history", protect, async (req, res) => {
       SELECT
         h."HistoryID" AS id,
         h."OldStatus" AS "oldStatus",
-        h."NewStatus" AS "newStatus",
+        NULL::text AS "newStatus",
         h."ChangedAt" AS "changedAt",
         h."Notes" AS notes,
         h."ChangedBy" AS "changedBy",
