@@ -1,3 +1,13 @@
+// Load local .env when running scripts (e.g., resetPassword) outside server bootstrap
+try {
+  if (!process.env.DOTENV_LOADED) {
+    require("dotenv").config();
+    process.env.DOTENV_LOADED = "true";
+  }
+} catch (e) {
+  // dotenv optional; ignore if not installed in prod
+}
+
 const { Pool } = require("pg");
 
 if (!process.env.DATABASE_URL) {

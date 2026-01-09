@@ -311,7 +311,8 @@ router.get("/announcements", protect, async (req, res) => {
       limit
     });
   } catch (err) {
-    console.error("Error fetching announcements:", err.message);
+    console.error("Error fetching announcements:", err && err.message ? err.message : err);
+    if (err && err.stack) console.error(err.stack);
     res.status(500).json({ message: "Server error" });
   }
 });
