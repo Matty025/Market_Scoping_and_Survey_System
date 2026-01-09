@@ -266,7 +266,7 @@ router.get("/announcements", protect, async (req, res) => {
           COALESCE(response_stats.responder_distinct, 0) AS "DistinctResponderCount",
           COALESCE(response_stats.response_total, 0) AS "RawResponseCount",
           COUNT(*) OVER() AS "TotalCountAll"
-        FROM "ProcurementFilesWithDetails" AS pf
+        FROM "ProcurementFiles" AS pf
         LEFT JOIN LATERAL (
           SELECT
             COUNT(*) FILTER (WHERE h."NewStatus" = 'ACTIVE') AS attempt_count,
