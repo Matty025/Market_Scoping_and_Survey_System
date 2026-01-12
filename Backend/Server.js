@@ -12,6 +12,8 @@ const app = express();
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:3000",
+  "https://msss-2pxo.vercel.app", // ✅ frontend
+  "https://msss.vercel.app",      // optional if same-domain calls
   process.env.FRONTEND_ORIGIN // Your deployed frontend URL from env
 ].filter(Boolean); // Remove any undefined values
 
@@ -20,21 +22,22 @@ const allowCredentials = process.env.CORS_ALLOW_CREDENTIALS === "true";
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Allow requests with no origin (like mobile apps, Postman, curl)
       if (!origin) return callback(null, true);
-      
+
       if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        console.warn(`[CORS] Blocked origin: ${origin}`);
-        callback(new Error('Not allowed by CORS'));
+        return callback(null, true);
       }
+
+      console.warn(`[CORS] Blocked origin: ${origin}`);
+      return callback(null, false); // IMPORTANT
     },
-    credentials: allowCredentials,
+    credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
+
+app.options("*", cors()); // 🔥 REQUIRED
 
 console.log(`[CORS] Configured. Allowed origins:`, allowedOrigins);
 
