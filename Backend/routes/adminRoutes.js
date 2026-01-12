@@ -344,7 +344,9 @@ router.post("/announcements", protect, upload.single("file"), async (req, res) =
     if (adminUseSupabase && req.file.buffer) {
       try {
         const safeName = (req.file.originalname || 'upload').replace(/[^a-zA-Z0-9._-]/g, '_');
-        const blobName = `announcements/${Date.now()}-${Math.round(Math.random()*1e9)}-${safeName}`;
+        const titleSlug = (title || 'announcement').toString().trim().replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 60) || 'announcement';
+        const ymd = new Date().toISOString().slice(0, 10);
+        const blobName = `announcements/${ymd}/${titleSlug}-${Date.now()}-${Math.round(Math.random()*1e6)}-${safeName}`;
         filePath = await uploadBuffer(blobName, req.file.buffer, req.file.mimetype);
       } catch (supaErr) {
         console.error('[adminRoutes] Supabase upload failed for announcement file:', supaErr);
@@ -526,7 +528,9 @@ router.put("/announcements/:id", protect, upload.single("file"), async (req, res
       if (adminUseSupabase && req.file.buffer) {
         try {
           const safeName = (req.file.originalname || 'upload').replace(/[^a-zA-Z0-9._-]/g, '_');
-          const blobName = `announcements/${Date.now()}-${Math.round(Math.random()*1e9)}-${safeName}`;
+          const titleSlug = (titleToSet || 'announcement').toString().trim().replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 60) || 'announcement';
+          const ymd = new Date().toISOString().slice(0, 10);
+          const blobName = `announcements/${ymd}/${titleSlug}-${Date.now()}-${Math.round(Math.random()*1e6)}-${safeName}`;
           filePathToSet = await uploadBuffer(blobName, req.file.buffer, req.file.mimetype);
         } catch (supaErr) {
           console.error('[adminRoutes] Supabase upload failed for announcement edit file:', supaErr);

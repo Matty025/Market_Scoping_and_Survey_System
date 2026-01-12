@@ -47,7 +47,8 @@ router.post("/", protect, upload.single("responseFile"), async (req, res) => {
   if (req.file && req.file.buffer && useSupabase) {
     try {
       const safeName = (req.file.originalname || 'response').replace(/[^a-zA-Z0-9._-]/g, '_');
-      const blobName = `responses/${Date.now()}-${Math.round(Math.random()*1e9)}-${safeName}`;
+      const ymd = new Date().toISOString().slice(0, 10);
+      const blobName = `responses/${ymd}/file-${supplierFileId}-${Date.now()}-${Math.round(Math.random()*1e6)}-${safeName}`;
       responseFilePath = await uploadBuffer(blobName, req.file.buffer, req.file.mimetype);
     } catch (supaErr) {
       console.error('[responseRoutes] Supabase upload failed:', supaErr && supaErr.message);

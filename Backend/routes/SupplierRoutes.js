@@ -414,6 +414,19 @@ router.post('/uploads', protect, upload.single('file'), async (req, res) => { //
       );
     uploadLogId = logResult.rows[0].UploadID;
 
+    // If Supabase is used, upload the original file buffer once and update the SupplierUploads record
+    if (useSupabase && file.buffer) {
+      try {
+        const safeName = (file.originalname || 'upload').replace(/[^a-zA-Z0-9._-]/g, '_');
+        const ymd = new Date().toISOString().slice(0, 10);
+        const blobName = `supplier-uploads/${ymd}/supplier-${supplierId}-${Date.now()}-${Math.round(Math.random() * 1e6)}-${safeName}`;
+        const blobPath = await uploadBuffer(blobName, file.buffer, file.mimetype || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        await pool.query('UPDATE "SupplierUploads" SET "FilePath" = $1 WHERE "UploadID" = $2', [blobPath, uploadLogId]);
+      } catch (supaErr) {
+        console.error('[SupplierRoutes] Failed to upload excel file to Supabase Storage:', supaErr);
+      }
+    }
+
     // 3. Find and read the correct sheet from the Excel file
     let workbook;
     if (file.buffer) {
@@ -562,17 +575,6 @@ router.post('/uploads', protect, upload.single('file'), async (req, res) => { //
             }
           }
 
-            // If Supabase is used, upload the original file buffer and update the SupplierUploads record with the blob path
-            if (useSupabase && file.buffer) {
-              try {
-                const safeName = (file.originalname || 'upload').replace(/[^a-zA-Z0-9._-]/g, '_');
-                const blobName = `supplier-uploads/${Date.now()}-${Math.round(Math.random()*1e9)}-${safeName}`;
-                const blobPath = await uploadBuffer(blobName, file.buffer, file.mimetype || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-                await pool.query('UPDATE "SupplierUploads" SET "FilePath" = $1 WHERE "UploadID" = $2', [blobPath, uploadLogId]);
-              } catch (supaErr) {
-                console.error('[SupplierRoutes] Failed to upload excel file to Supabase Storage:', supaErr);
-              }
-            }
           // 3. Insert all unique, valid category IDs that were found into the ItemCategories table.
           for (const categoryId of foundCategoryIds) {
             if (categoryId) { // Final safety check
