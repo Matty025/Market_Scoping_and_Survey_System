@@ -31,6 +31,7 @@ import BuyerLayout from "./layout/BuyerLayout";
 import BuyerDashboard from "./pages/Buyer/Dashboard";
 import BuyerMarket from "./pages/Buyer/Market";
 import BuyerMarketSuppliers from "./pages/Buyer/MarketSuppliers";
+import BuyerProfile from "./pages/Buyer/Profile";
 
 // AppContent component to use context inside provider
 function AppContent() {
@@ -95,6 +96,7 @@ function AppContent() {
           <Route path="dashboard" element={<BuyerDashboard />} />
           <Route path="market" element={<BuyerMarket />} />
           <Route path="market-suppliers" element={<BuyerMarketSuppliers />} />
+          <Route path="profile" element={<BuyerProfile />} />
         </Route>
 
         {/* Catch-All */}

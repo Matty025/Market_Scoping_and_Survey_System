@@ -6,7 +6,7 @@ const Footer = () => {
     <footer className="footer">
       <div className="footer-container">
         <p className="footer-text">
-          © {new Date().getFullYear()} Market Research Scoping and Survey System
+          © {new Date().getFullYear()} Market Scoping and Survey System
         </p>
         <p className="footer-subtext">
           Developed by <strong>Team MSSS</strong> | All Rights Reserved

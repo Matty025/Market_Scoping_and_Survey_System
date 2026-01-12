@@ -1,10 +1,12 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import { FaBell, FaUserCircle, FaBars, FaChevronLeft } from "react-icons/fa";
 import { useAuth } from "./AuthContext";
 import "./AdminNavbar.css";
 
 const AdminNavbar = ({ title = "Admin", onToggle, isCollapsed }) => {
   const { fullName, userRole } = useAuth();
+  const navigate = useNavigate();
   
   // Display full name if available, otherwise fall back to role
   const displayName = fullName || title;
@@ -38,7 +40,17 @@ const AdminNavbar = ({ title = "Admin", onToggle, isCollapsed }) => {
         <button className="icon-btn" title="Notifications">
           <FaBell />
         </button>
-        <button className="icon-btn" title="Profile">
+        <button
+          className="icon-btn"
+          title="Profile"
+          onClick={() => {
+            const role = (userRole || "").toLowerCase();
+            if (role === "supplier") return navigate("/supplier/profile");
+            if (role === "admin") return navigate("/admin/manage-accounts");
+            if (role === "buyer") return navigate("/buyer/profile");
+            return navigate("/");
+          }}
+        >
           <FaUserCircle />
         </button>
       </div>

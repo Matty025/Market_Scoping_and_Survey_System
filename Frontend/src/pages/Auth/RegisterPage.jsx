@@ -245,7 +245,7 @@ const DocumentChecks = ({ formData, handleChange }) => {
 
   return (
     <div className="document-section">
-      <h3>Required Documents</h3>
+      <h3>Required Documents Checklist Guide</h3>
       <div className="checkboxes">
         {docs.map(d => (
           <label key={d.key}>
@@ -254,6 +254,7 @@ const DocumentChecks = ({ formData, handleChange }) => {
           </label>
         ))}
       </div>
+      <p className="document-contact">Submit documents or inquiries to <strong>procurement@msss.gov</strong>.</p>
     </div>
   );
 };
@@ -293,9 +294,12 @@ export default function RegisterPage() {
 
         {role === "supplier" && <DocumentChecks formData={formData} handleChange={handleChange} />}
 
-        <button type="submit" disabled={isSubmitting} className="register-btn">
-          {isSubmitting ? "Validating..." : (role === "supplier" ? "Next: Select Categories" : "Register")}
-        </button>
+        <div className="action-buttons">
+          <button type="submit" disabled={isSubmitting} className="register-btn">
+            {isSubmitting ? "Validating..." : (role === "supplier" ? "Next: Select Categories" : "Register")}
+          </button>
+          <button type="button" className="cancel-btn" onClick={() => navigate("/")}>Cancel</button>
+        </div>
       </form>
 
       <CategoryModal

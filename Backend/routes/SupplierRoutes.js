@@ -132,6 +132,111 @@ const getSupplierIdForUser = async (client, userId) => {
   );
   return result.rows[0]?.SupplierID || null;
 };
+
+// Basic profile fetch for a supplier
+router.get('/profile', protect, async (req, res) => {
+  try {
+    if (!req.user || req.user.role.toLowerCase() !== 'supplier') {
+      return res.status(403).json({ message: 'Only suppliers can view this profile.' });
+    }
+
+    const userId = req.user.userID;
+    const profileRes = await pool.query(
+      `SELECT u."FullName" AS "fullName", u."Email" AS "email", r."RoleName" AS "role",
+              s."CompanyName" AS "companyName", s."Address" AS "location",
+              s."ProfileImageUrl" AS "profileImageUrl",
+              COALESCE(u."CreatedAt", u."DateCreated", u."DateRegistered") AS "joinedAt",
+              u."SupplierID" AS "supplierId"
+         FROM "Users" u
+         LEFT JOIN "Roles" r ON r."RoleID" = u."RoleID"
+         LEFT JOIN "Suppliers" s ON s."SupplierID" = u."SupplierID"
+        WHERE u."UserID" = $1
+        LIMIT 1`,
+      [userId]
+    );
+
+    if (profileRes.rowCount === 0) {
+      return res.status(404).json({ message: 'Profile not found.' });
+    }
+
+    const profile = profileRes.rows[0];
+    const supplierId = profile.supplierId;
+    if (!supplierId) {
+      return res.status(404).json({ message: 'Supplier profile not found.' });
+    }
+
+    const categoriesRes = await pool.query(
+      `SELECT ARRAY_REMOVE(ARRAY_AGG(DISTINCT c."CategoryName"), NULL) AS categories
+         FROM "SupplierCategories" sc
+         JOIN "Categories" c ON c."CategoryID" = sc."CategoryID"
+        WHERE sc."SupplierID" = $1`,
+      [supplierId]
+    );
+    const totalProductsRes = await pool.query(
+      'SELECT COUNT(*)::int AS count FROM "Items" WHERE "SupplierID" = $1',
+      [supplierId]
+    );
+
+    const signedAvatarUrl = profile.profileImageUrl
+      ? await generateSignedUrl(profile.profileImageUrl, 60)
+      : null;
+
+    return res.json({
+      fullName: profile.fullName,
+      email: profile.email,
+      role: profile.role,
+      companyName: profile.companyName,
+      location: profile.location,
+      profileImageUrl: signedAvatarUrl,
+      profileImagePath: profile.profileImageUrl || null,
+      categories: categoriesRes.rows[0]?.categories || [],
+      totalProducts: totalProductsRes.rows[0]?.count || 0,
+      joinedAt: profile.joinedAt,
+    });
+  } catch (err) {
+    console.error('Error fetching supplier profile:', err && err.message ? err.message : err);
+    return res.status(500).json({ message: 'Server error while fetching profile.' });
+  }
+});
+
+// Update supplier profile picture
+router.post('/profile/avatar', protect, upload.single('avatar'), async (req, res) => {
+  try {
+    if (!req.user || req.user.role.toLowerCase() !== 'supplier') {
+      return res.status(403).json({ message: 'Only suppliers can update this profile.' });
+    }
+
+    const file = req.file;
+    if (!file || !file.buffer) {
+      return res.status(400).json({ message: 'Avatar file is required.' });
+    }
+
+    const userId = req.user.userID;
+    const supplierId = await getSupplierIdForUser(pool, userId);
+    if (!supplierId) {
+      return res.status(404).json({ message: 'Supplier profile not found.' });
+    }
+
+    const safeName = (file.originalname || 'avatar').replace(/[^a-zA-Z0-9._-]/g, '_');
+    const ymd = new Date().toISOString().slice(0, 10);
+    const blobName = `supplier-profile/${supplierId}/${ymd}/avatar-${Date.now()}-${Math.round(Math.random() * 1e6)}-${safeName}`;
+
+    let blobPath;
+    try {
+      blobPath = await uploadBuffer(blobName, file.buffer, file.mimetype || 'image/png');
+    } catch (uploadErr) {
+      console.error('[SupplierRoutes] Avatar upload failed:', uploadErr && uploadErr.message ? uploadErr.message : uploadErr);
+      return res.status(500).json({ message: 'Failed to upload avatar to storage.' });
+    }
+
+    await pool.query('UPDATE "Suppliers" SET "ProfileImageUrl" = $1 WHERE "SupplierID" = $2', [blobPath, supplierId]);
+    const signedUrl = await generateSignedUrl(blobPath, 60);
+    return res.json({ message: 'Avatar updated.', profileImageUrl: signedUrl, profileImagePath: blobPath });
+  } catch (err) {
+    console.error('Error updating supplier avatar:', err && err.message ? err.message : err);
+    return res.status(500).json({ message: 'Server error while updating avatar.' });
+  }
+});
 const generateSupplierFileSasUrls = async (rows) => {
   return Promise.all(rows.map(async (row) => {
     if (row.filePath) {

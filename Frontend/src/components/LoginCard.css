@@ -154,6 +154,21 @@
   font-weight: 500;
 }
 
+.toggle-password {
+  border: none;
+  background: transparent;
+  color: #0032A0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+}
+
+.toggle-password:hover {
+  color: #0047BB;
+}
+
 .input-icon input::placeholder {
   color: rgba(30, 41, 59, 0.5);
   font-weight: 400;
