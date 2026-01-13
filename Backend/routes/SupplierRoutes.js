@@ -142,16 +142,16 @@ router.get('/profile', protect, async (req, res) => {
 
     const userId = req.user.userID;
     const profileRes = await pool.query(
-      `SELECT u."FullName" AS "fullName", u."Email" AS "email", r."RoleName" AS "role",
-              s."CompanyName" AS "companyName", s."Address" AS "location",
-              u."ProfileImageUrl" AS "profileImageUrl",
-              COALESCE(u."DateCreated", u."DateCreated", u."DateRegistered") AS "joinedAt",
-              u."SupplierID" AS "supplierId"
-         FROM "Users" u
-         LEFT JOIN "Roles" r ON r."RoleID" = u."RoleID"
-         LEFT JOIN "Suppliers" s ON s."SupplierID" = u."SupplierID"
-        WHERE u."UserID" = $1
-        LIMIT 1`,
+        `SELECT u."FullName" AS "fullName", u."Email" AS "email", r."RoleName" AS "role",
+                s."CompanyName" AS "companyName", s."Address" AS "location",
+                u."ProfileImageUrl" AS "profileImageUrl",
+                COALESCE(u."CreatedAt", u."DateCreated") AS "joinedAt",
+                u."SupplierID" AS "supplierId"
+           FROM "Users" u
+           LEFT JOIN "Roles" r ON r."RoleID" = u."RoleID"
+           LEFT JOIN "Suppliers" s ON s."SupplierID" = u."SupplierID"
+          WHERE u."UserID" = $1
+          LIMIT 1`,
       [userId]
     );
 
