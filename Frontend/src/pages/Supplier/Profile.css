@@ -159,6 +159,56 @@
   cursor: not-allowed;
 }
 
+.verify-btn {
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid #d0d7e2;
+  background: #f8fafc;
+  color: #0f172a;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.verify-btn:hover:not(:disabled) {
+  background: #eef2f7;
+  border-color: #c0c8d6;
+}
+
+.verify-btn.edit {
+  background: #ffffff;
+  border-style: dashed;
+  color: #475569;
+}
+
+.verify-btn.edit:hover:not(:disabled) {
+  background: #f6f7fb;
+  border-color: #cbd5e1;
+}
+
+.badge-verified,
+.badge-unverified {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.badge-verified {
+  background: #ecfdf3;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.badge-unverified {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecdd3;
+}
+
 .avatar-lightbox {
   max-width: 90vw;
   max-height: 90vh;

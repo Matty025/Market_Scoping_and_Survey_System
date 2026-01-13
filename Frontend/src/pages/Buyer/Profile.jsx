@@ -174,21 +174,27 @@ export default function BuyerProfile() {
               <span>{email}</span>
             </span>
             {email_verified ? (
-              <button
-                className="verify-btn"
-                onClick={openVerifyModal}
-                disabled={isEditDisabled || savingEmail}
-              >
-                {isEditDisabled ? "Edit later" : "Edit email"}
-              </button>
+              <>
+                <span className="badge-verified">Verified</span>
+                <button
+                  className="verify-btn edit"
+                  onClick={openVerifyModal}
+                  disabled={isEditDisabled || savingEmail}
+                >
+                  {isEditDisabled ? "Edit later" : "Edit email"}
+                </button>
+              </>
             ) : (
-              <button
-                className="verify-btn"
-                onClick={openVerifyModal}
-                disabled={isSendDisabled}
-              >
-                {verifyStatus === "sending" ? "Sending..." : verifyStatus === "sent" ? "Sent" : "Verify email"}
-              </button>
+              <>
+                <span className="badge-unverified">Unverified</span>
+                <button
+                  className="verify-btn"
+                  onClick={openVerifyModal}
+                  disabled={isSendDisabled}
+                >
+                  {verifyStatus === "sending" ? "Sending..." : verifyStatus === "sent" ? "Sent" : "Verify email"}
+                </button>
+              </>
             )}
           </p>
         </div>
@@ -218,6 +224,9 @@ export default function BuyerProfile() {
           <div className="verify-modal-backdrop" onClick={() => setShowVerifyModal(false)}>
             <div className="verify-modal" onClick={(e) => e.stopPropagation()}>
               <h3>Verify email</h3>
+              <p style={{ margin: "0 0 10px", color: "#b91c1c", fontSize: 13 }}>
+                Use a Gmail address you own. It must not be used by another account. Sending is limited (cooldown and daily caps apply).
+              </p>
               <div className="field">
                 <label>Current email</label>
                 <input
