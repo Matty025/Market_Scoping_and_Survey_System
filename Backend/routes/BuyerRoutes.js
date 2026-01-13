@@ -7,7 +7,7 @@ const { protect } = require('./authMiddleware');
 const fs = require('fs');
 
 // Prefer Supabase Storage; fall back to DigitalOcean S3 (aws-sdk) or local disk.
-const { uploadBuffer, generateSignedUrl } = require('../utils/supabaseStorage');
+const { uploadBuffer, generateSignedUrl, deleteFile } = require('../utils/supabaseStorage');
 let aws;
 let multerS3;
 const useSupabase = Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
@@ -104,6 +104,26 @@ const fileFilter = (req, file, cb) => {
 
 const upload = multer({ storage: storage, fileFilter: fileFilter });
 
+// Avatar uploader (separate from PDF filter)
+let avatarStorage;
+if (useSupabase) {
+  avatarStorage = multer.memoryStorage();
+} else {
+  avatarStorage = multer.diskStorage({
+    destination: function (req, file, cb) {
+      const dest = path.join(__dirname, '..', 'uploads');
+      try { fs.mkdirSync(dest, { recursive: true }); } catch (_) {}
+      cb(null, dest);
+    },
+    filename: function (req, file, cb) {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+      const safeName = (file.originalname || 'avatar').replace(/[^a-zA-Z0-9._-]/g, '_');
+      cb(null, `${uniqueSuffix}-${safeName}`);
+    },
+  });
+}
+const avatarUpload = multer({ storage: avatarStorage });
+
 // Helper: add a history entry for a purchase request
 async function addPurchaseRequestHistory(uploadId, action, details) {
   try {
@@ -120,6 +140,104 @@ async function addPurchaseRequestHistory(uploadId, action, details) {
 
 // expose helper via router so other modules (e.g., admin routes) can call it
 router.addPurchaseRequestHistory = addPurchaseRequestHistory;
+
+// Basic buyer profile fetch
+router.get('/profile', protect, async (req, res) => {
+  try {
+    if (!req.user || (req.user.role || '').toLowerCase() !== 'buyer') {
+      return res.status(403).json({ message: 'Only buyers can view this profile.' });
+    }
+
+    const userId = req.user.userID || req.user.UserID || req.user.id;
+    const profileRes = await db.query(
+      `SELECT u."FullName" AS "fullName", u."Email" AS "email", r."RoleName" AS "role",
+              u."ProfileImageUrl" AS "profileImageUrl",
+              u."DateCreated" AS "joinedAt"
+         FROM "Users" u
+         LEFT JOIN "Roles" r ON r."RoleID" = u."RoleID"
+        WHERE u."UserID" = $1
+        LIMIT 1`,
+      [userId]
+    );
+
+    if (profileRes.rowCount === 0) {
+      return res.status(404).json({ message: 'Profile not found.' });
+    }
+
+    const profile = profileRes.rows[0];
+
+    let signedAvatarUrl = null;
+    if (profile.profileimageurl) {
+      try {
+        signedAvatarUrl = await generateSignedUrl(profile.profileimageurl, 60);
+      } catch (sigErr) {
+        console.warn('[BuyerRoutes] Avatar signed URL failed:', sigErr && sigErr.message ? sigErr.message : sigErr);
+        signedAvatarUrl = null;
+      }
+    }
+
+    return res.json({
+      fullName: profile.fullname,
+      email: profile.email,
+      role: profile.role,
+      profileImageUrl: signedAvatarUrl,
+      profileImagePath: profile.profileimageurl || null,
+      joinedAt: profile.joinedat,
+    });
+  } catch (err) {
+    console.error('Error fetching buyer profile:', err && err.message ? err.message : err);
+    return res.status(500).json({ message: 'Server error while fetching profile.' });
+  }
+});
+
+// Update buyer profile picture
+router.post('/profile/avatar', protect, avatarUpload.single('avatar'), async (req, res) => {
+  try {
+    if (!req.user || (req.user.role || '').toLowerCase() !== 'buyer') {
+      return res.status(403).json({ message: 'Only buyers can update this profile.' });
+    }
+
+    const file = req.file;
+    if (!file || !file.buffer) {
+      return res.status(400).json({ message: 'Avatar file is required.' });
+    }
+
+    const userId = req.user.userID || req.user.UserID || req.user.id;
+
+    // Fetch previous avatar path for cleanup
+    const prevRes = await db.query('SELECT "ProfileImageUrl" FROM "Users" WHERE "UserID" = $1', [userId]);
+    const previousAvatarPath = prevRes.rows[0]?.ProfileImageUrl || null;
+
+    const safeName = (file.originalname || 'avatar').replace(/[^a-zA-Z0-9._-]/g, '_');
+    const ymd = new Date().toISOString().slice(0, 10);
+    const blobName = `buyer-profile/${userId}/${ymd}/avatar-${Date.now()}-${Math.round(Math.random() * 1e6)}-${safeName}`;
+
+    let blobPath;
+    try {
+      blobPath = await uploadBuffer(blobName, file.buffer, file.mimetype || 'image/png');
+    } catch (uploadErr) {
+      console.error('[BuyerRoutes] Avatar upload failed:', uploadErr && uploadErr.message ? uploadErr.message : uploadErr);
+      return res.status(500).json({ message: 'Failed to upload avatar to storage.' });
+    }
+
+    await db.query('UPDATE "Users" SET "ProfileImageUrl" = $1 WHERE "UserID" = $2', [blobPath, userId]);
+    const signedUrl = await generateSignedUrl(blobPath, 60);
+
+    // Best-effort cleanup of previous avatar
+    if (previousAvatarPath && previousAvatarPath !== blobPath) {
+      try {
+        await deleteFile(previousAvatarPath);
+      } catch (delErr) {
+        console.warn('[BuyerRoutes] Failed to delete previous avatar:', delErr && delErr.message ? delErr.message : delErr);
+      }
+    }
+
+    return res.json({ message: 'Avatar updated.', profileImageUrl: signedUrl, profileImagePath: blobPath });
+  } catch (err) {
+    console.error('Error updating buyer avatar:', err && err.message ? err.message : err);
+    return res.status(500).json({ message: 'Server error while updating avatar.' });
+  }
+});
 
 // POST /api/buyer/upload
 router.post('/upload', protect, upload.single('file'), async (req, res) => {
