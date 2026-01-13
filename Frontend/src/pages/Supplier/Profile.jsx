@@ -7,17 +7,18 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  const [imageKey, setImageKey] = useState(0); // force img refresh when URL changes
 
-  const fetchProfile = async () => {
+  const fetchProfile = async ({ silent = false } = {}) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const res = await api.get("/api/supplier-files/profile");
       setProfile(res.data);
     } catch (err) {
       const msg = err?.response?.data?.message || "Failed to load profile.";
       setError(msg);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -35,12 +36,19 @@ export default function Profile() {
       formData.append("avatar", file);
       const res = await api.post("/api/supplier-files/profile/avatar", formData);
       setProfile((prev) => prev ? { ...prev, profileImageUrl: res.data.profileImageUrl } : prev);
+      setImageKey((k) => k + 1); // force img element to re-render with the new URL
     } catch (err) {
       const msg = err?.response?.data?.message || "Failed to update profile picture.";
       setError(msg);
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleAvatarError = () => {
+    // If a signed URL expires, silently refetch to get a fresh one and fall back to placeholder
+    fetchProfile({ silent: true });
+    setImageKey((k) => k + 1);
   };
 
   if (loading) return <div className="profile-card">Loading profile...</div>;
@@ -54,9 +62,11 @@ export default function Profile() {
       <div className="profile-header">
         <div className="avatar-wrap">
           <img
+            key={imageKey}
             src={profileImageUrl || "https://via.placeholder.com/120x120.png?text=Avatar"}
             alt="Profile"
             className="avatar"
+            onError={handleAvatarError}
           />
           <label className="avatar-upload">
             <input type="file" accept="image/*" onChange={handleAvatarChange} disabled={uploading} />
