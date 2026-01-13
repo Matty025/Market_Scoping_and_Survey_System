@@ -12,6 +12,7 @@ export default function Profile() {
   const [showVerifyModal, setShowVerifyModal] = useState(false);
   const [emailInput, setEmailInput] = useState("");
   const [savingEmail, setSavingEmail] = useState(false);
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
 
   const fetchProfile = async ({ silent = false } = {}) => {
     try {
@@ -137,6 +138,7 @@ export default function Profile() {
             alt="Profile"
             className="avatar"
             onError={handleAvatarError}
+            onClick={() => setShowAvatarModal(true)}
           />
           <label className="avatar-upload">
             <input type="file" accept="image/*" onChange={handleAvatarChange} disabled={uploading} />
@@ -209,6 +211,19 @@ export default function Profile() {
                 {savingEmail ? "Working..." : "Send verification"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showAvatarModal && (
+        <div className="verify-modal-backdrop" onClick={() => setShowAvatarModal(false)}>
+          <div className="avatar-lightbox" onClick={(e) => e.stopPropagation()}>
+            <img
+              src={profileImageUrl || "https://via.placeholder.com/400x400.png?text=Avatar"}
+              alt="Avatar enlarged"
+              className="avatar-enlarged"
+              onError={handleAvatarError}
+            />
           </div>
         </div>
       )}

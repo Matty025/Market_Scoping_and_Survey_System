@@ -12,6 +12,8 @@ const sendVerificationEmail = emailVerificationService?.sendVerificationEmail ||
 // Simple in-memory cooldown map (per process). For multi-instance deployments, move to Redis/DB.
 const verificationCooldown = new Map();
 const COOLDOWN_MS = 60 * 1000; // 1 minute
+const verificationDaily = new Map();
+const DAILY_LIMIT = 5; // max sends per 24h
 
 const app = express();
 
@@ -114,17 +116,33 @@ app.post("/api/email/verify", async (req, res) => {
       return res.status(400).json({ error: "Missing userId or email" });
     }
 
-    // Cooldown check
     const key = `${userId}:${email}`;
     const now = Date.now();
+
+    // Cooldown check
     const last = verificationCooldown.get(key) || 0;
     if (now - last < COOLDOWN_MS) {
       const retryIn = Math.ceil((COOLDOWN_MS - (now - last)) / 1000);
-      return res.status(429).json({ error: `Please wait ${retryIn}s before resending.` });
+      return res.status(429).json({ error: `Please wait ${retryIn}s before resending.`, retryInSeconds: retryIn });
+    }
+
+    // Daily cap check
+    const daily = verificationDaily.get(key);
+    if (daily && daily.resetAt > now && daily.count >= DAILY_LIMIT) {
+      const retryIn = Math.ceil((daily.resetAt - now) / 1000);
+      return res.status(429).json({ error: "Daily verification limit reached. Try again later.", retryInSeconds: retryIn, resetAt: daily.resetAt });
     }
 
     await sendVerificationEmail(userId, email);
+
+    // update cooldown
     verificationCooldown.set(key, now);
+    // update daily counter
+    if (!daily || daily.resetAt <= now) {
+      verificationDaily.set(key, { count: 1, resetAt: now + 24 * 60 * 60 * 1000 });
+    } else {
+      verificationDaily.set(key, { count: daily.count + 1, resetAt: daily.resetAt });
+    }
     return res.json({ message: "Verification email sent" });
   } catch (err) {
     console.error("[/api/email/verify] Failed to send email:", err);
@@ -142,17 +160,31 @@ app.post("/auth/resend-verification", async (req, res) => {
       return res.status(400).json({ error: "Missing user" });
     }
 
-    // Cooldown check
     const key = `${userId}:${email}`;
     const now = Date.now();
+
+    // Cooldown check
     const last = verificationCooldown.get(key) || 0;
     if (now - last < COOLDOWN_MS) {
       const retryIn = Math.ceil((COOLDOWN_MS - (now - last)) / 1000);
-      return res.status(429).json({ error: `Please wait ${retryIn}s before resending.` });
+      return res.status(429).json({ error: `Please wait ${retryIn}s before resending.`, retryInSeconds: retryIn });
+    }
+
+    // Daily cap check
+    const daily = verificationDaily.get(key);
+    if (daily && daily.resetAt > now && daily.count >= DAILY_LIMIT) {
+      const retryIn = Math.ceil((daily.resetAt - now) / 1000);
+      return res.status(429).json({ error: "Daily verification limit reached. Try again later.", retryInSeconds: retryIn, resetAt: daily.resetAt });
     }
 
     await sendVerificationEmail(userId, email);
+
     verificationCooldown.set(key, now);
+    if (!daily || daily.resetAt <= now) {
+      verificationDaily.set(key, { count: 1, resetAt: now + 24 * 60 * 60 * 1000 });
+    } else {
+      verificationDaily.set(key, { count: daily.count + 1, resetAt: daily.resetAt });
+    }
     return res.json({ message: "Verification email sent" });
   } catch (err) {
     console.error("[resend-verification] Failed to send email:", err);

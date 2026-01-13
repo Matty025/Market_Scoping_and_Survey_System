@@ -9,6 +9,11 @@ export default function BuyerProfile() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [imageKey, setImageKey] = useState(0);
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [verifyStatus, setVerifyStatus] = useState("");
+  const [showVerifyModal, setShowVerifyModal] = useState(false);
+  const [emailInput, setEmailInput] = useState("");
+  const [savingEmail, setSavingEmail] = useState(false);
 
   const fetchProfile = async ({ silent = false } = {}) => {
     try {
@@ -51,6 +56,70 @@ export default function BuyerProfile() {
     setImageKey((k) => k + 1);
   };
 
+  const handleSendVerification = async (emailOverride) => {
+    const emailToUse = emailOverride || profile?.email;
+    if (!profile?.userID && !profile?.id) {
+      setError("Missing user info to send verification email.");
+      return;
+    }
+
+    setError("");
+    setVerifyStatus("sending");
+    try {
+      await api.post("/api/email/verify", {
+        userId: profile.userID || profile.id,
+        email: emailToUse,
+      });
+      setVerifyStatus("sent");
+    } catch (err) {
+      const msg = err?.response?.data?.error || err?.response?.data?.message || "Failed to send verification email.";
+      setError(msg);
+      setVerifyStatus("error");
+    }
+  };
+
+  const openVerifyModal = () => {
+    setEmailInput(profile?.email || "");
+    setVerifyStatus("");
+    setError("");
+    setShowVerifyModal(true);
+  };
+
+  const handleConfirmVerify = async () => {
+    if (!emailInput) {
+      setError("Email is required");
+      return;
+    }
+    setSavingEmail(true);
+    setError("");
+    try {
+      if (emailInput.trim().toLowerCase() === (profile?.email || "").toLowerCase()) {
+        await handleSendVerification(emailInput.trim());
+      } else {
+        const res = await api.patch("/auth/email", { email: emailInput.trim() });
+        const updated = res.data?.user;
+        setProfile((prev) =>
+          prev
+            ? {
+                ...prev,
+                email: updated?.email || emailInput.trim(),
+                email_verified: updated?.email_verified ?? false,
+              }
+            : prev
+        );
+        setVerifyStatus("sent");
+      }
+      setShowVerifyModal(false);
+    } catch (err) {
+      const msg =
+        err?.response?.data?.message || err?.response?.data?.error || "Failed to process verification.";
+      setError(msg);
+      setVerifyStatus("error");
+    } finally {
+      setSavingEmail(false);
+    }
+  };
+
   if (loading) return <div className="profile-card">Loading profile...</div>;
   if (error) return <div className="profile-card error">{error}</div>;
   if (!profile) return <div className="profile-card">No profile data.</div>;
@@ -67,6 +136,7 @@ export default function BuyerProfile() {
             alt="Profile"
             className="avatar"
             onError={handleAvatarError}
+            onClick={() => setShowAvatarModal(true)}
           />
           <label className="avatar-upload">
             <input type="file" accept="image/*" onChange={handleAvatarChange} disabled={uploading} />
@@ -87,7 +157,13 @@ export default function BuyerProfile() {
             {email_verified ? (
               <span className="badge badge-success">Verified</span>
             ) : (
-              <span className="badge badge-warning">Unverified</span>
+              <button
+                className="verify-btn"
+                onClick={openVerifyModal}
+                disabled={verifyStatus === "sending"}
+              >
+                {verifyStatus === "sending" ? "Sending..." : verifyStatus === "sent" ? "Sent" : "Verify email"}
+              </button>
             )}
           </p>
         </div>
@@ -99,6 +175,44 @@ export default function BuyerProfile() {
           <span>{joinedAt ? new Date(joinedAt).toLocaleDateString() : "—"}</span>
         </div>
       </div>
+
+        {showAvatarModal && (
+          <div className="verify-modal-backdrop" onClick={() => setShowAvatarModal(false)}>
+            <div className="avatar-lightbox" onClick={(e) => e.stopPropagation()}>
+              <img
+                src={profileImageUrl || "https://via.placeholder.com/400x400.png?text=Avatar"}
+                alt="Avatar enlarged"
+                className="avatar-enlarged"
+                onError={handleAvatarError}
+              />
+            </div>
+          </div>
+        )}
+
+        {showVerifyModal && (
+          <div className="verify-modal-backdrop" onClick={() => setShowVerifyModal(false)}>
+            <div className="verify-modal" onClick={(e) => e.stopPropagation()}>
+              <h3>Verify email</h3>
+              <div className="field">
+                <label>Current email</label>
+                <input
+                  type="email"
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                  placeholder="your@email.com"
+                />
+              </div>
+              <div className="actions">
+                <button className="btn-secondary" onClick={() => setShowVerifyModal(false)} disabled={savingEmail}>
+                  Cancel
+                </button>
+                <button className="btn-primary" onClick={handleConfirmVerify} disabled={savingEmail}>
+                  {savingEmail ? "Working..." : "Send verification"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
     </div>
   );
 }

@@ -7,6 +7,10 @@ const pool = require("../db");
 const { protect } = require("./authMiddleware");
 const { sendVerificationEmail } = require("../services/emailVerificationService");
 
+// In-memory edit throttle (per process). For production, move to Redis/DB.
+const editLimit = new Map();
+const EDIT_WINDOW_MS = 60 * 1000; // 1 minute for debugging (was 24h)
+
 const router = express.Router();
 
 // REGISTER (Buyer or Supplier)
@@ -219,6 +223,13 @@ router.patch("/email", protect, async (req, res) => {
   }
 
   try {
+    const now = Date.now();
+    const editEntry = editLimit.get(userId);
+    if (editEntry && editEntry.resetAt > now) {
+      const retryIn = Math.ceil((editEntry.resetAt - now) / 1000);
+      return res.status(429).json({ message: "Email change limit reached. Try again later.", retryInSeconds: retryIn, resetAt: editEntry.resetAt });
+    }
+
     // Check if email already in use by another account
     const dup = await pool.query(
       `SELECT 1 FROM "Users" WHERE "Email" = $1 AND "UserID" <> $2`,
@@ -249,6 +260,9 @@ router.patch("/email", protect, async (req, res) => {
     } catch (e) {
       console.warn("[email/update] Failed to send verification email:", e && e.message ? e.message : e);
     }
+
+    // Set edit window
+    editLimit.set(userId, { resetAt: now + EDIT_WINDOW_MS });
 
     return res.json({
       message: "Email updated. Verification sent to the new address.",
