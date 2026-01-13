@@ -1,7 +1,24 @@
-const mailer = require("../utils/mailer");
-const sendMail = mailer.sendMail || ((opts) => mailer.transporter.sendMail(opts));
+const nodemailer = require("nodemailer");
 const db = require("../db");
 const crypto = require("crypto");
+
+// Local transporter fallback to avoid module export shape issues in serverless
+const transporter = nodemailer.createTransport({
+  host: "smtp.gmail.com",
+  port: 465,
+  secure: true,
+  auth: {
+    user: process.env.SYSTEM_EMAIL,
+    pass: process.env.SYSTEM_EMAIL_APP_PASSWORD,
+  },
+});
+
+const sendMail = async (options) => {
+  const base = {
+    from: `"MSSS" <${process.env.SYSTEM_EMAIL}>`,
+  };
+  return transporter.sendMail({ ...base, ...options });
+};
 
 async function sendVerificationEmail(userId, email) {
   const token = crypto.randomUUID();
