@@ -14,6 +14,8 @@ export default function BuyerProfile() {
   const [showVerifyModal, setShowVerifyModal] = useState(false);
   const [emailInput, setEmailInput] = useState("");
   const [savingEmail, setSavingEmail] = useState(false);
+  const [sendDisableUntil, setSendDisableUntil] = useState(0);
+  const [editDisableUntil, setEditDisableUntil] = useState(0);
 
   const fetchProfile = async ({ silent = false } = {}) => {
     try {
@@ -71,7 +73,12 @@ export default function BuyerProfile() {
         email: emailToUse,
       });
       setVerifyStatus("sent");
+      setSendDisableUntil(Date.now() + 60 * 1000);
     } catch (err) {
+      const retry = err?.response?.data?.retryInSeconds;
+      if (retry) {
+        setSendDisableUntil(Date.now() + retry * 1000);
+      }
       const msg = err?.response?.data?.error || err?.response?.data?.message || "Failed to send verification email.";
       setError(msg);
       setVerifyStatus("error");
@@ -79,6 +86,11 @@ export default function BuyerProfile() {
   };
 
   const openVerifyModal = () => {
+    if (email_verified && Date.now() < editDisableUntil) {
+      const seconds = Math.ceil((editDisableUntil - Date.now()) / 1000);
+      setError(`Please wait ${seconds}s before editing again.`);
+      return;
+    }
     setEmailInput(profile?.email || "");
     setVerifyStatus("");
     setError("");
@@ -107,10 +119,15 @@ export default function BuyerProfile() {
               }
             : prev
         );
+        setEditDisableUntil(Date.now() + 60 * 1000);
         setVerifyStatus("sent");
       }
       setShowVerifyModal(false);
     } catch (err) {
+      const retry = err?.response?.data?.retryInSeconds;
+      if (retry) {
+        setEditDisableUntil(Date.now() + retry * 1000);
+      }
       const msg =
         err?.response?.data?.message || err?.response?.data?.error || "Failed to process verification.";
       setError(msg);
@@ -125,6 +142,8 @@ export default function BuyerProfile() {
   if (!profile) return <div className="profile-card">No profile data.</div>;
 
   const { fullName, role, email, joinedAt, profileImageUrl, email_verified } = profile;
+  const isSendDisabled = verifyStatus === "sending" || verifyStatus === "sent" || Date.now() < sendDisableUntil;
+  const isEditDisabled = Date.now() < editDisableUntil;
 
   return (
     <div className="profile-card">
@@ -155,12 +174,18 @@ export default function BuyerProfile() {
               <span>{email}</span>
             </span>
             {email_verified ? (
-              <span className="badge badge-success">Verified</span>
+              <button
+                className="verify-btn"
+                onClick={openVerifyModal}
+                disabled={isEditDisabled || savingEmail}
+              >
+                {isEditDisabled ? "Edit later" : "Edit email"}
+              </button>
             ) : (
               <button
                 className="verify-btn"
                 onClick={openVerifyModal}
-                disabled={verifyStatus === "sending"}
+                disabled={isSendDisabled}
               >
                 {verifyStatus === "sending" ? "Sending..." : verifyStatus === "sent" ? "Sent" : "Verify email"}
               </button>

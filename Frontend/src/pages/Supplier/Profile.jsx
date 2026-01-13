@@ -13,6 +13,8 @@ export default function Profile() {
   const [emailInput, setEmailInput] = useState("");
   const [savingEmail, setSavingEmail] = useState(false);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [sendDisableUntil, setSendDisableUntil] = useState(0);
+  const [editDisableUntil, setEditDisableUntil] = useState(0);
 
   const fetchProfile = async ({ silent = false } = {}) => {
     try {
@@ -70,14 +72,24 @@ export default function Profile() {
         email: profile.email,
       });
       setVerifyStatus("sent");
+      setSendDisableUntil(Date.now() + 60 * 1000); // at least cooldown duration
     } catch (err) {
-      const msg = err?.response?.data?.error || "Failed to send verification email.";
+      const retry = err?.response?.data?.retryInSeconds;
+      if (retry) {
+        setSendDisableUntil(Date.now() + retry * 1000);
+      }
+      const msg = err?.response?.data?.error || err?.response?.data?.message || "Failed to send verification email.";
       setError(msg);
       setVerifyStatus("error");
     }
   };
 
   const openVerifyModal = () => {
+    if (emailVerified && Date.now() < editDisableUntil) {
+      const seconds = Math.ceil((editDisableUntil - Date.now()) / 1000);
+      setError(`Please wait ${seconds}s before editing again.`);
+      return;
+    }
     setEmailInput(profile?.email || "");
     setVerifyStatus("");
     setError("");
@@ -108,10 +120,15 @@ export default function Profile() {
               }
             : prev
         );
+        setEditDisableUntil(Date.now() + 60 * 1000); // mirror backend debug window
         setVerifyStatus("sent");
       }
       setShowVerifyModal(false);
     } catch (err) {
+      const retry = err?.response?.data?.retryInSeconds;
+      if (retry) {
+        setEditDisableUntil(Date.now() + retry * 1000);
+      }
       const msg =
         err?.response?.data?.message || err?.response?.data?.error || "Failed to process verification.";
       setError(msg);
@@ -127,6 +144,9 @@ export default function Profile() {
 
   const { fullName, role, email, categories = [], location, totalProducts, joinedAt, profileImageUrl, companyName } = profile;
   const emailVerified = profile?.email_verified;
+  const isSendDisabled =
+    verifyStatus === "sending" || verifyStatus === "sent" || Date.now() < sendDisableUntil;
+  const isEditDisabled = Date.now() < editDisableUntil;
 
   return (
     <div className="profile-card">
@@ -157,12 +177,18 @@ export default function Profile() {
               <span>{email}</span>
             </span>
             {emailVerified ? (
-              <span className="badge badge-success">Verified</span>
+              <button
+                className="verify-btn"
+                onClick={openVerifyModal}
+                disabled={isEditDisabled || savingEmail}
+              >
+                {isEditDisabled ? "Edit later" : "Edit email"}
+              </button>
             ) : (
               <button
                 className="verify-btn"
                 onClick={openVerifyModal}
-                disabled={verifyStatus === "sending"}
+                disabled={isSendDisabled}
               >
                 {verifyStatus === "sending" ? "Sending..." : verifyStatus === "sent" ? "Sent" : "Verify email"}
               </button>
