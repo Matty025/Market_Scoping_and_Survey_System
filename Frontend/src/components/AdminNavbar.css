@@ -134,6 +134,21 @@ border-bottom: 2px solid #000; /* clean black bottom border */
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
+.icon-btn-profile {
+  position: relative;
+}
+
+.icon-status-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ff7777, #d10000);
+  box-shadow: 0 0 0 2px #fff;
+}
+
 .icon-btn:hover {
   color: #f6b400;
   background-color: #fafafa;

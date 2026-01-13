@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import api from "../../api";
+import { useAuth } from "../../components/AuthContext";
 import "./Profile.css";
 import "../Supplier/Profile.css"; // reuse status-dot styles
 
@@ -16,12 +17,14 @@ export default function BuyerProfile() {
   const [savingEmail, setSavingEmail] = useState(false);
   const [sendDisableUntil, setSendDisableUntil] = useState(0);
   const [editDisableUntil, setEditDisableUntil] = useState(0);
+  const { setEmailVerified } = useAuth();
 
   const fetchProfile = async ({ silent = false } = {}) => {
     try {
       if (!silent) setLoading(true);
       const res = await api.get("/api/buyer/profile");
       setProfile(res.data);
+      setEmailVerified(!!res.data?.email_verified);
     } catch (err) {
       const msg = err?.response?.data?.message || "Failed to load profile.";
       setError(msg);
@@ -119,6 +122,7 @@ export default function BuyerProfile() {
               }
             : prev
         );
+        setEmailVerified(!!updated?.email_verified);
         setEditDisableUntil(Date.now() + 60 * 1000);
         setVerifyStatus("sent");
       }
