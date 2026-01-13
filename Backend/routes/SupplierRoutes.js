@@ -654,10 +654,10 @@ router.post('/uploads', protect, upload.single('file'), async (req, res) => { //
         const effectiveUntil = toUtcDateOnly(parseExcelDate(effectiveUntilRaw));
 
         const itemInsertResult = await client.query(
-          `INSERT INTO "Items" ("SupplierID", "Name", "Description", "Price", "Stock", "Unit", "Location", "DatePosted", "DateUpdated", "EffectiveUntil")
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+          `INSERT INTO "Items" ("SupplierID", "Name", "Description", "Price", "Stock", "Unit", "Location", "DatePosted", "DateUpdated", "EffectiveUntil", "UploadID")
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
            RETURNING "ItemID"`,
-          [supplierId, name, description, price, stock, unit, location, datePosted, dateUpdated, effectiveUntil]
+          [supplierId, name, description, price, stock, unit, location, datePosted, dateUpdated, effectiveUntil, uploadLogId]
         );
         const newItemId = itemInsertResult.rows[0].ItemID;
 
