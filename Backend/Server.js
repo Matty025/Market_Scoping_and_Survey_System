@@ -5,8 +5,9 @@ if (process.env.NODE_ENV !== "production") {
 const express = require("express");
 const cors = require("cors");
 const pool = require("./db.js");
-const { sendVerificationEmail } = require("./services/emailVerificationService");
+const emailVerificationService = require("./services/emailVerificationService");
 const { verifyEmailToken } = require("./services/emailVerifyConsume");
+const sendVerificationEmail = emailVerificationService?.sendVerificationEmail || emailVerificationService;
 
 const app = express();
 
@@ -120,7 +121,7 @@ app.post("/api/email/verify", async (req, res) => {
 // Resend verification email (prefers authenticated user but falls back to body if needed)
 app.post("/auth/resend-verification", async (req, res) => {
   try {
-    const userId = req.user?.id || req.body?.userId;
+    const userId = req.user?.userID || req.user?.id || req.body?.userId;
     const email = req.user?.email || req.body?.email;
 
     if (!userId || !email) {

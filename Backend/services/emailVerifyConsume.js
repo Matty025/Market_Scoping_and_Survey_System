@@ -2,7 +2,9 @@ const pool = require("../db");
 
 async function verifyEmailToken(token) {
   const lookup = await pool.query(
-    `SELECT id, email_verified, token_expires_at FROM "Users" WHERE verification_token = $1`,
+    `SELECT "UserID" AS id, email_verified, token_expires_at
+       FROM "Users"
+      WHERE verification_token = $1`,
     [token]
   );
 
@@ -21,10 +23,10 @@ async function verifyEmailToken(token) {
   // Clear token and mark verified (even if already verified, clear stale token)
   await pool.query(
     `UPDATE "Users"
-     SET email_verified = true,
-         verification_token = NULL,
-         token_expires_at = NULL
-     WHERE id = $1`,
+        SET email_verified = true,
+            verification_token = NULL,
+            token_expires_at = NULL
+      WHERE "UserID" = $1`,
     [user.id]
   );
 

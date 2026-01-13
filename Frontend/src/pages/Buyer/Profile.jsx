@@ -54,7 +54,7 @@ export default function BuyerProfile() {
   if (error) return <div className="profile-card error">{error}</div>;
   if (!profile) return <div className="profile-card">No profile data.</div>;
 
-  const { fullName, role, email, joinedAt, profileImageUrl } = profile;
+  const { fullName, role, email, joinedAt, profileImageUrl, email_verified } = profile;
 
   return (
     <div className="profile-card">
@@ -75,7 +75,14 @@ export default function BuyerProfile() {
         <div className="profile-main">
           <h2>{fullName}</h2>
           <p className="muted">{role || "Buyer"}</p>
-          <p>{email}</p>
+          <p style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span>{email}</span>
+            {email_verified ? (
+              <span className="badge badge-success">Verified</span>
+            ) : (
+              <span className="badge badge-warning">Unverified</span>
+            )}
+          </p>
         </div>
       </div>
 

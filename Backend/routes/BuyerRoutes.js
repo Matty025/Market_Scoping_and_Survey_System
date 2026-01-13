@@ -150,7 +150,11 @@ router.get('/profile', protect, async (req, res) => {
 
     const userId = req.user.userID || req.user.UserID || req.user.id;
     const profileRes = await db.query(
-      `SELECT u."FullName" AS "fullName", u."Email" AS "email", r."RoleName" AS "role",
+      `SELECT u."UserID" AS "id",
+              u."FullName" AS "fullName",
+              u."Email" AS "email",
+              u."email_verified" AS "email_verified",
+              r."RoleName" AS "role",
               u."ProfileImageUrl" AS "profileImageUrl",
               u."DateCreated" AS "joinedAt"
          FROM "Users" u
@@ -167,9 +171,9 @@ router.get('/profile', protect, async (req, res) => {
     const profile = profileRes.rows[0];
 
     let signedAvatarUrl = null;
-    if (profile.profileimageurl) {
+    if (profile.profileImageUrl) {
       try {
-        signedAvatarUrl = await generateSignedUrl(profile.profileimageurl, 60);
+        signedAvatarUrl = await generateSignedUrl(profile.profileImageUrl, 60);
       } catch (sigErr) {
         console.warn('[BuyerRoutes] Avatar signed URL failed:', sigErr && sigErr.message ? sigErr.message : sigErr);
         signedAvatarUrl = null;
@@ -177,12 +181,14 @@ router.get('/profile', protect, async (req, res) => {
     }
 
     return res.json({
-      fullName: profile.fullname,
+      id: profile.id,
+      fullName: profile.fullName,
       email: profile.email,
+      email_verified: profile.email_verified,
       role: profile.role,
       profileImageUrl: signedAvatarUrl,
-      profileImagePath: profile.profileimageurl || null,
-      joinedAt: profile.joinedat,
+      profileImagePath: profile.profileImageUrl || null,
+      joinedAt: profile.joinedAt,
     });
   } catch (err) {
     console.error('Error fetching buyer profile:', err && err.message ? err.message : err);
