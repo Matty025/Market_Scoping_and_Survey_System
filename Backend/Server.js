@@ -9,6 +9,10 @@ const emailVerificationService = require("./services/emailVerificationService");
 const { verifyEmailToken } = require("./services/emailVerifyConsume");
 const sendVerificationEmail = emailVerificationService?.sendVerificationEmail || emailVerificationService;
 
+// Simple in-memory cooldown map (per process). For multi-instance deployments, move to Redis/DB.
+const verificationCooldown = new Map();
+const COOLDOWN_MS = 60 * 1000; // 1 minute
+
 const app = express();
 
 // ✅ FIXED: Allow multiple origins (local + deployed frontend)
@@ -110,7 +114,17 @@ app.post("/api/email/verify", async (req, res) => {
       return res.status(400).json({ error: "Missing userId or email" });
     }
 
+    // Cooldown check
+    const key = `${userId}:${email}`;
+    const now = Date.now();
+    const last = verificationCooldown.get(key) || 0;
+    if (now - last < COOLDOWN_MS) {
+      const retryIn = Math.ceil((COOLDOWN_MS - (now - last)) / 1000);
+      return res.status(429).json({ error: `Please wait ${retryIn}s before resending.` });
+    }
+
     await sendVerificationEmail(userId, email);
+    verificationCooldown.set(key, now);
     return res.json({ message: "Verification email sent" });
   } catch (err) {
     console.error("[/api/email/verify] Failed to send email:", err);
@@ -128,7 +142,17 @@ app.post("/auth/resend-verification", async (req, res) => {
       return res.status(400).json({ error: "Missing user" });
     }
 
+    // Cooldown check
+    const key = `${userId}:${email}`;
+    const now = Date.now();
+    const last = verificationCooldown.get(key) || 0;
+    if (now - last < COOLDOWN_MS) {
+      const retryIn = Math.ceil((COOLDOWN_MS - (now - last)) / 1000);
+      return res.status(429).json({ error: `Please wait ${retryIn}s before resending.` });
+    }
+
     await sendVerificationEmail(userId, email);
+    verificationCooldown.set(key, now);
     return res.json({ message: "Verification email sent" });
   } catch (err) {
     console.error("[resend-verification] Failed to send email:", err);

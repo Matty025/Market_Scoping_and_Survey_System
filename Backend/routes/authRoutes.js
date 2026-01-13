@@ -4,6 +4,7 @@ const jwt = require("jsonwebtoken");
 const UserModel = require("../models/UserModel");
 const SupplierModel = require("../models/SupplierModel");
 const pool = require("../db");
+const { sendVerificationEmail } = require("../services/emailVerificationService");
 
 const router = express.Router();
 
@@ -60,6 +61,13 @@ router.post("/register", async (req, res) => {
     if (normalizedRole === "buyer") {
       try {
         const user = await UserModel.createUser(fullName, email, passwordHash, roleId);
+        // Fire-and-forget verification email (do not block signup on failure)
+        try {
+          await sendVerificationEmail(user.UserID, email);
+        } catch (e) {
+          console.warn("[register/buyer] Failed to send verification email:", e && e.message ? e.message : e);
+        }
+
         return res.status(201).json({
           message: "Buyer registered successfully",
           user: {
@@ -106,6 +114,13 @@ router.post("/register", async (req, res) => {
       }
 
       await client.query("COMMIT");
+
+      // Fire-and-forget verification email (do not block signup on failure)
+      try {
+        await sendVerificationEmail(user.UserID, email);
+      } catch (e) {
+        console.warn("[register/supplier] Failed to send verification email:", e && e.message ? e.message : e);
+      }
 
       return res.status(201).json({
         message: "Supplier registered successfully",

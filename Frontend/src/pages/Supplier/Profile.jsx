@@ -99,16 +99,21 @@ export default function Profile() {
         <div className="profile-main">
           <h2>{companyName || fullName}</h2>
           <p className="muted">{role || "Supplier"}</p>
-          <p>
-            {email}
+          <p style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span
+                className={`status-dot ${emailVerified ? "verified" : "unverified"}`}
+                title={emailVerified ? "Email verified" : "Email not verified"}
+              />
+              <span>{email}</span>
+            </span>
             {emailVerified ? (
-              <span className="badge badge-success" style={{ marginLeft: 8 }}>Verified</span>
+              <span className="badge badge-success">Verified</span>
             ) : (
               <button
                 className="verify-btn"
                 onClick={handleSendVerification}
                 disabled={verifyStatus === "sending"}
-                style={{ marginLeft: 8 }}
               >
                 {verifyStatus === "sending" ? "Sending..." : verifyStatus === "sent" ? "Sent" : "Verify email"}
               </button>

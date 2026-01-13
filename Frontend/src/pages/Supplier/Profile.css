@@ -73,3 +73,19 @@
   color: #64748b;
   margin-bottom: 6px;
 }
+
+.status-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #f59e0b; /* default amber */
+}
+
+.status-dot.verified {
+  background: #16a34a;
+}
+
+.status-dot.unverified {
+  background: #ef4444;
+}

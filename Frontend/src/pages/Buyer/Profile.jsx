@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import api from "../../api";
 import "./Profile.css";
+import "../Supplier/Profile.css"; // reuse status-dot styles
 
 export default function BuyerProfile() {
   const [profile, setProfile] = useState(null);
@@ -75,8 +76,14 @@ export default function BuyerProfile() {
         <div className="profile-main">
           <h2>{fullName}</h2>
           <p className="muted">{role || "Buyer"}</p>
-          <p style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span>{email}</span>
+          <p style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span
+                className={`status-dot ${email_verified ? "verified" : "unverified"}`}
+                title={email_verified ? "Email verified" : "Email not verified"}
+              />
+              <span>{email}</span>
+            </span>
             {email_verified ? (
               <span className="badge badge-success">Verified</span>
             ) : (
