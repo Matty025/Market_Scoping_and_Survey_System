@@ -56,6 +56,20 @@ async function uploadBuffer(blobPath, buffer, contentType = 'application/octet-s
   return `${bucketName}/${key}`;
 }
 
+async function deleteFile(blobPath) {
+  if (!supabase) {
+    throw new Error('Supabase client not configured');
+  }
+  const parsed = unwrapPath(blobPath);
+  const bucketName = parsed.bucket || defaultBucket;
+  const key = normalizePath(parsed.key || blobPath);
+  const { error } = await supabase.storage.from(bucketName).remove([key]);
+  if (error) {
+    throw error;
+  }
+  return true;
+}
+
 async function generateSignedUrl(blobPath, expiresMinutes = 60) {
   if (!supabase) {
     throw new Error('Supabase client not configured');
@@ -89,6 +103,7 @@ async function downloadFile(blobPath) {
 module.exports = {
   supabase,
   uploadBuffer,
+  deleteFile,
   generateSignedUrl,
   downloadFile,
 };

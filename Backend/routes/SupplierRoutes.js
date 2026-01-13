@@ -4,7 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const xlsx = require('xlsx'); // For reading Excel files
 const fs = require('fs');     // For file system operations (deleting temp files)
-const { uploadBuffer, generateSignedUrl, downloadFile } = require('../utils/supabaseStorage');
+const { uploadBuffer, generateSignedUrl, downloadFile, deleteFile } = require('../utils/supabaseStorage');
 const useSupabase = Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 // configure multer storage
@@ -224,6 +224,10 @@ router.post('/profile/avatar', protect, upload.single('avatar'), async (req, res
       return res.status(404).json({ message: 'Supplier profile not found.' });
     }
 
+    // Capture previous avatar path so we can clean it up after successful upload
+    const prevRes = await pool.query('SELECT "ProfileImageUrl" FROM "Users" WHERE "UserID" = $1', [userId]);
+    const previousAvatarPath = prevRes.rows[0]?.ProfileImageUrl || null;
+
     const safeName = (file.originalname || 'avatar').replace(/[^a-zA-Z0-9._-]/g, '_');
     const ymd = new Date().toISOString().slice(0, 10);
     const blobName = `supplier-profile/${supplierId}/${ymd}/avatar-${Date.now()}-${Math.round(Math.random() * 1e6)}-${safeName}`;
@@ -238,6 +242,16 @@ router.post('/profile/avatar', protect, upload.single('avatar'), async (req, res
 
     await pool.query('UPDATE "Users" SET "ProfileImageUrl" = $1 WHERE "UserID" = $2', [blobPath, userId]);
     const signedUrl = await generateSignedUrl(blobPath, 60);
+
+    // Best-effort cleanup: delete previous avatar from storage
+    if (previousAvatarPath && previousAvatarPath !== blobPath) {
+      try {
+        await deleteFile(previousAvatarPath);
+      } catch (delErr) {
+        console.warn('[SupplierRoutes] Failed to delete previous avatar:', delErr && delErr.message ? delErr.message : delErr);
+      }
+    }
+
     return res.json({ message: 'Avatar updated.', profileImageUrl: signedUrl, profileImagePath: blobPath });
   } catch (err) {
     console.error('Error updating supplier avatar:', err && err.message ? err.message : err);
