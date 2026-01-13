@@ -145,7 +145,7 @@ router.get('/profile', protect, async (req, res) => {
       `SELECT u."FullName" AS "fullName", u."Email" AS "email", r."RoleName" AS "role",
               s."CompanyName" AS "companyName", s."Address" AS "location",
               u."ProfileImageUrl" AS "profileImageUrl",
-              COALESCE(u."CreatedAt", u."DateCreated", u."DateRegistered") AS "joinedAt",
+              COALESCE(u."DateCreated", u."DateCreated", u."DateRegistered") AS "joinedAt",
               u."SupplierID" AS "supplierId"
          FROM "Users" u
          LEFT JOIN "Roles" r ON r."RoleID" = u."RoleID"
