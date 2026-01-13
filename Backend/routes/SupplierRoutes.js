@@ -144,7 +144,7 @@ router.get('/profile', protect, async (req, res) => {
     const profileRes = await pool.query(
       `SELECT u."FullName" AS "fullName", u."Email" AS "email", r."RoleName" AS "role",
               s."CompanyName" AS "companyName", s."Address" AS "location",
-              s."ProfileImageUrl" AS "profileImageUrl",
+              u."ProfileImageUrl" AS "profileImageUrl",
               COALESCE(u."CreatedAt", u."DateCreated", u."DateRegistered") AS "joinedAt",
               u."SupplierID" AS "supplierId"
          FROM "Users" u
@@ -229,7 +229,7 @@ router.post('/profile/avatar', protect, upload.single('avatar'), async (req, res
       return res.status(500).json({ message: 'Failed to upload avatar to storage.' });
     }
 
-    await pool.query('UPDATE "Suppliers" SET "ProfileImageUrl" = $1 WHERE "SupplierID" = $2', [blobPath, supplierId]);
+    await pool.query('UPDATE "Users" SET "ProfileImageUrl" = $1 WHERE "UserID" = $2', [blobPath, userId]);
     const signedUrl = await generateSignedUrl(blobPath, 60);
     return res.json({ message: 'Avatar updated.', profileImageUrl: signedUrl, profileImagePath: blobPath });
   } catch (err) {
