@@ -17,7 +17,7 @@ const normalizePath = (p = '') => p.replace(/^\/+/, '');
 const unwrapPath = (p = '') => {
   if (!p) return p;
 
-  // Strip known Supabase public/sign URL prefixes to get bucket/key
+  // Case 1: full Supabase URL
   try {
     const url = new URL(p);
     const match = url.pathname.match(/\/object\/(?:public|sign)\/([^/]+)\/(.+)/);
@@ -26,9 +26,17 @@ const unwrapPath = (p = '') => {
       return { bucket, key };
     }
   } catch (_) {
-    // not a URL; treat as raw path
+    // not a URL
   }
 
+  // Case 2: bucket/key string (e.g., "pdfs/path/to/file")
+  const parts = normalizePath(p).split('/');
+  if (parts.length > 1) {
+    const [bucket, ...rest] = parts;
+    return { bucket, key: rest.join('/') };
+  }
+
+  // Case 3: plain key, use default bucket
   return { bucket: defaultBucket, key: normalizePath(p) };
 };
 
