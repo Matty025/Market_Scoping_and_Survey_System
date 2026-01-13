@@ -8,6 +8,7 @@ export default function Profile() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [imageKey, setImageKey] = useState(0); // force img refresh when URL changes
+  const [verifyStatus, setVerifyStatus] = useState("");
 
   const fetchProfile = async ({ silent = false } = {}) => {
     try {
@@ -51,11 +52,33 @@ export default function Profile() {
     setImageKey((k) => k + 1);
   };
 
+  const handleSendVerification = async () => {
+    if (!profile?.id || !profile?.email) {
+      setError("Missing user info to send verification email.");
+      return;
+    }
+
+    setError("");
+    setVerifyStatus("sending");
+    try {
+      await api.post("/api/email/verify", {
+        userId: profile.id,
+        email: profile.email,
+      });
+      setVerifyStatus("sent");
+    } catch (err) {
+      const msg = err?.response?.data?.error || "Failed to send verification email.";
+      setError(msg);
+      setVerifyStatus("error");
+    }
+  };
+
   if (loading) return <div className="profile-card">Loading profile...</div>;
   if (error) return <div className="profile-card error">{error}</div>;
   if (!profile) return <div className="profile-card">No profile data.</div>;
 
   const { fullName, role, email, categories = [], location, totalProducts, joinedAt, profileImageUrl, companyName } = profile;
+  const emailVerified = profile?.email_verified;
 
   return (
     <div className="profile-card">
@@ -76,7 +99,21 @@ export default function Profile() {
         <div className="profile-main">
           <h2>{companyName || fullName}</h2>
           <p className="muted">{role || "Supplier"}</p>
-          <p>{email}</p>
+          <p>
+            {email}
+            {emailVerified ? (
+              <span className="badge badge-success" style={{ marginLeft: 8 }}>Verified</span>
+            ) : (
+              <button
+                className="verify-btn"
+                onClick={handleSendVerification}
+                disabled={verifyStatus === "sending"}
+                style={{ marginLeft: 8 }}
+              >
+                {verifyStatus === "sending" ? "Sending..." : verifyStatus === "sent" ? "Sent" : "Verify email"}
+              </button>
+            )}
+          </p>
         </div>
       </div>
 

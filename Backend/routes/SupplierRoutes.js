@@ -142,11 +142,16 @@ router.get('/profile', protect, async (req, res) => {
 
     const userId = req.user.userID;
     const profileRes = await pool.query(
-        `SELECT u."FullName" AS "fullName", u."Email" AS "email", r."RoleName" AS "role",
-                s."CompanyName" AS "companyName", s."Address" AS "location",
-                u."ProfileImageUrl" AS "profileImageUrl",
-                u."DateCreated" AS "joinedAt",
-                u."SupplierID" AS "supplierId"
+        `SELECT u."UserID" AS "id",
+          u."FullName" AS "fullName",
+          u."Email" AS "email",
+          u."email_verified" AS "email_verified",
+          r."RoleName" AS "role",
+          s."CompanyName" AS "companyName",
+          s."Address" AS "location",
+          u."ProfileImageUrl" AS "profileImageUrl",
+          u."DateCreated" AS "joinedAt",
+          u."SupplierID" AS "supplierId"
            FROM "Users" u
            LEFT JOIN "Roles" r ON r."RoleID" = u."RoleID"
            LEFT JOIN "Suppliers" s ON s."SupplierID" = u."SupplierID"
@@ -189,8 +194,10 @@ router.get('/profile', protect, async (req, res) => {
     }
 
     return res.json({
+      id: profile.id,
       fullName: profile.fullName,
       email: profile.email,
+      email_verified: profile.email_verified,
       role: profile.role,
       companyName: profile.companyName,
       location: profile.location,

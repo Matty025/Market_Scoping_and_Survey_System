@@ -1,0 +1,56 @@
+.verify-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 20% 20%, #f2f4ff 0, #eef2f7 40%, #e6ebf5 100%);
+  padding: 24px;
+}
+
+.verify-card {
+  width: 100%;
+  max-width: 440px;
+  background: #fff;
+  border-radius: 14px;
+  padding: 28px;
+  box-shadow: 0 15px 45px rgba(26, 38, 61, 0.12);
+  border: 1px solid #e6e9f0;
+  text-align: center;
+  color: #1f2937;
+}
+
+.verify-card h2 {
+  margin: 0 0 12px;
+  font-size: 22px;
+  color: #111827;
+}
+
+.verify-card p {
+  margin: 0 0 20px;
+  line-height: 1.5;
+  color: #4b5563;
+}
+
+.verify-card.success {
+  border-color: #22c55e33;
+}
+
+.verify-card.error {
+  border-color: #ef444433;
+}
+
+.verify-btn {
+  display: inline-block;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #fff;
+  text-decoration: none;
+  font-weight: 600;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.verify-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 30px rgba(37, 99, 235, 0.25);
+}
