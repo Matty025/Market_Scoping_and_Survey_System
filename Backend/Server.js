@@ -5,6 +5,8 @@ if (process.env.NODE_ENV !== "production") {
 const express = require("express");
 const cors = require("cors");
 const pool = require("./db.js");
+const { sendVerificationEmail } = require("./services/emailVerificationService");
+const { verifyEmailToken } = require("./services/emailVerifyConsume");
 
 const app = express();
 
@@ -80,6 +82,108 @@ app.use("/auth", (req, res, next) => {
   );
   next();
 }, authRoutes);
+
+// Send verification email (expects userId and email in body; protect in auth layer if available)
+app.post("/auth/send-verification", async (req, res) => {
+  try {
+    const { userId, email } = req.body || {};
+
+    if (!userId || !email) {
+      return res.status(400).json({ error: "Missing userId or email" });
+    }
+
+    await sendVerificationEmail(userId, email);
+    return res.json({ message: "Verification email sent" });
+  } catch (err) {
+    console.error("[send-verification] Failed to send email:", err);
+    return res.status(500).json({ error: "Failed to send verification email" });
+  }
+});
+
+// Alias: send verification from profile (matches POST /api/email/verify in frontend example)
+app.post("/api/email/verify", async (req, res) => {
+  try {
+    const { userId, email } = req.body || {};
+
+    if (!userId || !email) {
+      return res.status(400).json({ error: "Missing userId or email" });
+    }
+
+    await sendVerificationEmail(userId, email);
+    return res.json({ message: "Verification email sent" });
+  } catch (err) {
+    console.error("[/api/email/verify] Failed to send email:", err);
+    return res.status(500).json({ error: "Failed to send verification email" });
+  }
+});
+
+// Resend verification email (prefers authenticated user but falls back to body if needed)
+app.post("/auth/resend-verification", async (req, res) => {
+  try {
+    const userId = req.user?.id || req.body?.userId;
+    const email = req.user?.email || req.body?.email;
+
+    if (!userId || !email) {
+      return res.status(400).json({ error: "Missing user" });
+    }
+
+    await sendVerificationEmail(userId, email);
+    return res.json({ message: "Verification email sent" });
+  } catch (err) {
+    console.error("[resend-verification] Failed to send email:", err);
+    return res.status(500).json({ error: "Failed to send verification email" });
+  }
+});
+
+// Verify email token and mark user as verified
+app.get("/auth/verify", async (req, res) => {
+  try {
+    const { token } = req.query || {};
+    if (!token) {
+      return res.status(400).json({ error: "Missing token" });
+    }
+
+    const result = await verifyEmailToken(token);
+
+    if (result.status === "expired") {
+      return res.status(400).json({ error: "Token expired" });
+    }
+
+    if (result.status === "invalid") {
+      return res.status(400).json({ error: "Invalid token" });
+    }
+
+    return res.json({ message: "Email verified" });
+  } catch (err) {
+    console.error("[verify-email] Verification failed:", err);
+    return res.status(500).json({ error: "Verification failed" });
+  }
+});
+
+// Alias: token verification via path param (matches GET /api/email/verify/:token)
+app.get("/api/email/verify/:token", async (req, res) => {
+  try {
+    const { token } = req.params || {};
+    if (!token) {
+      return res.status(400).send("Missing token");
+    }
+
+    const result = await verifyEmailToken(token);
+
+    if (result.status === "expired") {
+      return res.status(400).send("Invalid or expired verification link");
+    }
+
+    if (result.status === "invalid") {
+      return res.status(400).send("Invalid or expired verification link");
+    }
+
+    return res.send("Email verified successfully ✅");
+  } catch (err) {
+    console.error("[/api/email/verify/:token] Verification failed:", err);
+    return res.status(500).send("Verification failed");
+  }
+});
 
 const supplierRoutes = require("./routes/SupplierRoutes");
 console.log("[Server.js] supplierRoutes loaded.");
