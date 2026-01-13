@@ -9,6 +9,9 @@ export default function Profile() {
   const [error, setError] = useState("");
   const [imageKey, setImageKey] = useState(0); // force img refresh when URL changes
   const [verifyStatus, setVerifyStatus] = useState("");
+  const [showVerifyModal, setShowVerifyModal] = useState(false);
+  const [emailInput, setEmailInput] = useState("");
+  const [savingEmail, setSavingEmail] = useState(false);
 
   const fetchProfile = async ({ silent = false } = {}) => {
     try {
@@ -73,6 +76,50 @@ export default function Profile() {
     }
   };
 
+  const openVerifyModal = () => {
+    setEmailInput(profile?.email || "");
+    setVerifyStatus("");
+    setError("");
+    setShowVerifyModal(true);
+  };
+
+  const handleConfirmVerify = async () => {
+    if (!emailInput) {
+      setError("Email is required");
+      return;
+    }
+    setSavingEmail(true);
+    setError("");
+    try {
+      if (emailInput.trim().toLowerCase() === (profile?.email || "").toLowerCase()) {
+        // Same email: just send verification
+        await handleSendVerification();
+      } else {
+        // Update email then send verification (handled by backend)
+        const res = await api.patch("/auth/email", { email: emailInput.trim() });
+        const updated = res.data?.user;
+        setProfile((prev) =>
+          prev
+            ? {
+                ...prev,
+                email: updated?.email || emailInput.trim(),
+                email_verified: updated?.email_verified ?? false,
+              }
+            : prev
+        );
+        setVerifyStatus("sent");
+      }
+      setShowVerifyModal(false);
+    } catch (err) {
+      const msg =
+        err?.response?.data?.message || err?.response?.data?.error || "Failed to process verification.";
+      setError(msg);
+      setVerifyStatus("error");
+    } finally {
+      setSavingEmail(false);
+    }
+  };
+
   if (loading) return <div className="profile-card">Loading profile...</div>;
   if (error) return <div className="profile-card error">{error}</div>;
   if (!profile) return <div className="profile-card">No profile data.</div>;
@@ -112,7 +159,7 @@ export default function Profile() {
             ) : (
               <button
                 className="verify-btn"
-                onClick={handleSendVerification}
+                onClick={openVerifyModal}
                 disabled={verifyStatus === "sending"}
               >
                 {verifyStatus === "sending" ? "Sending..." : verifyStatus === "sent" ? "Sent" : "Verify email"}
@@ -140,6 +187,31 @@ export default function Profile() {
           <span>{joinedAt ? new Date(joinedAt).toLocaleDateString() : "—"}</span>
         </div>
       </div>
+
+      {showVerifyModal && (
+        <div className="verify-modal-backdrop" onClick={() => setShowVerifyModal(false)}>
+          <div className="verify-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Verify email</h3>
+            <div className="field">
+              <label>Current email</label>
+              <input
+                type="email"
+                value={emailInput}
+                onChange={(e) => setEmailInput(e.target.value)}
+                placeholder="your@email.com"
+              />
+            </div>
+            <div className="actions">
+              <button className="btn-secondary" onClick={() => setShowVerifyModal(false)} disabled={savingEmail}>
+                Cancel
+              </button>
+              <button className="btn-primary" onClick={handleConfirmVerify} disabled={savingEmail}>
+                {savingEmail ? "Working..." : "Send verification"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

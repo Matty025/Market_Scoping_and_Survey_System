@@ -4,6 +4,7 @@ const jwt = require("jsonwebtoken");
 const UserModel = require("../models/UserModel");
 const SupplierModel = require("../models/SupplierModel");
 const pool = require("../db");
+const { protect } = require("./authMiddleware");
 const { sendVerificationEmail } = require("../services/emailVerificationService");
 
 const router = express.Router();
@@ -197,6 +198,69 @@ router.post("/login", async (req, res) => {
   } catch (error) {
     console.error("Login error:", error);
     res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Update email and trigger verification (auth required)
+router.patch("/email", protect, async (req, res) => {
+  const userId = req.user?.userID || req.user?.id;
+  const { email } = req.body || {};
+
+  if (!userId) {
+    return res.status(401).json({ message: "Not authorized" });
+  }
+  if (!email) {
+    return res.status(400).json({ message: "Email is required" });
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ message: "Invalid email format" });
+  }
+
+  try {
+    // Check if email already in use by another account
+    const dup = await pool.query(
+      `SELECT 1 FROM "Users" WHERE "Email" = $1 AND "UserID" <> $2`,
+      [email, userId]
+    );
+    if (dup.rowCount > 0) {
+      return res.status(409).json({ message: "Email already in use" });
+    }
+
+    const updated = await pool.query(
+      `UPDATE "Users"
+          SET "Email" = $1,
+              email_verified = false,
+              verification_token = NULL,
+              token_expires_at = NULL
+        WHERE "UserID" = $2
+        RETURNING "UserID", "Email", email_verified`,
+      [email, userId]
+    );
+
+    if (updated.rowCount === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Trigger verification email (non-blocking try/catch)
+    try {
+      await sendVerificationEmail(userId, email);
+    } catch (e) {
+      console.warn("[email/update] Failed to send verification email:", e && e.message ? e.message : e);
+    }
+
+    return res.json({
+      message: "Email updated. Verification sent to the new address.",
+      user: {
+        userID: updated.rows[0].UserID,
+        email: updated.rows[0].Email,
+        email_verified: updated.rows[0].email_verified,
+      },
+    });
+  } catch (error) {
+    console.error("[email/update] error:", error);
+    return res.status(500).json({ message: "Server error" });
   }
 });
 
