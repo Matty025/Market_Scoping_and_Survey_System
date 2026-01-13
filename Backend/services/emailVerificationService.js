@@ -1,4 +1,5 @@
-const { sendMail } = require("../utils/mailer");
+const mailer = require("../utils/mailer");
+const sendMail = mailer.sendMail || ((opts) => mailer.transporter.sendMail(opts));
 const db = require("../db");
 const crypto = require("crypto");
 
