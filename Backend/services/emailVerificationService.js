@@ -1,9 +1,9 @@
-const { v4: uuidv4 } = require("uuid");
 const { sendMail } = require("../utils/mailer");
 const db = require("../db");
+const crypto = require("crypto");
 
 async function sendVerificationEmail(userId, email) {
-  const token = uuidv4();
+  const token = crypto.randomUUID();
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h; tweak as needed
 
   const result = await db.query(
