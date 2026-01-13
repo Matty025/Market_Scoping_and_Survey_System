@@ -177,9 +177,16 @@ router.get('/profile', protect, async (req, res) => {
       [supplierId]
     );
 
-    const signedAvatarUrl = profile.profileImageUrl
-      ? await generateSignedUrl(profile.profileImageUrl, 60)
-      : null;
+    let signedAvatarUrl = null;
+    if (profile.profileImageUrl) {
+      try {
+        signedAvatarUrl = await generateSignedUrl(profile.profileImageUrl, 60);
+      } catch (sigErr) {
+        // If the stored path is missing, don't fail the profile payload
+        console.warn('[SupplierRoutes] Avatar signed URL failed:', sigErr && sigErr.message ? sigErr.message : sigErr);
+        signedAvatarUrl = null;
+      }
+    }
 
     return res.json({
       fullName: profile.fullName,
