@@ -53,7 +53,6 @@ const ManageAccounts = () => {
     hasBusinessPermit: false,
     hasTaxClearance: false,
   });
-  const [approveNotes, setApproveNotes] = useState("");
   const [savingApproval, setSavingApproval] = useState(false);
 
   useEffect(() => {
@@ -102,7 +101,6 @@ const ManageAccounts = () => {
 
   const handleApprove = (user) => {
     setApproveTarget(user);
-    setApproveNotes("");
     setApproveDocs({
       hasPhilgeps: false,
       hasSecRegistration: false,
@@ -112,6 +110,7 @@ const ManageAccounts = () => {
   };
   const handleReject = (id) => updateStatus(id, "rejected");
   const handleBlacklist = (id) => updateStatus(id, "blacklisted");
+  const handleReinstate = (id) => updateStatus(id, "active");
 
   const displayedAccounts = useMemo(() => {
     // Show only explicit roles to avoid admin appearing in Buyers tab.
@@ -189,7 +188,7 @@ const ManageAccounts = () => {
                       </button>
                     )}
                     {acc.status === "blacklisted" && (
-                      <button onClick={() => handleApprove(acc.id)} className="approve-btn">
+                      <button onClick={() => handleReinstate(acc.id)} className="approve-btn">
                         Reinstate
                       </button>
                     )}
@@ -229,13 +228,6 @@ const ManageAccounts = () => {
                 </label>
               ))}
             </div>
-            <label className="approve-notes-label">Approval notes (optional)</label>
-            <textarea
-              value={approveNotes}
-              onChange={(e) => setApproveNotes(e.target.value)}
-              placeholder="Add context or remarks"
-              disabled={savingApproval}
-            />
             <div className="approve-actions">
               <button className="cancel-btn" onClick={() => setApproveTarget(null)} disabled={savingApproval}>Cancel</button>
               <button
@@ -243,7 +235,7 @@ const ManageAccounts = () => {
                 onClick={async () => {
                   setSavingApproval(true);
                   try {
-                    await updateStatus(approveTarget.id, "active", approveDocs, approveNotes);
+                    await updateStatus(approveTarget.id, "active", approveDocs, "");
                     setApproveTarget(null);
                   } finally {
                     setSavingApproval(false);
