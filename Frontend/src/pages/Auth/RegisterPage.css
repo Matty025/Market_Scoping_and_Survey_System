@@ -186,6 +186,13 @@
   line-height: 1.4;
 }
 
+.verify-error {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: #c0392b;
+  line-height: 1.4;
+}
+
 .cancel-btn {
   padding: 8px 14px;
 }

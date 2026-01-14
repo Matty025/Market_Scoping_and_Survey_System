@@ -43,6 +43,7 @@ const useRegistrationForm = () => {
   const [checkDisableUntil, setCheckDisableUntil] = useState(0);
   const [autoPollCount, setAutoPollCount] = useState(0);
   const [showRefresh, setShowRefresh] = useState(false);
+  const [verifyInlineError, setVerifyInlineError] = useState("");
 
   // Hydrate form (except passwords) from sessionStorage on mount
   useEffect(() => {
@@ -139,6 +140,7 @@ const useRegistrationForm = () => {
       setPreToken("");
       setShowRefresh(false);
       setAutoPollCount(0);
+      setVerifyInlineError("");
     }
     setFormData(prev => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
   };
@@ -177,6 +179,7 @@ const useRegistrationForm = () => {
     }
 
     setVerifyStatus("sending");
+    setVerifyInlineError("");
     try {
       const res = await api.post("/auth/pre-verify/send", { email });
       setPreToken(res.data?.preToken || "");
@@ -187,8 +190,12 @@ const useRegistrationForm = () => {
     } catch (err) {
       const retry = err?.response?.data?.retryInSeconds;
       if (retry) setSendDisableUntil(Date.now() + retry * 1000);
-      const msg = err?.response?.data?.error || err?.response?.data?.message || "Failed to send verification email.";
+      let msg = err?.response?.data?.error || err?.response?.data?.message || "Failed to send verification email.";
+      if (err?.response?.status === 409) {
+        msg = "Email already in use. Please use a different email.";
+      }
       setVerifyStatus("error");
+      setVerifyInlineError(msg);
       showToast("error", msg);
     }
   };
@@ -300,6 +307,12 @@ const useRegistrationForm = () => {
     const error = validate();
     if (error) return showToast("error", error);
 
+    if (verifyStatus !== "verified") {
+      setVerifyInlineError("Please verify this email before selecting categories or registering.");
+      showToast("error", "Verify your email before continuing.");
+      return;
+    }
+
     if (role === "supplier") setIsCategoryModalOpen(true);
     else handleFinalSubmit(e);
   };
@@ -327,6 +340,7 @@ const useRegistrationForm = () => {
     autoPollCount,
     setAutoPollCount,
     showRefresh,
+    verifyInlineError,
   };
 };
 
@@ -360,7 +374,7 @@ const RoleToggle = ({ role, setRole }) => (
   </div>
 );
 
-const UserInputs = ({ formData, handleChange, role, verifyStatus, onSendVerify, onCheckVerify, preToken, showRefresh }) => {
+const UserInputs = ({ formData, handleChange, role, verifyStatus, onSendVerify, onCheckVerify, preToken, showRefresh, verifyInlineError }) => {
   const [showPassword, setShowPassword] = useState(false);
 
   return (
@@ -382,6 +396,7 @@ const UserInputs = ({ formData, handleChange, role, verifyStatus, onSendVerify, 
           Check your Gmail inbox and spam for the verification link. Make sure you entered a valid Gmail address; the link expires in 24 hours.
         </p>
       )}
+      {verifyInlineError && <p className="verify-error">{verifyInlineError}</p>}
       <div className="password-field">
         <input
           type={showPassword ? "text" : "password"}
@@ -462,6 +477,7 @@ export default function RegisterPage() {
     autoPollCount,
     setAutoPollCount,
     showRefresh,
+    verifyInlineError,
   } = useRegistrationForm();
 
   useAutoPollVerification(verifyStatus, preToken, checkVerificationStatus, autoPollCount, setAutoPollCount);
@@ -485,6 +501,7 @@ export default function RegisterPage() {
             onCheckVerify={handleCheckVerified}
             preToken={preToken}
             showRefresh={showRefresh}
+            verifyInlineError={verifyInlineError}
           />
           {role === "supplier" && <SupplierInputs formData={formData} handleChange={handleChange} />}
         </div>
@@ -495,7 +512,7 @@ export default function RegisterPage() {
           <button type="submit" disabled={isSubmitting} className="register-btn">
             {isSubmitting ? "Validating..." : (role === "supplier" ? "Next: Select Categories" : "Register")}
           </button>
-          <button type="button" className="cancel-btn" onClick={() => navigate("/")}>Cancel</button>
+          <button type="button" className="cancel-btn" onClick={() => navigate("/")}>Cancel Registration</button>
         </div>
       </form>
 
