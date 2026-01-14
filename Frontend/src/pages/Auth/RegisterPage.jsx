@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../api";
-import { FaSyncAlt } from "react-icons/fa"; // Added refresh icon import
+import { FaSyncAlt, FaEye, FaEyeSlash } from "react-icons/fa"; // Added refresh + password toggle icons
 
 // ===== COMPONENTS =====
 import Toast from "../../components/Toast";
@@ -42,6 +42,7 @@ const useRegistrationForm = () => {
   const [sendDisableUntil, setSendDisableUntil] = useState(0);
   const [checkDisableUntil, setCheckDisableUntil] = useState(0);
   const [autoPollCount, setAutoPollCount] = useState(0);
+  const [showRefresh, setShowRefresh] = useState(false);
 
   // Hydrate form (except passwords) from sessionStorage on mount
   useEffect(() => {
@@ -133,6 +134,12 @@ const useRegistrationForm = () => {
   // ===== HANDLERS =====
   const handleChange = e => {
     const { name, value, type, checked } = e.target;
+    if (name === "email") {
+      setVerifyStatus("idle");
+      setPreToken("");
+      setShowRefresh(false);
+      setAutoPollCount(0);
+    }
     setFormData(prev => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
   };
 
@@ -216,6 +223,14 @@ const useRegistrationForm = () => {
     }
     return false;
   }, [preToken, checkDisableUntil]);
+
+  useEffect(() => {
+    if (verifyStatus === "verified") {
+      setShowRefresh(false);
+    } else if (verifyStatus === "sent" || verifyStatus === "error") {
+      setShowRefresh(true);
+    }
+  }, [verifyStatus]);
 
   const handleCheckVerified = () => checkVerificationStatus({ silent: false, enforceCooldown: true });
 
@@ -311,6 +326,7 @@ const useRegistrationForm = () => {
     checkVerificationStatus,
     autoPollCount,
     setAutoPollCount,
+    showRefresh,
   };
 };
 
@@ -344,27 +360,50 @@ const RoleToggle = ({ role, setRole }) => (
   </div>
 );
 
-const UserInputs = ({ formData, handleChange, role, verifyStatus, onSendVerify, onCheckVerify, preToken }) => (
-  <>
-    <input type="text" name="fullName" placeholder={role === "supplier" ? "Contact Person Full Name" : "Full Name"} value={formData.fullName} onChange={handleChange} required />
-    <input type="email" name="email" placeholder="Email Address" value={formData.email} onChange={handleChange} required />
-    <div className="verify-actions">
-      <button type="button" className="verify-btn" onClick={onSendVerify} disabled={verifyStatus === "sending" || verifyStatus === "verified"}>
-        {verifyStatus === "sending" ? "Sending..." : verifyStatus === "verified" ? "Email Verified" : "Verify Email"}
-      </button>
-      <button type="button" className="verify-btn secondary" onClick={onCheckVerify} disabled={!preToken || verifyStatus === "verified"}>
-        {verifyStatus === "verified" ? "Verified" : <><FaSyncAlt /></>}
-      </button>
-    </div>
-    {verifyStatus !== "idle" && (
-      <p className="verify-guide">
-        Check your Gmail inbox and spam for the verification link. Make sure you entered a valid Gmail address; the link expires in 24 hours.
-      </p>
-    )}
-    <input type="password" name="password" placeholder="Password" value={formData.password} onChange={handleChange} required />
-    <input type="password" name="confirmPassword" placeholder="Confirm Password" value={formData.confirmPassword} onChange={handleChange} required />
-  </>
-);
+const UserInputs = ({ formData, handleChange, role, verifyStatus, onSendVerify, onCheckVerify, preToken, showRefresh }) => {
+  const [showPassword, setShowPassword] = useState(false);
+
+  return (
+    <>
+      <input type="text" name="fullName" placeholder={role === "supplier" ? "Contact Person Full Name" : "Full Name"} value={formData.fullName} onChange={handleChange} required />
+      <input type="email" name="email" placeholder="Email Address" value={formData.email} onChange={handleChange} required />
+      <div className="verify-actions">
+        <button type="button" className="verify-btn" onClick={onSendVerify} disabled={verifyStatus === "sending" || verifyStatus === "verified"}>
+          {verifyStatus === "sending" ? "Sending..." : verifyStatus === "verified" ? "Email Verified" : "Verify Email"}
+        </button>
+        {showRefresh && verifyStatus !== "verified" && (
+          <button type="button" className="verify-btn secondary" onClick={onCheckVerify} disabled={!preToken || verifyStatus === "verified"}>
+            <FaSyncAlt />
+          </button>
+        )}
+      </div>
+      {verifyStatus !== "idle" && (
+        <p className="verify-guide">
+          Check your Gmail inbox and spam for the verification link. Make sure you entered a valid Gmail address; the link expires in 24 hours.
+        </p>
+      )}
+      <div className="password-field">
+        <input
+          type={showPassword ? "text" : "password"}
+          name="password"
+          placeholder="Password"
+          value={formData.password}
+          onChange={handleChange}
+          required
+        />
+        <button
+          type="button"
+          className="password-toggle"
+          onClick={() => setShowPassword(v => !v)}
+          aria-label={showPassword ? "Hide password" : "Show password"}
+        >
+          {showPassword ? <FaEyeSlash /> : <FaEye />}
+        </button>
+      </div>
+      <input type="password" name="confirmPassword" placeholder="Confirm Password" value={formData.confirmPassword} onChange={handleChange} required />
+    </>
+  );
+};
 
 const SupplierInputs = ({ formData, handleChange }) => (
   <>
@@ -444,6 +483,7 @@ export default function RegisterPage() {
             onSendVerify={handleSendPreVerify}
             onCheckVerify={handleCheckVerified}
             preToken={preToken}
+            showRefresh={showRefresh}
           />
           {role === "supplier" && <SupplierInputs formData={formData} handleChange={handleChange} />}
         </div>
