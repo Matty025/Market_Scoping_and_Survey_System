@@ -193,8 +193,13 @@ const useRegistrationForm = () => {
       let msg = err?.response?.data?.error || err?.response?.data?.message || "Failed to send verification email.";
       if (err?.response?.status === 409) {
         msg = "Email already in use. Please use a different email.";
+        // Keep the verify button available for trying another address
+        setVerifyStatus("idle");
+        setSendDisableUntil(0);
+        setPreToken("");
+        setShowRefresh(false);
       }
-      setVerifyStatus("error");
+      if (err?.response?.status !== 409) setVerifyStatus("error");
       setVerifyInlineError(msg);
       showToast("error", msg);
     }
