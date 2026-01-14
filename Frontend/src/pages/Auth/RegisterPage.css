@@ -145,6 +145,13 @@
   cursor: not-allowed;
 }
 
+.verify-guide {
+  margin: 4px 0 12px;
+  font-size: 13px;
+  color: #0f1f3d;
+  line-height: 1.4;
+}
+
 .input-group input::placeholder {
   color: rgba(30, 41, 59, 0.5);
   font-weight: 400;

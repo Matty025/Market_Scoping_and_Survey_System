@@ -1,5 +1,5 @@
 // ===== LIBRARIES =====
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../api";
 
@@ -39,6 +39,37 @@ const useRegistrationForm = () => {
   const [verifyStatus, setVerifyStatus] = useState("idle"); // idle | sending | sent | verified | error
   const [preToken, setPreToken] = useState("");
   const [sendDisableUntil, setSendDisableUntil] = useState(0);
+  const [checkDisableUntil, setCheckDisableUntil] = useState(0);
+  const [autoPollCount, setAutoPollCount] = useState(0);
+
+  // Hydrate form (except passwords) from sessionStorage on mount
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem("registerForm");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.role) setRole(parsed.role);
+        if (parsed.formData) {
+          setFormData(prev => ({ ...prev, ...parsed.formData, password: "", confirmPassword: "" }));
+        }
+      }
+    } catch (e) {
+      console.warn("[register] failed to hydrate form", e);
+    }
+  }, []);
+
+  // Persist form (except passwords) to sessionStorage on change
+  useEffect(() => {
+    const payload = {
+      role,
+      formData: { ...formData, password: "", confirmPassword: "" },
+    };
+    try {
+      sessionStorage.setItem("registerForm", JSON.stringify(payload));
+    } catch (e) {
+      console.warn("[register] failed to persist form", e);
+    }
+  }, [role, formData]);
 
   // ===== TOAST =====
   const showToast = (type, message, duration = 3000) => {
@@ -143,7 +174,8 @@ const useRegistrationForm = () => {
       setPreToken(res.data?.preToken || "");
       setVerifyStatus("sent");
       setSendDisableUntil(Date.now() + 60 * 1000);
-      showToast("success", "Verification email sent. Check your inbox and click the link.");
+      showToast("success", "Verification email sent. Check your Gmail inbox (and Spam) and make sure the address is valid.");
+      setAutoPollCount(0);
     } catch (err) {
       const retry = err?.response?.data?.retryInSeconds;
       if (retry) setSendDisableUntil(Date.now() + retry * 1000);
@@ -153,23 +185,38 @@ const useRegistrationForm = () => {
     }
   };
 
-  const handleCheckVerified = async () => {
-    if (!preToken) return showToast("error", "Send a verification email first.");
+  const checkVerificationStatus = useCallback(async ({ silent = false, enforceCooldown = true } = {}) => {
+    if (!preToken) {
+      if (!silent) showToast("error", "Send a verification email first.");
+      return false;
+    }
+    if (enforceCooldown && Date.now() < checkDisableUntil) {
+      const seconds = Math.ceil((checkDisableUntil - Date.now()) / 1000);
+      if (!silent) showToast("error", `Please wait ${seconds}s before refreshing status.`);
+      return false;
+    }
     try {
       const res = await api.get(`/auth/pre-verify/status`, { params: { token: preToken } });
       if (res.data?.verified) {
         setVerifyStatus("verified");
-        showToast("success", "Email verified. You can finish registration now.");
-      } else {
-        setVerifyStatus("sent");
-        showToast("error", "Still not verified. Click the email link.");
+        if (!silent) showToast("success", "Email verified. You can finish registration now.");
+        return true;
+      }
+      setVerifyStatus("sent");
+      if (!silent) {
+        showToast("error", "Not verified yet. Please click the email link. If you've clicked it, wait a few seconds or resend.");
       }
     } catch (err) {
       const msg = err?.response?.data?.error || err?.response?.data?.message || "Verification check failed.";
       setVerifyStatus("error");
-      showToast("error", msg);
+      if (!silent) showToast("error", msg);
+    } finally {
+      setCheckDisableUntil(Date.now() + 5000);
     }
-  };
+    return false;
+  }, [preToken, checkDisableUntil]);
+
+  const handleCheckVerified = () => checkVerificationStatus({ silent: false, enforceCooldown: true });
 
   const handleFinalSubmit = async e => {
     // Ant Design Form `onFinish` passes form values, not an event.
@@ -260,7 +307,29 @@ const useRegistrationForm = () => {
     handleSendPreVerify,
     handleCheckVerified,
     preToken,
+    checkVerificationStatus,
+    autoPollCount,
+    setAutoPollCount,
   };
+};
+
+// Auto-poll verification status after sending, up to 12 attempts (~60s) to reduce clicks
+const useAutoPollVerification = (verifyStatus, preToken, checkFn, autoPollCount, setAutoPollCount) => {
+  useEffect(() => {
+    if (verifyStatus !== "sent" || !preToken) return;
+    if (autoPollCount >= 12) return; // stop after ~1 minute
+
+    const id = setInterval(async () => {
+      const ok = await checkFn({ silent: true, enforceCooldown: false });
+      if (ok) {
+        clearInterval(id);
+        return;
+      }
+      setAutoPollCount((c) => c + 1);
+    }, 5000);
+
+    return () => clearInterval(id);
+  }, [verifyStatus, preToken, checkFn, autoPollCount, setAutoPollCount]);
 };
 
 // ===== SUB-COMPONENTS =====
@@ -283,9 +352,14 @@ const UserInputs = ({ formData, handleChange, role, verifyStatus, onSendVerify, 
         {verifyStatus === "sending" ? "Sending..." : verifyStatus === "verified" ? "Email Verified" : "Verify Email"}
       </button>
       <button type="button" className="verify-btn secondary" onClick={onCheckVerify} disabled={!preToken || verifyStatus === "verified"}>
-        {verifyStatus === "verified" ? "Verified" : "I clicked the link"}
+        {verifyStatus === "verified" ? "Verified" : "Refresh status"}
       </button>
     </div>
+    {verifyStatus !== "idle" && (
+      <p className="verify-guide">
+        Check your Gmail inbox and spam for the verification link. Make sure you entered a valid Gmail address; the link expires in 24 hours.
+      </p>
+    )}
     <input type="password" name="password" placeholder="Password" value={formData.password} onChange={handleChange} required />
     <input type="password" name="confirmPassword" placeholder="Confirm Password" value={formData.confirmPassword} onChange={handleChange} required />
   </>
@@ -344,7 +418,12 @@ export default function RegisterPage() {
     handleSendPreVerify,
     handleCheckVerified,
     preToken,
+    checkVerificationStatus,
+    autoPollCount,
+    setAutoPollCount,
   } = useRegistrationForm();
+
+  useAutoPollVerification(verifyStatus, preToken, checkVerificationStatus, autoPollCount, setAutoPollCount);
 
   return (
     <div className="register-card">
