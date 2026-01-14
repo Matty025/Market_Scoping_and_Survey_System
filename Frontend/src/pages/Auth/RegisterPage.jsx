@@ -461,6 +461,7 @@ export default function RegisterPage() {
     checkVerificationStatus,
     autoPollCount,
     setAutoPollCount,
+    showRefresh,
   } = useRegistrationForm();
 
   useAutoPollVerification(verifyStatus, preToken, checkVerificationStatus, autoPollCount, setAutoPollCount);
