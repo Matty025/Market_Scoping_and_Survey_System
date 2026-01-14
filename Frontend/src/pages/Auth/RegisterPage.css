@@ -117,11 +117,12 @@
   box-sizing: border-box;
 }
 
-.email-verify-row {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 8px;
+.verify-actions {
+  display: flex;
+  gap: 10px;
   align-items: center;
+  flex-wrap: wrap;
+  margin-top: 6px;
 }
 
 .verify-btn {
@@ -133,6 +134,9 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .verify-btn.secondary {
@@ -150,6 +154,10 @@
   font-size: 13px;
   color: #0f1f3d;
   line-height: 1.4;
+}
+
+.cancel-btn {
+  padding: 10px 16px;
 }
 
 .input-group input::placeholder {

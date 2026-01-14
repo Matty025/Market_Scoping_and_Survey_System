@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../api";
+import { FaSyncAlt } from "react-icons/fa"; // Added refresh icon import
 
 // ===== COMPONENTS =====
 import Toast from "../../components/Toast";
@@ -346,13 +347,13 @@ const RoleToggle = ({ role, setRole }) => (
 const UserInputs = ({ formData, handleChange, role, verifyStatus, onSendVerify, onCheckVerify, preToken }) => (
   <>
     <input type="text" name="fullName" placeholder={role === "supplier" ? "Contact Person Full Name" : "Full Name"} value={formData.fullName} onChange={handleChange} required />
-    <div className="email-verify-row">
-      <input type="email" name="email" placeholder="Email Address" value={formData.email} onChange={handleChange} required />
+    <input type="email" name="email" placeholder="Email Address" value={formData.email} onChange={handleChange} required />
+    <div className="verify-actions">
       <button type="button" className="verify-btn" onClick={onSendVerify} disabled={verifyStatus === "sending" || verifyStatus === "verified"}>
         {verifyStatus === "sending" ? "Sending..." : verifyStatus === "verified" ? "Email Verified" : "Verify Email"}
       </button>
       <button type="button" className="verify-btn secondary" onClick={onCheckVerify} disabled={!preToken || verifyStatus === "verified"}>
-        {verifyStatus === "verified" ? "Verified" : "Refresh status"}
+        {verifyStatus === "verified" ? "Verified" : <><FaSyncAlt /> Refresh status</>}
       </button>
     </div>
     {verifyStatus !== "idle" && (
