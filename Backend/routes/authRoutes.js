@@ -6,6 +6,7 @@ const SupplierModel = require("../models/SupplierModel");
 const pool = require("../db");
 const { protect } = require("./authMiddleware");
 const { sendVerificationEmail } = require("../services/emailVerificationService");
+const { sendPendingAccountEmail } = require("../services/adminNotificationService");
 const preverifyStore = require("../services/preverifyStore");
 
 // In-memory edit throttle (per process). For production, move to Redis/DB.
@@ -82,6 +83,9 @@ router.post("/register", async (req, res) => {
           console.warn("[register/buyer] Failed to send verification email:", e && e.message ? e.message : e);
         }
 
+        // Notify admins of new pending account (fire-and-forget)
+        sendPendingAccountEmail({ fullName, email, role: "buyer" }).catch(() => {});
+
         return res.status(201).json({
           message: "Buyer registered successfully",
           user: {
@@ -135,6 +139,9 @@ router.post("/register", async (req, res) => {
       } catch (e) {
         console.warn("[register/supplier] Failed to send verification email:", e && e.message ? e.message : e);
       }
+
+      // Notify admins of new pending account (fire-and-forget)
+      sendPendingAccountEmail({ fullName, email, role: "supplier", companyName }).catch(() => {});
 
       return res.status(201).json({
         message: "Supplier registered successfully",
