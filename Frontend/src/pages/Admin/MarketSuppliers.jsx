@@ -13,7 +13,7 @@ const MarketSuppliers = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedSupplier, setSelectedSupplier] = useState(null); // To track the selected supplier for the modal
-  const [selectedCategories, setSelectedCategories] = useState(null);
+  const [expandedCategories, setExpandedCategories] = useState({}); // row-level expand/collapse
   // const navigate = useNavigate(); // No longer needed if we use a modal
 
   useEffect(() => {
@@ -131,14 +131,24 @@ const MarketSuppliers = () => {
                   <td>{supplier.email}</td>
                   <td>
                     {Array.isArray(supplier.category) && supplier.category.length ? (
-                      <>
-                        {supplier.category.slice(0, 2).join(', ')}
+                      <div className={`category-cell ${expandedCategories[supplier.id] ? "expanded" : ""}`}>
+                        <span className="category-text">
+                          {expandedCategories[supplier.id]
+                            ? supplier.category.join(', ')
+                            : supplier.category.slice(0, 2).join(', ')}
+                        </span>
                         {supplier.category.length > 2 && (
-                          <button className="table-link inline" onClick={() => setSelectedCategories(supplier)}>
-                            View more
+                          <button
+                            className="table-link inline"
+                            onClick={() => setExpandedCategories(prev => ({
+                              ...prev,
+                              [supplier.id]: !prev[supplier.id],
+                            }))}
+                          >
+                            {expandedCategories[supplier.id] ? 'View less' : 'View more'}
                           </button>
                         )}
-                      </>
+                      </div>
                     ) : supplier.category || 'N/A'}
                   </td>
                   <td>{supplier.location || "N/A"}</td>
@@ -182,21 +192,6 @@ const MarketSuppliers = () => {
           onClose={() => setSelectedSupplier(null)}
           title={`Action History for ${selectedSupplier.name}`}>
           <SupplierActionHistory supplierId={selectedSupplier.id} />
-        </Modal>
-      )}
-
-      {selectedCategories && (
-        <Modal
-          show={!!selectedCategories}
-          onClose={() => setSelectedCategories(null)}
-          title={`Categories for ${selectedCategories.name}`}
-        >
-          <div className="category-list">
-            {(selectedCategories.category || []).map((cat, idx) => (
-              <span key={idx} className="category-pill">{cat}</span>
-            ))}
-            {!selectedCategories.category?.length && <p>No categories found.</p>}
-          </div>
         </Modal>
       )}
 

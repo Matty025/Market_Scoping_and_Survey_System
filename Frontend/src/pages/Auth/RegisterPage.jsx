@@ -44,6 +44,7 @@ const useRegistrationForm = () => {
   const [autoPollCount, setAutoPollCount] = useState(0);
   const [showRefresh, setShowRefresh] = useState(false);
   const [verifyInlineError, setVerifyInlineError] = useState("");
+  const [blockedEmails, setBlockedEmails] = useState([]); // emails rejected this session
 
   // Hydrate form (except passwords) from sessionStorage on mount
   useEffect(() => {
@@ -172,6 +173,16 @@ const useRegistrationForm = () => {
     const email = formData.email.trim();
     if (!email) return showToast("error", "Email is required first.");
     if (!/.+@.+\..+/.test(email)) return showToast("error", "Enter a valid email address.");
+    const emailKey = email.toLowerCase();
+    if (blockedEmails.includes(emailKey)) {
+      const msg = "This email was rejected earlier in this session. Please use a different email.";
+      setVerifyInlineError(msg);
+      setVerifyStatus("idle");
+      setPreToken("");
+      setShowRefresh(false);
+      showToast("error", msg);
+      return;
+    }
 
     if (Date.now() < sendDisableUntil) {
       const seconds = Math.ceil((sendDisableUntil - Date.now()) / 1000);
@@ -198,6 +209,7 @@ const useRegistrationForm = () => {
         setSendDisableUntil(0);
         setPreToken("");
         setShowRefresh(false);
+        setBlockedEmails(prev => (prev.includes(emailKey) ? prev : [...prev, emailKey]));
       }
       if (err?.response?.status !== 409) setVerifyStatus("error");
       setVerifyInlineError(msg);

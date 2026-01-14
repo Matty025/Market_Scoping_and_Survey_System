@@ -151,6 +151,21 @@
 
 .table-link.inline { margin-left: 6px; }
 
+.category-cell {
+  display: inline-flex;
+  gap: 6px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.category-cell .category-text {
+  max-width: 420px;
+}
+
+.category-cell.expanded .category-text {
+  max-width: none;
+}
+
 .category-list {
   display: flex;
   flex-wrap: wrap;
