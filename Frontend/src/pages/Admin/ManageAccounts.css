@@ -127,6 +127,40 @@
   box-shadow: 0 0 0 3px rgba(28, 63, 124, 0.15);
 }
 
+.approve-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.approve-note {
+  font-size: 14px;
+  color: #334155;
+  margin: 0;
+}
+
+.approve-notes-label {
+  font-weight: 600;
+  font-size: 14px;
+  color: #1f2937;
+}
+
+.approve-modal textarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  resize: vertical;
+}
+
+.approve-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+}
+
 .search-input {
   flex: 1 1 240px;
 }

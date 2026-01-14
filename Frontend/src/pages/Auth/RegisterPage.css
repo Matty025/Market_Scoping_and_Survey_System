@@ -157,7 +157,17 @@
 }
 
 .cancel-btn {
-  padding: 10px 16px;
+  padding: 8px 14px;
+}
+
+/* Tighter spacing for email field and verify actions */
+.input-group input[name="email"] {
+  margin-bottom: 8px;
+}
+
+.verify-actions {
+  margin-top: 2px;
+  margin-bottom: 10px;
 }
 
 .input-group input::placeholder {

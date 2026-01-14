@@ -353,7 +353,7 @@ const UserInputs = ({ formData, handleChange, role, verifyStatus, onSendVerify, 
         {verifyStatus === "sending" ? "Sending..." : verifyStatus === "verified" ? "Email Verified" : "Verify Email"}
       </button>
       <button type="button" className="verify-btn secondary" onClick={onCheckVerify} disabled={!preToken || verifyStatus === "verified"}>
-        {verifyStatus === "verified" ? "Verified" : <><FaSyncAlt /> Refresh status</>}
+        {verifyStatus === "verified" ? "Verified" : <><FaSyncAlt /></>}
       </button>
     </div>
     {verifyStatus !== "idle" && (
@@ -384,7 +384,7 @@ const DocumentChecks = ({ formData, handleChange }) => {
 
   return (
     <div className="document-section">
-      <h3>Required Documents Checklist Guide</h3>
+      <h3>Documents Checklist (optional guide)</h3>
       <div className="checkboxes">
         {docs.map(d => (
           <label key={d.key}>

@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import api from "../../api";
 import { useAuth } from "../../components/AuthContext";
 import Toast from "../../components/Toast";
+import Modal from "../../components/Modal";
 import "./ManageAccounts.css";
 
 // Use Vite env or centralized api for backend requests
@@ -45,6 +46,15 @@ const ManageAccounts = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [activeTab, setActiveTab] = useState("suppliers");
   const [toast, setToast] = useState({ visible: false, message: "", type: "info" });
+  const [approveTarget, setApproveTarget] = useState(null);
+  const [approveDocs, setApproveDocs] = useState({
+    hasPhilgeps: false,
+    hasSecRegistration: false,
+    hasBusinessPermit: false,
+    hasTaxClearance: false,
+  });
+  const [approveNotes, setApproveNotes] = useState("");
+  const [savingApproval, setSavingApproval] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -73,13 +83,13 @@ const ManageAccounts = () => {
     }
   };
 
-  const updateStatus = async (userId, newUIStatus) => {
+  const updateStatus = async (userId, newUIStatus, docsPayload = {}, notes = "") => {
     if (!token) return setToast({ visible: true, message: "Not authenticated", type: "error" });
     const backendStatus = mapUIToBackend(newUIStatus);
     try {
       await api.patch(
         `/api/admin/users/${userId}`,
-        { status: backendStatus },
+        { status: backendStatus, documents: docsPayload, notes },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, status: newUIStatus, backendStatus } : u)));
@@ -90,7 +100,16 @@ const ManageAccounts = () => {
     }
   };
 
-  const handleApprove = (id) => updateStatus(id, "active");
+  const handleApprove = (user) => {
+    setApproveTarget(user);
+    setApproveNotes("");
+    setApproveDocs({
+      hasPhilgeps: false,
+      hasSecRegistration: false,
+      hasBusinessPermit: false,
+      hasTaxClearance: false,
+    });
+  };
   const handleReject = (id) => updateStatus(id, "rejected");
   const handleBlacklist = (id) => updateStatus(id, "blacklisted");
 
@@ -156,7 +175,7 @@ const ManageAccounts = () => {
                   <>
                     {acc.status === "pending" && (
                       <>
-                        <button onClick={() => handleApprove(acc.id)} className="approve-btn">
+                        <button onClick={() => handleApprove(acc)} className="approve-btn">
                           Approve
                         </button>
                         <button onClick={() => handleReject(acc.id)} className="reject-btn">
@@ -183,6 +202,61 @@ const ManageAccounts = () => {
       </table>
 
       <Toast visible={toast.visible} type={toast.type} message={toast.message} onClose={() => setToast({ ...toast, visible: false })} />
+
+      {approveTarget && (
+        <Modal
+          show={!!approveTarget}
+          onClose={() => !savingApproval && setApproveTarget(null)}
+          title={`Approve ${approveTarget.name}`}
+        >
+          <div className="approve-modal">
+            <p className="approve-note">Confirm required documents before approval.</p>
+            <div className="checkboxes">
+              {[
+                { key: "hasPhilgeps", label: "PhilGEPS Registration" },
+                { key: "hasSecRegistration", label: "SEC Registration" },
+                { key: "hasBusinessPermit", label: "Business Permit" },
+                { key: "hasTaxClearance", label: "Tax Clearance" },
+              ].map((doc) => (
+                <label key={doc.key}>
+                  <input
+                    type="checkbox"
+                    checked={!!approveDocs[doc.key]}
+                    onChange={(e) => setApproveDocs((prev) => ({ ...prev, [doc.key]: e.target.checked }))}
+                    disabled={savingApproval}
+                  />
+                  {doc.label}
+                </label>
+              ))}
+            </div>
+            <label className="approve-notes-label">Approval notes (optional)</label>
+            <textarea
+              value={approveNotes}
+              onChange={(e) => setApproveNotes(e.target.value)}
+              placeholder="Add context or remarks"
+              disabled={savingApproval}
+            />
+            <div className="approve-actions">
+              <button className="cancel-btn" onClick={() => setApproveTarget(null)} disabled={savingApproval}>Cancel</button>
+              <button
+                className="approve-btn"
+                onClick={async () => {
+                  setSavingApproval(true);
+                  try {
+                    await updateStatus(approveTarget.id, "active", approveDocs, approveNotes);
+                    setApproveTarget(null);
+                  } finally {
+                    setSavingApproval(false);
+                  }
+                }}
+                disabled={savingApproval}
+              >
+                {savingApproval ? "Saving..." : "Confirm approval"}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };

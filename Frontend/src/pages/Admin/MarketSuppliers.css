@@ -140,6 +140,36 @@
 .supplier-table th {
   color: #0f2d62;
   font-weight: 600;
+.table-link {
+  background: none;
+  border: none;
+  color: #0f52ba;
+  cursor: pointer;
+  padding: 0;
+  font-weight: 600;
+}
+
+.table-link.inline { margin-left: 6px; }
+
+.category-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.category-pill {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #1e3a8a;
+  font-weight: 600;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
   font-size: 0.78rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;

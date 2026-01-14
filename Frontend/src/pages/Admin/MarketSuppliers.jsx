@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../api";
 import { useAuth } from "../../components/AuthContext";
@@ -14,6 +14,8 @@ const MarketSuppliers = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedSupplier, setSelectedSupplier] = useState(null); // To track the selected supplier for the modal
+  const [selectedCategories, setSelectedCategories] = useState(null);
+  const [detailSupplier, setDetailSupplier] = useState(null);
 
   // const navigate = useNavigate(); // No longer needed if we use a modal
 
@@ -48,7 +50,7 @@ const MarketSuppliers = () => {
 
   const [search, setSearch] = useState("");
 
-  const filteredSuppliers = suppliers.filter((s) => {
+  const filteredSuppliers = useMemo(() => suppliers.filter((s) => {
     const searchTerm = search.toLowerCase();
     if (!searchTerm) return true; // Show all if search is empty
 
@@ -66,7 +68,7 @@ const MarketSuppliers = () => {
       }
     }
     return nameMatch || locationMatch || categoryMatch;
-  });
+  }), [suppliers, search]);
 
   return (
     <div className="market-suppliers-container">
@@ -104,6 +106,7 @@ const MarketSuppliers = () => {
         <table className="supplier-table">
           <thead>
             <tr>
+              <th></th>
               <th>Supplier Name</th>
               <th>Email</th>
               <th>Category</th>
@@ -128,14 +131,22 @@ const MarketSuppliers = () => {
             ) : filteredSuppliers.length > 0 ? (
                filteredSuppliers.map((supplier) => (
                 <tr key={supplier.id}>
+                  <td>
+                    <button className="table-link" onClick={() => setDetailSupplier(supplier)}>Details</button>
+                  </td>
                   <td>{supplier.name}</td>
                   <td>{supplier.email}</td>
                   <td>
-                    {/* Handle both string and array for category */}
-                    {Array.isArray(supplier.category) && supplier.category.length
-                      ? supplier.category.join(', ')
-                      : supplier.category || 'N/A'
-                    }
+                    {Array.isArray(supplier.category) && supplier.category.length ? (
+                      <>
+                        {supplier.category.slice(0, 2).join(', ')}
+                        {supplier.category.length > 2 && (
+                          <button className="table-link inline" onClick={() => setSelectedCategories(supplier)}>
+                            View more
+                          </button>
+                        )}
+                      </>
+                    ) : supplier.category || 'N/A'}
                   </td>
                   <td>{supplier.location || "N/A"}</td>
                   <td>{supplier.totalProducts}</td>
@@ -178,6 +189,38 @@ const MarketSuppliers = () => {
           onClose={() => setSelectedSupplier(null)}
           title={`Action History for ${selectedSupplier.name}`}>
           <SupplierActionHistory supplierId={selectedSupplier.id} />
+        </Modal>
+      )}
+
+      {selectedCategories && (
+        <Modal
+          show={!!selectedCategories}
+          onClose={() => setSelectedCategories(null)}
+          title={`Categories for ${selectedCategories.name}`}
+        >
+          <div className="category-list">
+            {(selectedCategories.category || []).map((cat, idx) => (
+              <span key={idx} className="category-pill">{cat}</span>
+            ))}
+            {!selectedCategories.category?.length && <p>No categories found.</p>}
+          </div>
+        </Modal>
+      )}
+
+      {detailSupplier && (
+        <Modal
+          show={!!detailSupplier}
+          onClose={() => setDetailSupplier(null)}
+          title={`Supplier details: ${detailSupplier.name}`}
+        >
+          <div className="detail-grid">
+            <div><strong>Email:</strong> {detailSupplier.email || '—'}</div>
+            <div><strong>Location:</strong> {detailSupplier.location || '—'}</div>
+            <div><strong>Status:</strong> {detailSupplier.status || '—'}</div>
+            <div><strong>Total Products:</strong> {detailSupplier.totalProducts ?? '—'}</div>
+            <div><strong>Date Joined:</strong> {detailSupplier.dateJoined ? new Date(detailSupplier.dateJoined).toLocaleDateString() : '—'}</div>
+            <div><strong>Categories:</strong> {Array.isArray(detailSupplier.category) ? detailSupplier.category.join(', ') : (detailSupplier.category || '—')}</div>
+          </div>
         </Modal>
       )}
 
