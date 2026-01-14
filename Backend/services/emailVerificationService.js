@@ -58,4 +58,20 @@ async function sendVerificationEmail(userId, email) {
   });
 }
 
-module.exports = { sendVerificationEmail };
+async function sendPreRegistrationEmail(email, token) {
+  const base = process.env.FRONTEND_URL || process.env.FRONTEND_ORIGIN || "";
+  const verifyLink = `${base}/verify-email?preToken=${token}`;
+
+  await sendMail({
+    to: email,
+    subject: "Verify your email to finish MSSS registration",
+    html: `
+      <h3>Email Verification</h3>
+      <p>Please confirm this email to continue your registration.</p>
+      <p><a href="${verifyLink}">Verify Email</a></p>
+      <p>This link expires in 24 hours.</p>
+    `,
+  });
+}
+
+module.exports = { sendVerificationEmail, sendPreRegistrationEmail };

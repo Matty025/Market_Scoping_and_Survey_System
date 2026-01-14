@@ -146,7 +146,6 @@ export default function BuyerProfile() {
   if (!profile) return <div className="profile-card">No profile data.</div>;
 
   const { fullName, role, email, joinedAt, profileImageUrl, email_verified } = profile;
-  const isSendDisabled = verifyStatus === "sending" || verifyStatus === "sent" || Date.now() < sendDisableUntil;
   const isEditDisabled = Date.now() < editDisableUntil;
 
   return (
@@ -177,29 +176,18 @@ export default function BuyerProfile() {
               />
               <span>{email}</span>
             </span>
-            {email_verified ? (
-              <>
-                <span className="badge-verified">Verified</span>
-                <button
-                  className="verify-btn edit"
-                  onClick={openVerifyModal}
-                  disabled={isEditDisabled || savingEmail}
-                >
-                  {isEditDisabled ? "Edit later" : "Edit email"}
-                </button>
-              </>
-            ) : (
-              <>
-                <span className="badge-unverified">Unverified</span>
-                <button
-                  className="verify-btn"
-                  onClick={openVerifyModal}
-                  disabled={isSendDisabled}
-                >
-                  {verifyStatus === "sending" ? "Sending..." : verifyStatus === "sent" ? "Sent" : "Verify email"}
-                </button>
-              </>
-            )}
+            <>
+              <span className={email_verified ? "badge-verified" : "badge-unverified"}>
+                {email_verified ? "Verified" : "Unverified"}
+              </span>
+              <button
+                className="verify-btn edit"
+                onClick={openVerifyModal}
+                disabled={isEditDisabled || savingEmail}
+              >
+                {isEditDisabled ? "Edit later" : "Edit email"}
+              </button>
+            </>
           </p>
         </div>
       </div>

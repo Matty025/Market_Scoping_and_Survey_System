@@ -11,8 +11,9 @@ export default function VerifyEmailPage() {
 
   useEffect(() => {
     const token = params.token || searchParams.get("token");
+    const preToken = searchParams.get("preToken");
 
-    if (!token) {
+    if (!token && !preToken) {
       setStatus("error");
       setMessage("Missing verification token.");
       return;
@@ -20,9 +21,15 @@ export default function VerifyEmailPage() {
 
     const verify = async () => {
       try {
-        await api.get(`/api/email/verify/${token}`);
-        setStatus("success");
-        setMessage("Email verified successfully. You can now log in.");
+        if (preToken) {
+          await api.get(`/auth/pre-verify/consume`, { params: { token: preToken } });
+          setStatus("success");
+          setMessage("Email verified successfully. Return to registration.");
+        } else {
+          await api.get(`/api/email/verify/${token}`);
+          setStatus("success");
+          setMessage("Email verified successfully. You can now log in.");
+        }
       } catch (err) {
         const msg = err?.response?.data || "Verification failed or link expired.";
         setStatus("error");

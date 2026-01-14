@@ -199,24 +199,6 @@
   color: inherit;
 }
 
-.sidebar-status-dot {
-  display: inline-flex;
-  width: 10px;
-  height: 10px;
-  margin-left: 8px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #ff6666, #d60000);
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.1);
-  position: relative;
-  top: 1px;
-}
-
-.sidebar-status-dot.collapsed {
-  position: absolute;
-  right: 10px;
-  margin-left: 0;
-}
-
 .sidebar-link.active::before {
   content: "";
   position: absolute;

@@ -6,6 +6,7 @@ const SupplierModel = require("../models/SupplierModel");
 const pool = require("../db");
 const { protect } = require("./authMiddleware");
 const { sendVerificationEmail } = require("../services/emailVerificationService");
+const preverifyStore = require("../services/preverifyStore");
 
 // In-memory edit throttle (per process). For production, move to Redis/DB.
 const editLimit = new Map();
@@ -30,6 +31,7 @@ router.post("/register", async (req, res) => {
       hasBusinessPermit,
       hasTaxClearance,
       categories, // <-- This will be an array of CategoryIDs
+      preverifyToken,
     } = req.body;
 
     if (!role || !fullName || !email || !password)
@@ -43,6 +45,13 @@ router.post("/register", async (req, res) => {
     const existing = await pool.query(`SELECT 1 FROM "Users" WHERE "Email"=$1`, [email]);
     if (existing.rowCount > 0)
       return res.status(409).json({ message: "Email already registered" });
+
+    // Require pre-verification token (email ownership) before creating account
+    const precheck = preverifyStore.requireVerified(email, preverifyToken);
+    if (!precheck.ok) {
+      const reason = precheck.reason === "unverified" ? "Please verify your email before registering." : "Email verification is invalid or expired.";
+      return res.status(400).json({ message: reason });
+    }
 
     // Resolve RoleID (hardcode buyer=3, lookup others)
     let roleId;

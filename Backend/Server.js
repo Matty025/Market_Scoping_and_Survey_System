@@ -7,13 +7,17 @@ const cors = require("cors");
 const pool = require("./db.js");
 const emailVerificationService = require("./services/emailVerificationService");
 const { verifyEmailToken } = require("./services/emailVerifyConsume");
+const preverifyStore = require("./services/preverifyStore");
 const sendVerificationEmail = emailVerificationService?.sendVerificationEmail || emailVerificationService;
+const sendPreRegistrationEmail = emailVerificationService?.sendPreRegistrationEmail;
 
 // Simple in-memory cooldown map (per process). For multi-instance deployments, move to Redis/DB.
 const verificationCooldown = new Map();
 const COOLDOWN_MS = 60 * 1000; // 1 minute
 const verificationDaily = new Map();
 const DAILY_LIMIT = 5; // max sends per 24h
+const preverifyCooldown = new Map();
+const PRE_COOLDOWN_MS = 60 * 1000;
 
 const app = express();
 
@@ -89,6 +93,66 @@ app.use("/auth", (req, res, next) => {
   );
   next();
 }, authRoutes);
+
+// Pre-registration email verification (no user account yet)
+app.post("/auth/pre-verify/send", async (req, res) => {
+  try {
+    const { email } = req.body || {};
+    if (!email) return res.status(400).json({ error: "Missing email" });
+
+    const emailNorm = String(email).trim().toLowerCase();
+    if (!/.+@.+\..+/.test(emailNorm)) return res.status(400).json({ error: "Invalid email" });
+
+    const key = emailNorm;
+    const now = Date.now();
+
+    const last = preverifyCooldown.get(key) || 0;
+    if (now - last < PRE_COOLDOWN_MS) {
+      const retryIn = Math.ceil((PRE_COOLDOWN_MS - (now - last)) / 1000);
+      return res.status(429).json({ error: `Please wait ${retryIn}s before resending.`, retryInSeconds: retryIn });
+    }
+
+    const { token, expiresAt } = preverifyStore.createEntry(emailNorm);
+    preverifyCooldown.set(key, now);
+
+    if (typeof sendPreRegistrationEmail === "function") {
+      await sendPreRegistrationEmail(emailNorm, token);
+    } else {
+      console.warn("sendPreRegistrationEmail not available; skipping send");
+    }
+
+    return res.json({ message: "Verification email sent", preToken: token, expiresAt });
+  } catch (err) {
+    console.error("[pre-verify/send]", err);
+    return res.status(500).json({ error: "Failed to send verification email" });
+  }
+});
+
+app.get("/auth/pre-verify/status", (req, res) => {
+  try {
+    const { token } = req.query || {};
+    if (!token) return res.status(400).json({ error: "Missing token" });
+    const status = preverifyStore.getStatus(token);
+    if (!status) return res.status(400).json({ error: "Invalid or expired token" });
+    return res.json({ email: status.email, verified: status.verified, expiresAt: status.expiresAt });
+  } catch (err) {
+    console.error("[pre-verify/status]", err);
+    return res.status(500).json({ error: "Failed" });
+  }
+});
+
+app.get("/auth/pre-verify/consume", (req, res) => {
+  try {
+    const { token } = req.query || {};
+    if (!token) return res.status(400).json({ error: "Missing token" });
+    const result = preverifyStore.markVerified(token);
+    if (!result) return res.status(400).json({ error: "Invalid or expired token" });
+    return res.json({ message: "Email verified", email: result.email });
+  } catch (err) {
+    console.error("[pre-verify/consume]", err);
+    return res.status(500).json({ error: "Verification failed" });
+  }
+});
 
 // Send verification email (expects userId and email in body; protect in auth layer if available)
 app.post("/auth/send-verification", async (req, res) => {

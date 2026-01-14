@@ -5,12 +5,10 @@ import {
   FaUpload, FaChartLine, FaUser, FaUsers, FaCog, FaBuilding 
 } from "react-icons/fa";
 import logo from "../assets/Logo.png";
-import { useAuth } from "./AuthContext";
 import "./Sidebar.css";
 
 const Sidebar = ({ isCollapsed = false, onToggle = () => {}, role }) => {
   const navigate = useNavigate();
-  const { emailVerified } = useAuth();
 
   // Derive role from session storage if not provided
   const effectiveRole = useMemo(() => {
@@ -53,14 +51,14 @@ const Sidebar = ({ isCollapsed = false, onToggle = () => {}, role }) => {
           { to: "/supplier/market", label: "Market", icon: <FaShoppingCart /> },
           { to: "/supplier/upload-products", label: "Upload Products", icon: <FaUpload /> },
           { to: "/supplier/item-health", label: "Item Health", icon: <FaChartLine /> },
-          { to: "/supplier/profile", label: "Profile", icon: <FaUser />, showVerifyDot: true },
+          { to: "/supplier/profile", label: "Profile", icon: <FaUser /> },
         ]
       : effectiveRole === "buyer"
       ? [
           { to: "/buyer/dashboard", label: "Dashboard", icon: <FaTachometerAlt /> },
           { to: "/buyer/market", label: "Market", icon: <FaShoppingCart /> },
           { to: "/buyer/market-suppliers", label: "Market Suppliers", icon: <FaBuilding /> },
-          { to: "/buyer/profile", label: "Profile", icon: <FaUser />, showVerifyDot: true },
+          { to: "/buyer/profile", label: "Profile", icon: <FaUser /> },
         ]
       : [
           { to: "/admin/dashboard", label: "Dashboard", icon: <FaTachometerAlt /> },
@@ -123,17 +121,7 @@ const Sidebar = ({ isCollapsed = false, onToggle = () => {}, role }) => {
             title={isCollapsed ? link.label : undefined}
           >
             <span className="sidebar-link-icon">{link.icon}</span>
-            {!isCollapsed && (
-              <span className="sidebar-link-text">
-                {link.label}
-                {link.showVerifyDot && !emailVerified && (
-                  <span className="sidebar-status-dot" aria-label="Email not verified" />
-                )}
-              </span>
-            )}
-            {isCollapsed && link.showVerifyDot && !emailVerified && (
-              <span className="sidebar-status-dot collapsed" aria-label="Email not verified" />
-            )}
+            {!isCollapsed && <span className="sidebar-link-text">{link.label}</span>}
           </NavLink>
         ))}
       </nav>

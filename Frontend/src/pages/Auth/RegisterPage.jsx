@@ -36,6 +36,9 @@ const useRegistrationForm = () => {
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [categoryGroups, setCategoryGroups] = useState([]);
   const [toast, setToast] = useState({ visible: false, type: "info", message: "" });
+  const [verifyStatus, setVerifyStatus] = useState("idle"); // idle | sending | sent | verified | error
+  const [preToken, setPreToken] = useState("");
+  const [sendDisableUntil, setSendDisableUntil] = useState(0);
 
   // ===== TOAST =====
   const showToast = (type, message, duration = 3000) => {
@@ -124,6 +127,50 @@ const useRegistrationForm = () => {
     return "";
   };
 
+  const handleSendPreVerify = async () => {
+    const email = formData.email.trim();
+    if (!email) return showToast("error", "Email is required first.");
+    if (!/.+@.+\..+/.test(email)) return showToast("error", "Enter a valid email address.");
+
+    if (Date.now() < sendDisableUntil) {
+      const seconds = Math.ceil((sendDisableUntil - Date.now()) / 1000);
+      return showToast("error", `Please wait ${seconds}s before resending.`);
+    }
+
+    setVerifyStatus("sending");
+    try {
+      const res = await api.post("/auth/pre-verify/send", { email });
+      setPreToken(res.data?.preToken || "");
+      setVerifyStatus("sent");
+      setSendDisableUntil(Date.now() + 60 * 1000);
+      showToast("success", "Verification email sent. Check your inbox and click the link.");
+    } catch (err) {
+      const retry = err?.response?.data?.retryInSeconds;
+      if (retry) setSendDisableUntil(Date.now() + retry * 1000);
+      const msg = err?.response?.data?.error || err?.response?.data?.message || "Failed to send verification email.";
+      setVerifyStatus("error");
+      showToast("error", msg);
+    }
+  };
+
+  const handleCheckVerified = async () => {
+    if (!preToken) return showToast("error", "Send a verification email first.");
+    try {
+      const res = await api.get(`/auth/pre-verify/status`, { params: { token: preToken } });
+      if (res.data?.verified) {
+        setVerifyStatus("verified");
+        showToast("success", "Email verified. You can finish registration now.");
+      } else {
+        setVerifyStatus("sent");
+        showToast("error", "Still not verified. Click the email link.");
+      }
+    } catch (err) {
+      const msg = err?.response?.data?.error || err?.response?.data?.message || "Verification check failed.";
+      setVerifyStatus("error");
+      showToast("error", msg);
+    }
+  };
+
   const handleFinalSubmit = async e => {
     // Ant Design Form `onFinish` passes form values, not an event.
     // Handle both cases: a DOM event (from a native form/button) or form values object.
@@ -142,6 +189,10 @@ const useRegistrationForm = () => {
     const error = validate();
     if (error) return showToast("error", error);
 
+    if (verifyStatus !== "verified") {
+      return showToast("error", "Please verify your email before registering.");
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -150,6 +201,7 @@ const useRegistrationForm = () => {
         fullName: formData.fullName.trim(),
         email: formData.email.trim(),
         password: formData.password,
+        preverifyToken: preToken,
       };
 
       if (role === "supplier") {
@@ -204,6 +256,10 @@ const useRegistrationForm = () => {
     handleFinalSubmit,
     categoryGroups,
     navigate,
+    verifyStatus,
+    handleSendPreVerify,
+    handleCheckVerified,
+    preToken,
   };
 };
 
@@ -218,10 +274,18 @@ const RoleToggle = ({ role, setRole }) => (
   </div>
 );
 
-const UserInputs = ({ formData, handleChange, role }) => (
+const UserInputs = ({ formData, handleChange, role, verifyStatus, onSendVerify, onCheckVerify, preToken }) => (
   <>
     <input type="text" name="fullName" placeholder={role === "supplier" ? "Contact Person Full Name" : "Full Name"} value={formData.fullName} onChange={handleChange} required />
-    <input type="email" name="email" placeholder="Email Address" value={formData.email} onChange={handleChange} required />
+    <div className="email-verify-row">
+      <input type="email" name="email" placeholder="Email Address" value={formData.email} onChange={handleChange} required />
+      <button type="button" className="verify-btn" onClick={onSendVerify} disabled={verifyStatus === "sending" || verifyStatus === "verified"}>
+        {verifyStatus === "sending" ? "Sending..." : verifyStatus === "verified" ? "Email Verified" : "Verify Email"}
+      </button>
+      <button type="button" className="verify-btn secondary" onClick={onCheckVerify} disabled={!preToken || verifyStatus === "verified"}>
+        {verifyStatus === "verified" ? "Verified" : "I clicked the link"}
+      </button>
+    </div>
     <input type="password" name="password" placeholder="Password" value={formData.password} onChange={handleChange} required />
     <input type="password" name="confirmPassword" placeholder="Confirm Password" value={formData.confirmPassword} onChange={handleChange} required />
   </>
@@ -276,6 +340,10 @@ export default function RegisterPage() {
     handleFinalSubmit,
     categoryGroups,
     navigate,
+    verifyStatus,
+    handleSendPreVerify,
+    handleCheckVerified,
+    preToken,
   } = useRegistrationForm();
 
   return (
@@ -288,7 +356,15 @@ export default function RegisterPage() {
 
       <form onSubmit={handleInitialRegister}>
         <div className="input-group">
-          <UserInputs formData={formData} handleChange={handleChange} role={role} />
+          <UserInputs
+            formData={formData}
+            handleChange={handleChange}
+            role={role}
+            verifyStatus={verifyStatus}
+            onSendVerify={handleSendPreVerify}
+            onCheckVerify={handleCheckVerified}
+            preToken={preToken}
+          />
           {role === "supplier" && <SupplierInputs formData={formData} handleChange={handleChange} />}
         </div>
 

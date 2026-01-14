@@ -5,13 +5,12 @@ import { useAuth } from "./AuthContext";
 import "./AdminNavbar.css";
 
 const AdminNavbar = ({ title = "Admin", onToggle, isCollapsed }) => {
-  const { fullName, userRole, emailVerified } = useAuth();
+  const { fullName, userRole } = useAuth();
   const navigate = useNavigate();
   
   // Display full name if available, otherwise fall back to role
   const displayName = fullName || title;
   const roleLower = (userRole || "").toLowerCase();
-  const showEmailStatus = !emailVerified && (roleLower === "supplier" || roleLower === "buyer");
   
   return (
     <header className="admin-navbar">
@@ -53,7 +52,6 @@ const AdminNavbar = ({ title = "Admin", onToggle, isCollapsed }) => {
           }}
         >
           <FaUserCircle />
-          {showEmailStatus && <span className="icon-status-dot" aria-label="Email not verified" />}
         </button>
       </div>
     </header>
