@@ -8,7 +8,7 @@ const archiver = require("archiver");
 const fs = require("fs");
 const { sendPendingAccountEmail, sendAccountStatusEmail } = require("../services/adminNotificationService");
 const { notifyBuyerPurchaseStatus } = require("../services/prNotificationService");
-const { notifySuppliersPosted, notifyWinner, notifyLosers } = require("../services/announcementNotificationService");
+const { notifySuppliersPosted, notifyWinner, notifyLosers, notifyAdminsStatusChange } = require("../services/announcementNotificationService");
 // Require buyer routes to reuse history helper
 const buyerRoutes = require('./BuyerRoutes');
 
@@ -45,7 +45,8 @@ const VALID_ANNOUNCEMENT_STATUSES = new Set([
   "CLOSED",
   "AWARDED",
   "CANCELLED",
-  "EXPIRED"
+  "EXPIRED",
+  "FAILED_POSTING"
 ]);
 
 const coerceToInt = (value) => {
@@ -753,17 +754,19 @@ router.patch("/announcements/:id/status", protect, async (req, res) => {
     return res.status(400).json({ message: "Invalid announcement id." });
   }
 
-  const requestedStatus = typeof req.body.status === 'string' ? req.body.status.trim().toUpperCase() : '';
+  const requestedStatus = typeof req.body.status === 'string'
+    ? req.body.status.trim().toUpperCase().replace(/\s+/g, '_')
+    : '';
   const rawNotes = typeof req.body.notes === 'string' ? req.body.notes.trim() : '';
-  const notes = rawNotes.length > 0 ? rawNotes : null;
+  let notes = rawNotes.length > 0 ? rawNotes : null;
   const awardedSupplierId = coerceToInt(req.body.awardedSupplierId);
 
   if (!VALID_ANNOUNCEMENT_STATUSES.has(requestedStatus)) {
     return res.status(400).json({ message: `Invalid status. Allowed values: ${Array.from(VALID_ANNOUNCEMENT_STATUSES).join(', ')}` });
   }
 
-  if ((requestedStatus === 'CANCELLED' || requestedStatus === 'CLOSED' || requestedStatus === 'AWARDED') && !notes) {
-    return res.status(400).json({ message: "Please provide notes explaining this status change." });
+  if ((requestedStatus === 'CANCELLED' || requestedStatus === 'CLOSED' || requestedStatus === 'AWARDED' || requestedStatus === 'FAILED_POSTING') && !notes) {
+    notes = `Status set to ${requestedStatus} by admin.`;
   }
 
   if (requestedStatus === 'AWARDED' && !awardedSupplierId) {
@@ -880,6 +883,20 @@ router.patch("/announcements/:id/status", protect, async (req, res) => {
     }
 
     await client.query("COMMIT");
+
+    notifyAdminsStatusChange({
+      fileId,
+      title: announcementTitle || `Announcement ${fileId}`,
+      status: requestedStatus,
+      previousStatus,
+      notes,
+      awardedSupplierId,
+      awardedSupplierName,
+      losingSupplierIds,
+    }).catch((err) => {
+      console.warn('[adminRoutes] Failed to send admin status email:', err && err.message ? err.message : err);
+    });
+
     res.json({
       message: "Announcement status updated.",
       fileId,
@@ -987,6 +1004,19 @@ router.patch("/announcements/:id/award", protect, async (req, res) => {
     });
 
     await client.query("COMMIT");
+
+    notifyAdminsStatusChange({
+      fileId,
+      title: announcementTitle,
+      status: 'AWARDED',
+      previousStatus: currentStatus,
+      notes,
+      awardedSupplierId: supplierId,
+      awardedSupplierName,
+      losingSupplierIds,
+    }).catch((err) => {
+      console.warn('[adminRoutes] Failed to send admin status email (award route):', err && err.message ? err.message : err);
+    });
 
     notifyWinner({ fileId, title: announcementTitle, winnerSupplierId: supplierId }).catch((err) => {
       console.warn('[adminRoutes] Failed to send winner email:', err && err.message ? err.message : err);

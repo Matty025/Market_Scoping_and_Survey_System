@@ -1,6 +1,7 @@
-const db = require("../db");
 const nodemailer = require("nodemailer");
 const mailer = require("../utils/mailer");
+// For admin-facing notifications about announcement lifecycle changes
+const db = require("../db");
 
 // Resolve sendMail similar to other services
 let sendMail =
@@ -118,8 +119,54 @@ async function notifyLosers({ fileId, title, winnerName, loserSupplierIds }) {
   console.log(`[announcementNotification] Loser emails sent for file ${fileId} to ${recipients.length} suppliers.`);
 }
 
+async function getAdminEmails() {
+  const { rows } = await db.query(
+    `SELECT u."Email"
+       FROM "Users" u
+       JOIN "Roles" r ON r."RoleID" = u."RoleID"
+      WHERE LOWER(r."RoleName") = 'admin'
+        AND u."Email" IS NOT NULL`
+  );
+  return rows.map((r) => r.Email).filter(Boolean);
+}
+
+async function notifyAdminsStatusChange({ fileId, title, status, previousStatus, notes, awardedSupplierId, awardedSupplierName, losingSupplierIds }) {
+  if (!sendMail) return;
+  const recipients = await getAdminEmails();
+  if (!recipients.length) {
+    console.warn('[announcementNotification] No admin recipients for status change email');
+    return;
+  }
+
+  const subject = `[MSSS] Announcement status: ${title || fileId} -> ${status}`;
+  const lines = [
+    `<strong>Announcement:</strong> ${title || `(ID ${fileId})`}`,
+    `<strong>New Status:</strong> ${status || 'N/A'}`,
+  ];
+
+  if (previousStatus) lines.push(`<strong>Previous Status:</strong> ${previousStatus}`);
+  if (awardedSupplierId) {
+    lines.push(`<strong>Awarded Supplier:</strong> ${awardedSupplierName || `Supplier ${awardedSupplierId}`} (ID ${awardedSupplierId})`);
+  }
+  if (Array.isArray(losingSupplierIds) && losingSupplierIds.length > 0) {
+    lines.push(`<strong>Non-awarded suppliers:</strong> ${losingSupplierIds.join(', ')}`);
+  }
+  if (notes) {
+    lines.push(`<strong>Notes:</strong> ${notes.toString().replace(/\n/g, '<br/>')}`);
+  }
+
+  const html = `
+    <h3>Announcement status changed</h3>
+    <p>${lines.join('<br/>')}</p>
+  `;
+
+  await sendMail({ to: recipients, subject, html });
+  console.log(`[announcementNotification] Admin status email sent for file ${fileId} -> ${status}`);
+}
+
 module.exports = {
   notifySuppliersPosted,
   notifyWinner,
   notifyLosers,
+  notifyAdminsStatusChange,
 };
