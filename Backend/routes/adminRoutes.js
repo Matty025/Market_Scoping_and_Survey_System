@@ -917,35 +917,18 @@ router.patch("/announcements/:id/award", protect, async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    const fileRes = await client.query(
+      'SELECT "FileID", "Status", "Title" FROM "ProcurementFiles" WHERE "FileID" = $1',
+      [fileId]
+    );
 
-    // Send winner/loser notifications (fire-and-forget)
-    if (requestedStatus === 'AWARDED' && awardedSupplierId) {
-      notifyWinner({ fileId, title: announcementTitle, winnerSupplierId: awardedSupplierId }).catch((err) => {
-        console.warn('[adminRoutes] Failed to send winner email:', err && err.message ? err.message : err);
-      });
-
-      if (losingSupplierIds.length > 0) {
-        notifyLosers({
-          fileId,
-          title: announcementTitle,
-          winnerName: awardedSupplierName,
-          loserSupplierIds: losingSupplierIds,
-        }).catch((err) => {
-          console.warn('[adminRoutes] Failed to send loser emails:', err && err.message ? err.message : err);
-        });
-      }
+    if (fileRes.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Announcement not found." });
     }
 
-    res.json({
-      message: "Announcement status updated.",
-      fileId,
-      previousStatus,
-      status: requestedStatus,
-      awardedSupplierId: awardedSupplierId || null,
-      awardedSupplierName: awardedSupplierName,
-      losingSupplierIds
-    });
-    }
+    const currentStatus = fileRes.rows[0].Status || null;
+    const announcementTitle = fileRes.rows[0].Title || `Announcement ${fileId}`;
 
     const assignmentRes = await client.query(
       'SELECT "SupplierFileID" FROM "SupplierFiles" WHERE "FileID" = $1 AND "SupplierID" = $2',
@@ -986,15 +969,40 @@ router.patch("/announcements/:id/award", protect, async (req, res) => {
       );
     }
 
+    const supplierRes = await client.query(
+      'SELECT "DisplayName" FROM "Suppliers" WHERE "SupplierID" = $1',
+      [supplierId]
+    );
+    const awardedSupplierName =
+      supplierRes.rows.length > 0
+        ? supplierRes.rows[0].DisplayName || `Supplier ${supplierId}`
+        : `Supplier ${supplierId}`;
+
     await recordStatusHistory(client, {
       fileId,
-      oldStatus: fileRes.rows[0].Status || null,
+      oldStatus: currentStatus,
       newStatus: 'AWARDED',
       changedBy: coerceToInt(req.user?.userID || req.user?.id),
       notes
     });
 
     await client.query("COMMIT");
+
+    notifyWinner({ fileId, title: announcementTitle, winnerSupplierId: supplierId }).catch((err) => {
+      console.warn('[adminRoutes] Failed to send winner email:', err && err.message ? err.message : err);
+    });
+
+    if (losingSupplierIds.length > 0) {
+      notifyLosers({
+        fileId,
+        title: announcementTitle,
+        winnerName: awardedSupplierName,
+        loserSupplierIds: losingSupplierIds,
+      }).catch((err) => {
+        console.warn('[adminRoutes] Failed to send loser emails:', err && err.message ? err.message : err);
+      });
+    }
+
     res.json({
       message: "Announcement awarded successfully.",
       fileId,
