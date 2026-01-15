@@ -1,13 +1,39 @@
 const db = require("../db");
+const nodemailer = require("nodemailer");
 const mailer = require("../utils/mailer");
 
 // Be robust to different export shapes (CommonJS vs default)
-const sendMail =
+let sendMail =
   (mailer && typeof mailer.sendMail === "function" && mailer.sendMail)
   || (mailer && typeof mailer === "function" && mailer)
   || (mailer && typeof mailer.default === "function" && mailer.default)
   || (mailer && mailer.transporter && typeof mailer.transporter.sendMail === "function" && ((opts) => mailer.transporter.sendMail(opts)))
   || null;
+
+// Local fallback if the shared mailer export shape fails in serverless bundling
+if (!sendMail) {
+  try {
+    const user = process.env.SYSTEM_EMAIL;
+    const pass = process.env.SYSTEM_EMAIL_APP_PASSWORD;
+    if (!user || !pass) {
+      console.warn("[adminNotification] Missing SYSTEM_EMAIL or SYSTEM_EMAIL_APP_PASSWORD; cannot build fallback transporter.");
+    } else {
+      const fallbackTransporter = nodemailer.createTransport({
+        host: "smtp.gmail.com",
+        port: 465,
+        secure: true,
+        auth: { user, pass },
+      });
+      sendMail = (options = {}) => {
+        const base = { from: `"MSSS" <${user}>` };
+        return fallbackTransporter.sendMail({ ...base, ...options });
+      };
+      console.log("[adminNotification] Using local nodemailer fallback transporter for pending-account emails.");
+    }
+  } catch (err) {
+    console.warn("[adminNotification] Failed to init fallback transporter:", err && err.message ? err.message : err);
+  }
+}
 
 async function getAdminEmails() {
   const { rows } = await db.query(
