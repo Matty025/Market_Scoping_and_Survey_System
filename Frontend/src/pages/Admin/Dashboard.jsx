@@ -75,6 +75,7 @@
 
   const STATUSES_REQUIRING_NOTES = new Set(["CLOSED"]);
   const STATUSES_REQUIRING_SUPPLIER = new Set(["CLOSED", "AWARDED"]);
+  const STATUS_CHOICES = ["ACTIVE", "CLOSED", "AWARDED", "CANCELLED", "FAILED_POSTING"];
 
   const STATUS_DIALOG_INITIAL = {
     visible: false,
@@ -83,6 +84,7 @@
     announcement: null,
     notes: "",
     awardedSupplierId: "",
+    statusOptions: [],
     error: null,
     submitting: false,
   };
@@ -465,26 +467,32 @@
         onRepost?.(announcement);
         return;
       }
+      if (String(nextStatus || "").toUpperCase() === "UPDATE_STATUS") {
+        onUpdateStatus?.(derivedStatus || "ACTIVE", true);
+        return;
+      }
       if (onUpdateStatus) {
         onUpdateStatus(nextStatus);
       }
     };
 
     const actionButtons = [];
-    const canMarkWinner = !isFailedPosting && !isFinalStatus;
+    const canMarkWinner = !isAwardedStatus && supplierIdsList.length > 0;
     const canMarkCompleted = isFailedPosting;
     const canRepost = isFailedPosting;
 
     if (canMarkWinner) {
-      const hasAssignableSuppliers = supplierIdsList.length > 0;
       actionButtons.push({
-        status: "CLOSED",
+        status: "AWARDED",
         label: "Mark Winner",
         variant: "primary",
-        disabled: !hasAssignableSuppliers,
-        tooltip: !hasAssignableSuppliers ? "Assign suppliers to enable winner selection." : undefined,
+        disabled: false,
+        tooltip: undefined,
       });
     }
+
+    // Quick status picker for debugging
+    actionButtons.push({ status: "UPDATE_STATUS", label: "Update Status" });
 
     if (canMarkCompleted) {
       actionButtons.push({ status: "COMPLETED", label: "Mark as Completed" });
@@ -1448,7 +1456,7 @@
       setShowModal(true);
     };
 
-    const openStatusDialog = (announcement, statusUpper) => {
+    const openStatusDialog = (announcement, statusUpper, allowStatusChoice = false) => {
       if (!announcement || !statusUpper) {
         return;
       }
@@ -1471,6 +1479,7 @@
           preferredSupplierId !== undefined && preferredSupplierId !== null && preferredSupplierId !== ""
             ? String(preferredSupplierId)
             : "",
+        statusOptions: allowStatusChoice ? STATUS_CHOICES : [],
       });
     };
 
@@ -1488,9 +1497,15 @@
       const notesTrimmed = statusDialog.notes.trim();
       const requiresNotes = STATUSES_REQUIRING_NOTES.has(statusUpper);
       const requiresSupplier = STATUSES_REQUIRING_SUPPLIER.has(statusUpper);
+      const requiresStatusChoice = Array.isArray(statusDialog.statusOptions) && statusDialog.statusOptions.length > 0;
 
       if (requiresNotes && notesTrimmed.length === 0) {
         setStatusDialog((prev) => ({ ...prev, error: "Please provide notes for this action." }));
+        return;
+      }
+
+      if (requiresStatusChoice && !statusUpper) {
+        setStatusDialog((prev) => ({ ...prev, error: "Please select a status." }));
         return;
       }
 
@@ -1608,7 +1623,7 @@
       }
     };
 
-    const handleUpdateAnnouncementStatus = (announcement, nextStatus) => {
+    const handleUpdateAnnouncementStatus = (announcement, nextStatus, allowStatusChoice = false) => {
       if (!token || !announcement?.id || !nextStatus) {
         return;
       }
@@ -1627,7 +1642,7 @@
           ? announcement.isFailedPosting
           : isFailedPostingStatus(rawStatus, currentIsExpired);
 
-      if (statusUpper === "ACTIVE") {
+      if (statusUpper === "ACTIVE" && !allowStatusChoice) {
         if (!currentIsFailedPosting) {
           setToast({
             visible: true,
@@ -1640,7 +1655,7 @@
         return;
       }
 
-      if (statusUpper === "COMPLETED" && !currentIsFailedPosting) {
+      if (statusUpper === "COMPLETED" && !allowStatusChoice && !currentIsFailedPosting) {
         setToast({
           visible: true,
           type: "info",
@@ -1649,16 +1664,7 @@
         return;
       }
 
-      if (statusUpper === "CLOSED") {
-        if (currentIsFailedPosting || currentIsExpired) {
-          setToast({
-            visible: true,
-            type: "warning",
-            message: "Select a winner before the posting expires.",
-          });
-          return;
-        }
-
+      if (statusUpper === "AWARDED") {
         const supplierIds = Array.isArray(announcement.supplierIds) ? announcement.supplierIds : [];
         if (supplierIds.length === 0) {
           setToast({
@@ -1670,7 +1676,12 @@
         }
       }
 
-      openStatusDialog(announcement, statusUpper);
+      if (allowStatusChoice) {
+        openStatusDialog(announcement, statusUpper, true);
+        return;
+      }
+
+      openStatusDialog(announcement, statusUpper, false);
     };
 
     const totalPages = Math.max(1, Math.ceil((totalAnnouncements || 0) / PAGE_SIZE));
@@ -1697,11 +1708,13 @@
     const statusDialogRequiresSupplier = statusDialog.status
       ? STATUSES_REQUIRING_SUPPLIER.has(statusDialog.status)
       : false;
+    const statusDialogRequiresStatusChoice = Array.isArray(statusDialog.statusOptions) && statusDialog.statusOptions.length > 0;
     const statusDialogNoteValue = statusDialog.notes || "";
     const statusDialogSubmitDisabled =
       statusDialog.submitting ||
       (statusDialogRequiresSupplier && !statusDialog.awardedSupplierId) ||
-      (statusDialogRequiresNotes && statusDialogNoteValue.trim().length === 0);
+      (statusDialogRequiresNotes && statusDialogNoteValue.trim().length === 0) ||
+      (statusDialogRequiresStatusChoice && !statusDialog.status);
     const statusDialogStatusLabel = statusDialog.status
       ? formatStatusLabel(statusDialog.status)
       : "Status";
@@ -1829,7 +1842,7 @@
                         onOpenResponses={() => handleOpenResponseModal(ann)}
                         onOpenHistory={() => handleShowStatusHistory(ann)}
                         onNavigateDetail={() => handleNavigateToAnnouncementDetail(ann)}
-                        onUpdateStatus={(nextStatus) => handleUpdateAnnouncementStatus(ann, nextStatus)}
+                        onUpdateStatus={(nextStatus, allowChoice) => handleUpdateAnnouncementStatus(ann, nextStatus, allowChoice)}
                         onRepost={() => handleRepostAnnouncement(ann)}
                         isStatusUpdating={statusUpdatingId === ann.id}
                       />
@@ -1927,6 +1940,15 @@
           visible={statusDialog.visible && Boolean(statusDialog.announcement)}
           title={`Confirm ${statusDialogStatusLabel} Action`}
           message={statusDialog.message}
+          statusOptions={statusDialog.statusOptions}
+          statusValue={statusDialog.status}
+          onStatusChange={(value) =>
+            setStatusDialog((prev) => ({
+              ...prev,
+              status: value,
+              error: null,
+            }))
+          }
           supplierOptions={statusDialogRequiresSupplier ? dialogSupplierOptions : []}
           supplierRequired={statusDialogRequiresSupplier}
           supplierValue={statusDialog.awardedSupplierId}

@@ -5,6 +5,9 @@ const StatusUpdateModal = ({
   visible,
   title,
   message,
+  statusOptions = [],
+  statusValue = "",
+  onStatusChange,
   supplierOptions = [],
   supplierRequired = false,
   supplierValue = "",
@@ -35,6 +38,10 @@ const StatusUpdateModal = ({
     onSupplierChange?.(event.target.value);
   };
 
+  const handleStatusChange = (event) => {
+    onStatusChange?.(event.target.value);
+  };
+
   const handleNotesChange = (event) => {
     onNotesChange?.(event.target.value);
   };
@@ -58,6 +65,25 @@ const StatusUpdateModal = ({
 
         <h3 className="status-update-modal__title">{title}</h3>
         {message && <p className="status-update-modal__message">{message}</p>}
+
+        {Array.isArray(statusOptions) && statusOptions.length > 0 && (
+          <div className="status-update-modal__field">
+            <label htmlFor="status-update-modal-status">Status</label>
+            <select
+              id="status-update-modal-status"
+              value={statusValue}
+              onChange={handleStatusChange}
+              disabled={submitting}
+            >
+              <option value="">Select status…</option>
+              {statusOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option.replace(/_/g, " ")}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {shouldRenderSupplierField && (
           <div className="status-update-modal__field">
