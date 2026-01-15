@@ -283,6 +283,14 @@
     const rawCats = announcement.categories || announcement.categoryDisplay || announcement.category || "";
     const isSupplierSpecific = announcement.sendType === "supplier" || announcement.SendType === "supplier";
     const supplierNames = Array.isArray(announcement.suppliers) ? announcement.suppliers : [];
+    const supplierIdsList = (() => {
+      if (Array.isArray(announcement.supplierIds)) return announcement.supplierIds;
+      if (Array.isArray(announcement.SupplierIDs)) return announcement.SupplierIDs;
+      if (Array.isArray(announcement.supplier_ids)) return announcement.supplier_ids;
+      if (Array.isArray(announcement.suppliersIds)) return announcement.suppliersIds;
+      if (Array.isArray(announcement.suppliers_ids)) return announcement.suppliers_ids;
+      return [];
+    })();
     const responseCountRaw =
       announcement.respondingSupplierCount ??
       announcement.responseCount ??
@@ -347,7 +355,6 @@
 
     const firstTwoSuppliers = supplierNames.slice(0, 2);
     const remainingSuppliers = Math.max(0, supplierNames.length - firstTwoSuppliers.length);
-    const supplierIdsList = Array.isArray(announcement.supplierIds) ? announcement.supplierIds : [];
 
     const assignedSupplierCount =
       toNullableNumber(announcement.totalSuppliersAssigned) ??
@@ -725,6 +732,16 @@
               <button type="button" className="announcement-expanded-action" onClick={handleOpenHistory}>
                 View Status Timeline
               </button>
+              <button
+                type="button"
+                className="announcement-expanded-action"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onUpdateStatus?.(derivedStatus || "ACTIVE", true);
+                }}
+              >
+                Update Status
+              </button>
               <button type="button" className="announcement-expanded-action" onClick={handleNavigateDetailClick}>
                 Open Full Detail Page
               </button>
@@ -832,9 +849,11 @@
             new Set(record.categoryIds.filter((id) => typeof id === "number" && !Number.isNaN(id)))
           )
         : [];
-      const suppliers = Array.isArray(record.supplierIds)
+      const rawSupplierIds =
+        record.supplierIds || record.SupplierIDs || record.supplier_ids || record.suppliersIds || record.suppliers_ids || [];
+      const suppliers = Array.isArray(rawSupplierIds)
         ? Array.from(
-            new Set(record.supplierIds.filter((id) => typeof id === "number" && !Number.isNaN(id)))
+            new Set(rawSupplierIds.filter((id) => typeof id === "number" && !Number.isNaN(id)))
           )
         : [];
 
@@ -1072,7 +1091,18 @@
         awardedSupplierName:
           ann.awardedSupplierName ?? ann.awarded_supplier_name ?? ann.AwardedSupplierName ?? "",
         awardedAt: ann.awardedAt ?? ann.awarded_at ?? ann.AwardedAt ?? null,
-        supplierIds: Array.isArray(ann.supplierIds) ? ann.supplierIds : [],
+        supplierIds:
+          Array.isArray(ann.supplierIds)
+            ? ann.supplierIds
+            : Array.isArray(ann.SupplierIDs)
+            ? ann.SupplierIDs
+            : Array.isArray(ann.supplier_ids)
+            ? ann.supplier_ids
+            : Array.isArray(ann.suppliersIds)
+            ? ann.suppliersIds
+            : Array.isArray(ann.suppliers_ids)
+            ? ann.suppliers_ids
+            : [],
         categoryIds: Array.isArray(ann.categoryIds) ? ann.categoryIds : [],
         fileName,
         filePath,
@@ -1462,7 +1492,17 @@
       }
 
       const requiresSupplier = STATUSES_REQUIRING_SUPPLIER.has(statusUpper);
-      const supplierIds = Array.isArray(announcement.supplierIds) ? announcement.supplierIds : [];
+      const supplierIds = Array.isArray(announcement.supplierIds)
+        ? announcement.supplierIds
+        : Array.isArray(announcement.SupplierIDs)
+        ? announcement.SupplierIDs
+        : Array.isArray(announcement.supplier_ids)
+        ? announcement.supplier_ids
+        : Array.isArray(announcement.suppliersIds)
+        ? announcement.suppliersIds
+        : Array.isArray(announcement.suppliers_ids)
+        ? announcement.suppliers_ids
+        : [];
       const preferredSupplierId = requiresSupplier
         ? announcement.awardedSupplierId ?? supplierIds[0] ?? ""
         : "";
@@ -1665,7 +1705,17 @@
       }
 
       if (statusUpper === "AWARDED") {
-        const supplierIds = Array.isArray(announcement.supplierIds) ? announcement.supplierIds : [];
+        const supplierIds = Array.isArray(announcement.supplierIds)
+          ? announcement.supplierIds
+          : Array.isArray(announcement.SupplierIDs)
+          ? announcement.SupplierIDs
+          : Array.isArray(announcement.supplier_ids)
+          ? announcement.supplier_ids
+          : Array.isArray(announcement.suppliersIds)
+          ? announcement.suppliersIds
+          : Array.isArray(announcement.suppliers_ids)
+          ? announcement.suppliers_ids
+          : [];
         if (supplierIds.length === 0) {
           setToast({
             visible: true,
