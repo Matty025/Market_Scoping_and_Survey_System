@@ -49,6 +49,7 @@ const ManageAccounts = () => {
   const [testEmail, setTestEmail] = useState("");
   const [sendingTest, setSendingTest] = useState(false);
   const [approveTarget, setApproveTarget] = useState(null);
+  const [approveNotes, setApproveNotes] = useState("");
   const [approveDocs, setApproveDocs] = useState({
     hasPhilgeps: false,
     hasSecRegistration: false,
@@ -56,6 +57,7 @@ const ManageAccounts = () => {
     hasTaxClearance: false,
   });
   const [savingApproval, setSavingApproval] = useState(false);
+  const [actionModal, setActionModal] = useState(null); // { type: 'reject'|'blacklist'|'reinstate', target, notes }
 
   useEffect(() => {
     fetchUsers();
@@ -124,6 +126,7 @@ const ManageAccounts = () => {
 
   const handleApprove = (user) => {
     setApproveTarget(user);
+    setApproveNotes("");
     setApproveDocs({
       hasPhilgeps: false,
       hasSecRegistration: false,
@@ -131,9 +134,11 @@ const ManageAccounts = () => {
       hasTaxClearance: false,
     });
   };
-  const handleReject = (id) => updateStatus(id, "rejected");
-  const handleBlacklist = (id) => updateStatus(id, "blacklisted");
-  const handleReinstate = (id) => updateStatus(id, "active");
+  const openActionModal = (type, target) => setActionModal({ type, target, notes: "" });
+
+  const handleReject = (user) => openActionModal("reject", user);
+  const handleBlacklist = (user) => openActionModal("blacklist", user);
+  const handleReinstate = (user) => openActionModal("reinstate", user);
 
   const displayedAccounts = useMemo(() => {
     // Show only explicit roles to avoid admin appearing in Buyers tab.
@@ -222,18 +227,18 @@ const ManageAccounts = () => {
                         <button onClick={() => handleApprove(acc)} className="approve-btn">
                           Approve
                         </button>
-                        <button onClick={() => handleReject(acc.id)} className="reject-btn">
+                        <button onClick={() => handleReject(acc)} className="reject-btn">
                           Reject
                         </button>
                       </>
                     )}
                     {acc.status === "active" && (
-                      <button onClick={() => handleBlacklist(acc.id)} className="blacklist-btn">
+                      <button onClick={() => handleBlacklist(acc)} className="blacklist-btn">
                         Blacklist
                       </button>
                     )}
                     {acc.status === "blacklisted" && (
-                      <button onClick={() => handleReinstate(acc.id)} className="approve-btn">
+                      <button onClick={() => handleReinstate(acc)} className="approve-btn">
                         Reinstate
                       </button>
                     )}
@@ -255,6 +260,13 @@ const ManageAccounts = () => {
         >
           <div className="approve-modal">
             <p className="approve-note">Confirm required documents before approval.</p>
+            <label className="approve-notes-label">Optional notes to include in email</label>
+            <textarea
+              placeholder="Example: Approved after verifying permits."
+              value={approveNotes}
+              onChange={(e) => setApproveNotes(e.target.value)}
+              disabled={savingApproval}
+            />
             <div className="checkboxes">
               {[
                 { key: "hasPhilgeps", label: "PhilGEPS Registration" },
@@ -280,7 +292,7 @@ const ManageAccounts = () => {
                 onClick={async () => {
                   setSavingApproval(true);
                   try {
-                    await updateStatus(approveTarget.id, "active", approveDocs, "");
+                    await updateStatus(approveTarget.id, "active", approveDocs, approveNotes);
                     setApproveTarget(null);
                   } finally {
                     setSavingApproval(false);
@@ -289,6 +301,46 @@ const ManageAccounts = () => {
                 disabled={savingApproval}
               >
                 {savingApproval ? "Saving..." : "Confirm approval"}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {actionModal && (
+        <Modal
+          show={!!actionModal}
+          onClose={() => setActionModal(null)}
+          title={`${actionModal.type === "reject" ? "Reject" : actionModal.type === "blacklist" ? "Blacklist" : "Reinstate"} ${actionModal.target?.name || "account"}`}
+        >
+          <div className="action-modal">
+            <p className="approve-note">Add optional notes for the email to this user.</p>
+            <textarea
+              placeholder="Example: Blacklisted due to repeated non-compliance."
+              value={actionModal.notes}
+              onChange={(e) => setActionModal((prev) => ({ ...prev, notes: e.target.value }))}
+            />
+            <div className="approve-actions">
+              <button className="cancel-btn" onClick={() => setActionModal(null)}>
+                Cancel
+              </button>
+              <button
+                className="approve-btn"
+                onClick={async () => {
+                  const targetId = actionModal.target?.id;
+                  if (!targetId) return;
+                  const notes = actionModal.notes || "";
+                  if (actionModal.type === "reject") {
+                    await updateStatus(targetId, "rejected", {}, notes);
+                  } else if (actionModal.type === "blacklist") {
+                    await updateStatus(targetId, "blacklisted", {}, notes);
+                  } else {
+                    await updateStatus(targetId, "active", {}, notes);
+                  }
+                  setActionModal(null);
+                }}
+              >
+                Confirm
               </button>
             </div>
           </div>

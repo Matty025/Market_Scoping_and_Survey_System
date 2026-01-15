@@ -226,6 +226,15 @@
   margin-top: 10px;
 }
 
+.action-modal textarea {
+  width: 100%;
+  min-height: 100px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  resize: vertical;
+}
+
 .search-input {
   flex: 1 1 240px;
 }
