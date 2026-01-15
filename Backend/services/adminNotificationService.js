@@ -1,5 +1,13 @@
 const db = require("../db");
-const { sendMail } = require("../utils/mailer");
+const mailer = require("../utils/mailer");
+
+// Be robust to different export shapes (CommonJS vs default)
+const sendMail =
+  (mailer && typeof mailer.sendMail === "function" && mailer.sendMail)
+  || (mailer && typeof mailer === "function" && mailer)
+  || (mailer && typeof mailer.default === "function" && mailer.default)
+  || (mailer && mailer.transporter && typeof mailer.transporter.sendMail === "function" && ((opts) => mailer.transporter.sendMail(opts)))
+  || null;
 
 async function getAdminEmails() {
   const { rows } = await db.query(
@@ -14,6 +22,11 @@ async function getAdminEmails() {
 
 async function sendPendingAccountEmail({ fullName, email, role, companyName, toOverride }) {
   try {
+    if (!sendMail) {
+      console.warn("[adminNotification] sendMail is not available; cannot send pending account email.");
+      return;
+    }
+
     const recipients = Array.isArray(toOverride)
       ? toOverride.filter(Boolean)
       : toOverride
