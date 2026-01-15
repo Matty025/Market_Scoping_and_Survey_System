@@ -5,6 +5,7 @@ const path = require('path');
 const db = require('../db');
 const { protect } = require('./authMiddleware');
 const fs = require('fs');
+const { notifyAdminNewPurchaseRequest } = require('../services/prNotificationService');
 
 // Prefer Supabase Storage; fall back to DigitalOcean S3 (aws-sdk) or local disk.
 const { uploadBuffer, generateSignedUrl, deleteFile } = require('../utils/supabaseStorage');
@@ -296,6 +297,15 @@ router.post('/upload', protect, upload.single('file'), async (req, res) => {
     } catch (histErr) {
       console.warn('[BuyerRoutes.js] Failed to write creation history:', histErr && histErr.message);
     }
+
+    // Notify admins of new purchase request (fire-and-forget)
+    const uploadId = result.rows[0]?.uploadid || result.rows[0]?.UploadID || result.rows[0]?.UploadId;
+    if (uploadId) {
+      notifyAdminNewPurchaseRequest(uploadId).catch((err) => {
+        console.warn('[BuyerRoutes.js] Failed to send admin PR notification:', err && err.message ? err.message : err);
+      });
+    }
+
     res.status(201).json({ success: true, upload: result.rows[0] });
   } catch (err) {
     console.error('[BuyerRoutes.js] Error during upload:', err);

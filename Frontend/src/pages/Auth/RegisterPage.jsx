@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../api";
-import { FaSyncAlt, FaEye, FaEyeSlash } from "react-icons/fa"; // Added refresh + password toggle icons
+import { FaSyncAlt, FaEye, FaEyeSlash, FaCheckCircle } from "react-icons/fa"; // Added refresh + password toggle icons
 
 // ===== COMPONENTS =====
 import Toast from "../../components/Toast";
@@ -399,8 +399,19 @@ const UserInputs = ({ formData, handleChange, role, verifyStatus, onSendVerify, 
       <input type="text" name="fullName" placeholder={role === "supplier" ? "Contact Person Full Name" : "Full Name"} value={formData.fullName} onChange={handleChange} required />
       <input type="email" name="email" placeholder="Email Address" value={formData.email} onChange={handleChange} required />
       <div className="verify-actions">
-        <button type="button" className="verify-btn" onClick={onSendVerify} disabled={verifyStatus === "sending" || verifyStatus === "verified"}>
-          {verifyStatus === "sending" ? "Sending..." : verifyStatus === "verified" ? "Email Verified" : "Verify Email"}
+        <button
+          type="button"
+          className={`verify-btn ${verifyStatus === "verified" ? "verified" : ""}`}
+          onClick={onSendVerify}
+          disabled={verifyStatus === "sending" || verifyStatus === "verified"}
+        >
+          {verifyStatus === "sending" && "Sending..."}
+          {verifyStatus === "verified" && (
+            <>
+              <FaCheckCircle /> Email Verified
+            </>
+          )}
+          {verifyStatus !== "sending" && verifyStatus !== "verified" && "Verify Email"}
         </button>
         {showRefresh && verifyStatus !== "verified" && (
           <button type="button" className="verify-btn secondary" onClick={onCheckVerify} disabled={!preToken || verifyStatus === "verified"}>

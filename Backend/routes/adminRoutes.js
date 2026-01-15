@@ -7,6 +7,8 @@ const pool = require("../db.js");
 const archiver = require("archiver");
 const fs = require("fs");
 const { sendPendingAccountEmail, sendAccountStatusEmail } = require("../services/adminNotificationService");
+const { notifyBuyerPurchaseStatus } = require("../services/prNotificationService");
+const { notifySuppliersPosted, notifyWinner, notifyLosers } = require("../services/announcementNotificationService");
 // Require buyer routes to reuse history helper
 const buyerRoutes = require('./BuyerRoutes');
 
@@ -485,6 +487,18 @@ router.post("/announcements", protect, upload.single("file"), async (req, res) =
     });
 
     await client.query("COMMIT");
+
+    // Notify suppliers (fire-and-forget)
+    if (supplierIdsToNotify.length > 0) {
+      notifySuppliersPosted({
+        fileId: newFileId,
+        title: trimmedTitle,
+        supplierIds: supplierIdsToNotify,
+      }).catch((err) => {
+        console.warn('[adminRoutes] Failed to send posted announcement emails:', err && err.message ? err.message : err);
+      });
+    }
+
     res.status(201).json({
       message: "Announcement posted successfully!",
       fileId: newFileId,
@@ -678,6 +692,17 @@ router.put("/announcements/:id", protect, upload.single("file"), async (req, res
       });
     }
 
+    // Notify suppliers of repost/update (fire-and-forget)
+    if (supplierIdsToNotify.length > 0) {
+      notifySuppliersPosted({
+        fileId,
+        title: titleToSet,
+        supplierIds: supplierIdsToNotify,
+      }).catch((err) => {
+        console.warn('[adminRoutes] Failed to send repost announcement emails:', err && err.message ? err.message : err);
+      });
+    }
+
     const { rows: detailRows } = await pool.query(
       `SELECT pf.*, COALESCE(attempts.attempt_count, 1) AS "AttemptNumber",
               attempts.latest_active_at AS "AttemptSentAt",
@@ -763,6 +788,12 @@ router.patch("/announcements/:id/status", protect, async (req, res) => {
 
     let awardedSupplierName = null;
     let losingSupplierIds = [];
+    let announcementTitle = null;
+
+    const titleRes = await client.query('SELECT "Title" FROM "ProcurementFiles" WHERE "FileID" = $1', [fileId]);
+    if (titleRes.rows.length > 0) {
+      announcementTitle = titleRes.rows[0].Title || null;
+    }
 
     const needsWinner = (requestedStatus === 'AWARDED') || (requestedStatus === 'CLOSED' && awardedSupplierId);
     if (needsWinner) {
@@ -887,14 +918,33 @@ router.patch("/announcements/:id/award", protect, async (req, res) => {
   try {
     await client.query("BEGIN");
 
-    const fileRes = await client.query(
-      'SELECT "Status" FROM "ProcurementFiles" WHERE "FileID" = $1',
-      [fileId]
-    );
+    // Send winner/loser notifications (fire-and-forget)
+    if (requestedStatus === 'AWARDED' && awardedSupplierId) {
+      notifyWinner({ fileId, title: announcementTitle, winnerSupplierId: awardedSupplierId }).catch((err) => {
+        console.warn('[adminRoutes] Failed to send winner email:', err && err.message ? err.message : err);
+      });
 
-    if (fileRes.rows.length === 0) {
-      await client.query("ROLLBACK");
-      return res.status(404).json({ message: "Announcement not found." });
+      if (losingSupplierIds.length > 0) {
+        notifyLosers({
+          fileId,
+          title: announcementTitle,
+          winnerName: awardedSupplierName,
+          loserSupplierIds: losingSupplierIds,
+        }).catch((err) => {
+          console.warn('[adminRoutes] Failed to send loser emails:', err && err.message ? err.message : err);
+        });
+      }
+    }
+
+    res.json({
+      message: "Announcement status updated.",
+      fileId,
+      previousStatus,
+      status: requestedStatus,
+      awardedSupplierId: awardedSupplierId || null,
+      awardedSupplierName: awardedSupplierName,
+      losingSupplierIds
+    });
     }
 
     const assignmentRes = await client.query(
@@ -2268,6 +2318,11 @@ router.patch("/buyer-requests/:id/status", protect, async (req, res) => {
     } catch (histErr) {
       console.warn('[adminRoutes.js] Failed to write purchase request history:', histErr && histErr.message);
     }
+
+    // Notify the buyer about the status change (fire-and-forget)
+    notifyBuyerPurchaseStatus(uploadId, status, feedback).catch((err) => {
+      console.warn('[adminRoutes] Failed to send buyer PR status email:', err && err.message ? err.message : err);
+    });
 
     res.json({ 
       message: 'Status updated successfully', 
