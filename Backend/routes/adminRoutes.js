@@ -6,6 +6,7 @@ const { protect } = require("./authMiddleware");
 const pool = require("../db.js");
 const archiver = require("archiver");
 const fs = require("fs");
+const { sendPendingAccountEmail } = require("../services/adminNotificationService");
 // Require buyer routes to reuse history helper
 const buyerRoutes = require('./BuyerRoutes');
 
@@ -207,6 +208,37 @@ if (adminUseSupabase) {
 }
 
 const upload = multer({ storage: adminStorage });
+
+// Lightweight tester to manually trigger pending-account emails
+router.post("/notifications/test-pending", protect, async (req, res) => {
+  if (!req.user || (req.user.role || "").toLowerCase() !== "admin") {
+    return res.status(403).json({ message: "Access denied. Admins only." });
+  }
+
+  const { to, email, fullName, role, companyName } = req.body || {};
+  const target = (to || email || "").trim();
+
+  if (!target) {
+    return res.status(400).json({ message: "Missing target email" });
+  }
+
+  try {
+    console.log(`[adminRoutes] Test pending-email requested by admin ${req.user.userID} -> ${target}`);
+
+    await sendPendingAccountEmail({
+      fullName: fullName || "Test Pending User",
+      email: email || target,
+      role: role || "supplier",
+      companyName: companyName || "Test Company",
+      toOverride: [target],
+    });
+
+    return res.json({ message: "Test pending notification sent", recipients: [target] });
+  } catch (err) {
+    console.error("[admin/test-pending-email] Failed:", err && err.message ? err.message : err);
+    return res.status(500).json({ message: "Failed to send test email" });
+  }
+});
 
 // @desc    Get all procurement announcements
 // @route   GET /api/admin/announcements

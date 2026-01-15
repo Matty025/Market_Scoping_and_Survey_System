@@ -46,6 +46,8 @@ const ManageAccounts = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [activeTab, setActiveTab] = useState("suppliers");
   const [toast, setToast] = useState({ visible: false, message: "", type: "info" });
+  const [testEmail, setTestEmail] = useState("");
+  const [sendingTest, setSendingTest] = useState(false);
   const [approveTarget, setApproveTarget] = useState(null);
   const [approveDocs, setApproveDocs] = useState({
     hasPhilgeps: false,
@@ -99,6 +101,27 @@ const ManageAccounts = () => {
     }
   };
 
+  const sendTestPendingEmail = async () => {
+    if (!token) return setToast({ visible: true, message: "Not authenticated", type: "error" });
+    const trimmed = testEmail.trim();
+    if (!trimmed) return setToast({ visible: true, message: "Enter a target email", type: "warning" });
+
+    setSendingTest(true);
+    try {
+      await api.post(
+        `/api/admin/notifications/test-pending`,
+        { to: trimmed },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setToast({ visible: true, message: `Sent test pending email to ${trimmed}`, type: "success" });
+    } catch (err) {
+      console.error("Test pending email failed:", err);
+      setToast({ visible: true, message: `Test email failed: ${err.response?.data?.message || err.message}`, type: "error" });
+    } finally {
+      setSendingTest(false);
+    }
+  };
+
   const handleApprove = (user) => {
     setApproveTarget(user);
     setApproveDocs({
@@ -126,6 +149,28 @@ const ManageAccounts = () => {
         <span className="manage-accounts-tagline">MSSS Admin Console</span>
         <h2>Manage Accounts</h2>
         <p>Review supplier and buyer credentials, approve pending requests, and maintain an up-to-date directory.</p>
+      </div>
+
+      <div className="notification-tester">
+        <div className="notification-tester__copy">
+          <h4>Pending account email tester</h4>
+          <p>Send a sample pending-account notification to confirm Gmail connectivity. Uses the same template admins receive when users register.</p>
+        </div>
+        <div className="notification-tester__controls">
+          <input
+            type="email"
+            placeholder="email@example.com"
+            value={testEmail}
+            onChange={(e) => setTestEmail(e.target.value)}
+          />
+          <button
+            onClick={sendTestPendingEmail}
+            disabled={!testEmail.trim() || sendingTest}
+            className="tester-send-btn"
+          >
+            {sendingTest ? "Sending..." : "Send test email"}
+          </button>
+        </div>
       </div>
 
       <div className="tabs">

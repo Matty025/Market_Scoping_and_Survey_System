@@ -12,10 +12,24 @@ async function getAdminEmails() {
   return rows.map(r => r.Email).filter(Boolean);
 }
 
-async function sendPendingAccountEmail({ fullName, email, role, companyName }) {
+async function sendPendingAccountEmail({ fullName, email, role, companyName, toOverride }) {
   try {
-    const recipients = await getAdminEmails();
-    if (!recipients.length) return;
+    const recipients = Array.isArray(toOverride)
+      ? toOverride.filter(Boolean)
+      : toOverride
+        ? [toOverride]
+        : await getAdminEmails();
+
+    console.log(
+      `[adminNotification] Pending account email target(s): ${
+        recipients && recipients.length ? recipients.join(", ") : "<none>"
+      }`
+    );
+
+    if (!recipients.length) {
+      console.warn("[adminNotification] No admin recipients found; skipping pending account email.");
+      return;
+    }
 
     const roleLabel = (role || "account").toString().toLowerCase();
     const subject = `[MSSS] New ${roleLabel} pending approval`;
@@ -36,6 +50,10 @@ async function sendPendingAccountEmail({ fullName, email, role, companyName }) {
         <p>Please sign in to the admin console to approve, reject, or blacklist the account.</p>
       `,
     });
+
+    console.log(
+      `[adminNotification] Pending account email sent for ${email || fullName || "unknown user"}`
+    );
   } catch (err) {
     console.warn("[adminNotification] Failed to send pending account email:", err && err.message ? err.message : err);
   }
