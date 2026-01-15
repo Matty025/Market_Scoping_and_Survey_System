@@ -242,6 +242,11 @@ const ManageAccounts = () => {
                         Reinstate
                       </button>
                     )}
+                    {acc.status === "rejected" && (
+                      <button onClick={() => handleReinstate(acc)} className="approve-btn">
+                        Reinstate
+                      </button>
+                    )}
                   </>
                 )}
               </td>
