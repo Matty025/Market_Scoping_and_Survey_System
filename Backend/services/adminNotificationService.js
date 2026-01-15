@@ -99,3 +99,33 @@ async function sendPendingAccountEmail({ fullName, email, role, companyName, toO
 }
 
 module.exports = { sendPendingAccountEmail };
+
+async function sendAccountStatusEmail({ email, fullName, status, notes }) {
+  if (!email || !sendMail) {
+    console.warn("[adminNotification] Missing email or sendMail unavailable; skipping account status email.");
+    return;
+  }
+
+  const statusLabel = (status || "").toString().toUpperCase();
+  const bodyNote = (notes && notes.toString().trim().length > 0)
+    ? notes.toString().trim()
+    : "No additional notes were provided.";
+
+  const safeName = fullName || "Supplier";
+
+  await sendMail({
+    to: email,
+    subject: `[MSSS] Account status updated: ${statusLabel || "UNKNOWN"}`,
+    html: `
+      <h3>Hello ${safeName},</h3>
+      <p>Your account status has been updated to <strong>${statusLabel || "UNKNOWN"}</strong>.</p>
+      <p><strong>Notes from admin:</strong></p>
+      <p>${bodyNote.replace(/\n/g, "<br/>")}</p>
+      <p>If you have questions, please reply to this email.</p>
+    `,
+  });
+
+  console.log(`[adminNotification] Account status email sent to ${email} for status ${statusLabel}`);
+}
+
+module.exports.sendAccountStatusEmail = sendAccountStatusEmail;

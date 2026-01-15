@@ -6,7 +6,7 @@ const { protect } = require("./authMiddleware");
 const pool = require("../db.js");
 const archiver = require("archiver");
 const fs = require("fs");
-const { sendPendingAccountEmail } = require("../services/adminNotificationService");
+const { sendPendingAccountEmail, sendAccountStatusEmail } = require("../services/adminNotificationService");
 // Require buyer routes to reuse history helper
 const buyerRoutes = require('./BuyerRoutes');
 
@@ -1485,7 +1485,7 @@ router.patch('/users/:id', protect, async (req, res) => {
     return res.status(403).json({ message: 'Access denied. Admins only.' });
   }
   const userId = parseInt(req.params.id, 10);
-  const { status } = req.body;
+  const { status, notes } = req.body || {};
   if (!userId || !status) return res.status(400).json({ message: 'Missing user id or status' });
 
   const allowed = ['PENDING','APPROVED','REJECTED','BLACKLISTED'];
@@ -1496,7 +1496,19 @@ router.patch('/users/:id', protect, async (req, res) => {
     const updateQ = `UPDATE "Users" SET "AccountStatus" = $1 WHERE "UserID" = $2 RETURNING "UserID","FullName","Email","AccountStatus"`;
     const { rows } = await pool.query(updateQ, [normalized, userId]);
     if (rows.length === 0) return res.status(404).json({ message: 'User not found' });
-    res.json({ message: 'User status updated', user: rows[0] });
+    const updatedUser = rows[0];
+
+    // Fire-and-forget email to the specific user only
+    sendAccountStatusEmail({
+      email: updatedUser.Email,
+      fullName: updatedUser.FullName,
+      status: normalized,
+      notes,
+    }).catch((err) => {
+      console.warn('[adminRoutes] Failed to send account status email:', err && err.message ? err.message : err);
+    });
+
+    res.json({ message: 'User status updated', user: updatedUser });
   } catch (err) {
     console.error('Error updating user status:', err.message);
     res.status(500).json({ message: 'Server error' });
