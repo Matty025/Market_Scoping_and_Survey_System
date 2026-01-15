@@ -49,7 +49,7 @@
 
   const normalizeStatus = (status) => (status ? String(status).toUpperCase() : "");
 
-  const FINALIZED_STATUSES = new Set(["CLOSED", "AWARDED", "COMPLETED"]);
+  const FINALIZED_STATUSES = new Set(["AWARDED"]);
 
   const deriveAnnouncementStatus = (status, isExpired) => {
     const normalized = normalizeStatus(status);
@@ -67,15 +67,14 @@
   const isFailedPostingStatus = (status, isExpired) => deriveAnnouncementStatus(status, isExpired) === "FAILED_POSTING";
 
   const STATUS_CONFIRMATION_MESSAGES = {
-    CLOSED: "Close this announcement and record the winning supplier?",
-    COMPLETED: "Mark this failed posting as completed?",
     ACTIVE: "Repost this announcement and mark it as active again?",
     AWARDED: "Award this announcement to the selected supplier?",
+    FAILED_POSTING: "Mark this announcement as failed posting?",
   };
 
-  const STATUSES_REQUIRING_NOTES = new Set(["CLOSED"]);
-  const STATUSES_REQUIRING_SUPPLIER = new Set(["CLOSED", "AWARDED"]);
-  const STATUS_CHOICES = ["ACTIVE", "CLOSED", "AWARDED", "CANCELLED", "FAILED_POSTING"];
+  const STATUSES_REQUIRING_NOTES = new Set([]);
+  const STATUSES_REQUIRING_SUPPLIER = new Set(["AWARDED"]);
+  const STATUS_CHOICES = ["ACTIVE", "AWARDED", "FAILED_POSTING"];
 
   const STATUS_DIALOG_INITIAL = {
     visible: false,
@@ -485,7 +484,6 @@
 
     const actionButtons = [];
     const canMarkWinner = !isAwardedStatus && supplierIdsList.length > 0;
-    const canMarkCompleted = isFailedPosting;
     const canRepost = isFailedPosting;
 
     if (canMarkWinner) {
@@ -500,10 +498,6 @@
 
     // Quick status picker for debugging
     actionButtons.push({ status: "UPDATE_STATUS", label: "Update Status" });
-
-    if (canMarkCompleted) {
-      actionButtons.push({ status: "COMPLETED", label: "Mark as Completed" });
-    }
 
     if (canRepost) {
       actionButtons.push({ status: "ACTIVE", label: "Repost", variant: "primary" });
@@ -1535,7 +1529,7 @@
       const announcement = statusDialog.announcement;
       const statusUpper = statusDialog.status;
       const notesTrimmed = statusDialog.notes.trim();
-      const requiresNotes = STATUSES_REQUIRING_NOTES.has(statusUpper);
+      const requiresNotes = false;
       const requiresSupplier = STATUSES_REQUIRING_SUPPLIER.has(statusUpper);
       const requiresStatusChoice = Array.isArray(statusDialog.statusOptions) && statusDialog.statusOptions.length > 0;
 
@@ -1695,15 +1689,6 @@
         return;
       }
 
-      if (statusUpper === "COMPLETED" && !allowStatusChoice && !currentIsFailedPosting) {
-        setToast({
-          visible: true,
-          type: "info",
-          message: "You can only mark failed postings as completed.",
-        });
-        return;
-      }
-
       if (statusUpper === "AWARDED") {
         const supplierIds = Array.isArray(announcement.supplierIds)
           ? announcement.supplierIds
@@ -1752,18 +1737,14 @@
       }
     };
 
-    const statusDialogRequiresNotes = statusDialog.status
-      ? STATUSES_REQUIRING_NOTES.has(statusDialog.status)
-      : false;
+    const statusDialogRequiresNotes = false;
     const statusDialogRequiresSupplier = statusDialog.status
       ? STATUSES_REQUIRING_SUPPLIER.has(statusDialog.status)
       : false;
     const statusDialogRequiresStatusChoice = Array.isArray(statusDialog.statusOptions) && statusDialog.statusOptions.length > 0;
-    const statusDialogNoteValue = statusDialog.notes || "";
     const statusDialogSubmitDisabled =
       statusDialog.submitting ||
       (statusDialogRequiresSupplier && !statusDialog.awardedSupplierId) ||
-      (statusDialogRequiresNotes && statusDialogNoteValue.trim().length === 0) ||
       (statusDialogRequiresStatusChoice && !statusDialog.status);
     const statusDialogStatusLabel = statusDialog.status
       ? formatStatusLabel(statusDialog.status)
