@@ -2191,7 +2191,10 @@ router.get("/announcements/:id/detail", protect, async (req, res) => {
     `;
     const { rows } = await pool.query(detailQuery, [fileId]);
     if (rows.length === 0) return res.status(404).json({ message: "Announcement not found." });
-    return res.json({ announcement: mapProcurementViewRow(rows[0]) });
+
+    const mapped = mapProcurementViewRow(rows[0]);
+    console.log('[announcements/:id/detail] supplierObjects count:', Array.isArray(mapped.supplierObjects) ? mapped.supplierObjects.length : 0, 'supplierIds:', mapped.supplierIds);
+    return res.json({ announcement: mapped });
   } catch (err) {
     console.error("Error fetching announcement detail:", err);
     return res.status(500).json({ message: "Server error while fetching announcement detail." });
