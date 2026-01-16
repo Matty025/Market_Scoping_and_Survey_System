@@ -518,10 +518,10 @@
 .announcement-expanded-chip {
   display: inline-flex;
   align-items: center;
-  padding: 4px 10px;
+  padding: 3px 8px;
   border-radius: 999px;
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.14) 0%, rgba(59, 130, 246, 0.08) 100%);
-  border: 1px solid rgba(59, 130, 246, 0.35);
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.28);
   color: #0f172a;
   font-size: 0.72rem;
   font-weight: 600;
@@ -545,7 +545,6 @@
   position: absolute;
   left: 6px;
 }
-}
 
 .announcement-expanded-link {
   font-size: 0.72rem;
@@ -553,7 +552,7 @@
   color: var(--philgeps-deep-blue);
   background: none;
   border: none;
-  padding: 0;
+  padding: 0 2px;
   cursor: pointer;
   text-decoration: underline;
 }
