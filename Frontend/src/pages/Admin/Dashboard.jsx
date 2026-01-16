@@ -515,11 +515,14 @@
       attemptTimelineCompact.push(`Due ${attemptDueDisplayShort}`);
     }
     const attemptLabel = attemptCount ? `${formatOrdinal(attemptCount)} Attempt` : "Attempt Pending";
-    const suppliersSummary = supplierNames.length > 0
-      ? (supplierNames.length > 4
+    const supplierCount = supplierObjects.length > 0 ? supplierObjects.length : supplierNames.length;
+    const suppliersSummary = supplierCount > 0
+      ? (supplierNames.length > 0
+        ? (supplierNames.length > 4
           ? `${supplierNames.slice(0, 4).join(", ")} +${supplierNames.length - 4} more`
           : supplierNames.join(", "))
-      : "No suppliers assigned";
+        : `${supplierCount} supplier${supplierCount === 1 ? "" : "s"}`)
+      : "Category-based delivery (no direct assignees)";
     const attemptTimelineDetailed = attemptTimelineCompact.length > 0
       ? attemptTimelineCompact.join(" | ")
       : "No attempt timeline recorded yet";
@@ -771,8 +774,8 @@
                   <span className="announcement-expanded-value">{postedDisplay}</span>
                 </div>
                 <div className="announcement-expanded-row">
-                  <span className="announcement-expanded-label">Closes</span>
-                  <span className="announcement-expanded-value">{endDisplay}</span>
+                  <span className="announcement-expanded-label">Due</span>
+                  <span className="announcement-expanded-value">{attemptDueDisplayShort || endDisplay}</span>
                 </div>
                 {hasAttachment && (
                   <div className="announcement-expanded-row">
@@ -786,13 +789,16 @@
                 <div className="announcement-expanded-row">
                   <span className="announcement-expanded-label">Suppliers</span>
                   <span className="announcement-expanded-value">{suppliersSummary}</span>
-                  {supplierNames.length > 0 && (
+                  {supplierCount > 0 && (
                     <button
                       type="button"
                       className="announcement-expanded-link"
                       onClick={(event) => {
                         event.stopPropagation();
-                        onShowSuppliers?.(supplierNames);
+                        const payload = supplierObjects.length > 0
+                          ? supplierObjects
+                          : supplierNames.map((name) => ({ name, email: "" }));
+                        onShowSuppliers?.(payload);
                       }}
                     >
                       View recipients
