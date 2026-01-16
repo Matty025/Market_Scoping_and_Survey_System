@@ -2,6 +2,7 @@
   import React, { useState, useEffect, useMemo } from "react";
   import { useNavigate } from "react-router-dom";
   import api from "../../api";
+  import axios from "axios";
   import AnnouncementForm from "../../components/AnnouncementForm";
   import StatsSection from "../../components/StatsSection";
   import ResponseModal from "../../components/ResponseModal";
@@ -1461,7 +1462,7 @@
       }
 
       try {
-        const response = await axios.put(
+        const response = await api.put(
           `/api/admin/announcements/${editingAnnouncement.id}`,
           data,
           {
