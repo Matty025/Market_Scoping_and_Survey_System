@@ -235,10 +235,6 @@ const AnnouncementForm = ({ onSubmit, onCancel, initialValues = null, mode = "cr
       setToast({ visible: true, type: "warning", message: "Please upload a procurement document." });
       return false;
     }
-    if (isEditMode && !form.notes.trim()) {
-      setToast({ visible: true, type: "warning", message: "Please include notes explaining this repost." });
-      return false;
-    }
     return true;
   };
 

@@ -713,7 +713,7 @@ router.put("/announcements/:id", protect, upload.single("file"), async (req, res
                 COUNT(*) AS total_suppliers,
                 COUNT(*) FILTER (WHERE sf."Status" = 'PENDING') AS pending_count,
                 COUNT(*) FILTER (WHERE sf."Status" = 'ANSWERED') AS answered_count,
-                COUNT(*) FILTER (WHERE sf."ViewedAt" IS NOT NULL) AS viewed_count,
+                0 AS viewed_count,
                 COUNT(*) FILTER (WHERE sf."OptInStatus" = 'DECLINED') AS declined_count,
                 ARRAY_AGG(DISTINCT sf."SupplierID") AS supplier_ids
          FROM "SupplierFiles" sf
@@ -1955,7 +1955,7 @@ router.get("/announcements/:id/detail", protect, async (req, res) => {
                COUNT(*) AS total_suppliers,
                COUNT(*) FILTER (WHERE sf."Status" = 'PENDING') AS pending_count,
                COUNT(*) FILTER (WHERE sf."Status" = 'ANSWERED') AS answered_count,
-               COUNT(*) FILTER (WHERE sf."ViewedAt" IS NOT NULL) AS viewed_count,
+               0 AS viewed_count,
                COUNT(*) FILTER (WHERE sf."OptInStatus" = 'DECLINED') AS declined_count,
                ARRAY_AGG(DISTINCT sf."SupplierID") AS supplier_ids
         FROM "SupplierFiles" sf
