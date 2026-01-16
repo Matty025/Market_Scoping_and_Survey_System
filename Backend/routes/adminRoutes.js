@@ -198,6 +198,7 @@ const mapProcurementViewRow = (row) => {
     categoryIds: Array.isArray(row.CategoryIDs) ? row.CategoryIDs : [],
     suppliers: Array.isArray(row.Suppliers) ? row.Suppliers : [],
     supplierIds: Array.isArray(row.SupplierIDs) ? row.SupplierIDs : [],
+    supplierObjects: Array.isArray(row.SupplierObjects) ? row.SupplierObjects : [],
     attemptNumber: safeNumber(row.AttemptNumber, 1),
     attemptStatus: row.AttemptStatus || row.Status || null,
     attemptSentAt: row.AttemptSentAt || null,
@@ -2086,6 +2087,19 @@ router.get("/announcements/:id/detail", protect, async (req, res) => {
         WHERE pfc."FileID" = $1
         GROUP BY pfc."FileID"
       ),
+      supplier_objs AS (
+        SELECT sf."FileID",
+               COALESCE(JSON_AGG(DISTINCT jsonb_build_object(
+                 'supplierId', s."SupplierID",
+                 'name', COALESCE(NULLIF(TRIM(s."CompanyName"), ''), CONCAT('Supplier ', s."SupplierID")),
+                 'email', u."Email"
+               )) FILTER (WHERE s."SupplierID" IS NOT NULL), '[]'::json) AS supplier_objects
+          FROM "SupplierFiles" sf
+          JOIN "Suppliers" s ON s."SupplierID" = sf."SupplierID"
+          LEFT JOIN "Users" u ON u."SupplierID" = sf."SupplierID"
+         WHERE sf."FileID" = $1
+         GROUP BY sf."FileID"
+      ),
       cat_desc AS (
         WITH RECURSIVE cat_tree AS (
           SELECT pfc."CategoryID"
@@ -2129,6 +2143,7 @@ router.get("/announcements/:id/detail", protect, async (req, res) => {
              COALESCE(array_to_string(cats.names, ', '), '') AS "Categories",
              COALESCE(cats.ids, ARRAY[]::int[]) AS "CategoryIDs",
              COALESCE(stats.supplier_ids, ARRAY[]::int[]) AS "SupplierIDs",
+             supplier_objs.supplier_objects AS "SupplierObjects",
              COALESCE(cat_suppliers_agg.company_names, ARRAY[]::text[]) AS "CategorySuppliers",
              COALESCE(cat_suppliers_agg.emails, ARRAY[]::text[]) AS "CategorySupplierEmails",
              COALESCE(cat_suppliers_agg.supplier_ids, ARRAY[]::int[]) AS "CategorySupplierIds",
@@ -2149,6 +2164,7 @@ router.get("/announcements/:id/detail", protect, async (req, res) => {
       FROM base b
       LEFT JOIN stats ON stats."FileID" = b."FileID"
       LEFT JOIN cats ON cats."FileID" = b."FileID"
+        LEFT JOIN supplier_objs ON supplier_objs."FileID" = b."FileID"
        LEFT JOIN cat_suppliers_agg ON TRUE
       LEFT JOIN LATERAL (
         SELECT COALESCE(1 + COUNT(*) FILTER (
