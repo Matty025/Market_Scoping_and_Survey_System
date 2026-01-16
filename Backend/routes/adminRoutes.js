@@ -359,6 +359,13 @@ router.get("/announcements", protect, async (req, res) => {
           NULL::text AS "AttemptStatus",
           COALESCE(response_stats.responder_distinct, 0) AS "DistinctResponderCount",
           COALESCE(response_stats.response_total, 0) AS "RawResponseCount",
+          sf_agg.total_suppliers AS "TotalSuppliersAssigned",
+          COALESCE(sf_agg.pending_count, 0) AS "PendingCount",
+          COALESCE(sf_agg.answered_count, 0) AS "AnsweredCount",
+          COALESCE(sf_agg.declined_count, 0) AS "DeclinedCount",
+          COALESCE(sf_agg.viewed_count, 0) AS "ViewedCount",
+          COALESCE(sf_agg.supplier_ids, ARRAY[]::int[]) AS "SupplierIDs",
+          COALESCE(sf_agg.supplier_names, ARRAY[]::text[]) AS "Suppliers",
           COUNT(*) OVER() AS "TotalCountAll"
         FROM "ProcurementFiles" AS pf
         LEFT JOIN LATERAL (
@@ -369,6 +376,19 @@ router.get("/announcements", protect, async (req, res) => {
           JOIN "SupplierResponses" sr ON sr."SupplierFileID" = sf."SupplierFileID"
           WHERE sf."FileID" = pf."FileID"
         ) AS response_stats ON TRUE
+        LEFT JOIN LATERAL (
+          SELECT
+            COUNT(*) AS total_suppliers,
+            COUNT(*) FILTER (WHERE sf."Status" = 'PENDING') AS pending_count,
+            COUNT(*) FILTER (WHERE sf."Status" = 'ANSWERED') AS answered_count,
+            COUNT(*) FILTER (WHERE sf."OptInStatus" = 'DECLINED') AS declined_count,
+            COUNT(*) FILTER (WHERE sf."Status" = 'VIEWED') AS viewed_count,
+            ARRAY_AGG(DISTINCT sf."SupplierID") AS supplier_ids,
+            ARRAY_AGG(DISTINCT COALESCE(NULLIF(TRIM(s."CompanyName"), ''), CONCAT('Supplier ', s."SupplierID"))) AS supplier_names
+          FROM "SupplierFiles" sf
+          JOIN "Suppliers" s ON s."SupplierID" = sf."SupplierID"
+          WHERE sf."FileID" = pf."FileID"
+        ) AS sf_agg ON TRUE
         ${where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''}
         ORDER BY pf."DatePosted" DESC, pf."FileID" DESC
         LIMIT $${limitParamIndex}
@@ -383,6 +403,11 @@ router.get("/announcements", protect, async (req, res) => {
     const totalCount = rows.length > 0 ? Number(rows[0].TotalCountAll || 0) : 0;
 
     const mappedRows = rows.map(mapProcurementViewRow);
+
+    if (mappedRows.length > 0) {
+      const first = mappedRows[0];
+      console.log('[announcements list] sample suppliers len:', Array.isArray(first.suppliers) ? first.suppliers.length : 0, 'supplierIds:', first.supplierIds);
+    }
 
     res.json({
       items: mappedRows,
