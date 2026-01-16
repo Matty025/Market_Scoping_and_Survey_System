@@ -380,6 +380,32 @@
     border-color: #ef4444;
   }
 
+  .status-badge.completed {
+    background: #dcfce7;
+    color: #166534;
+    border-color: #22c55e;
+  }
+
+  .status-badge[aria-label="procurement"],
+  .status-badge.procurement {
+    background: #f8fafc;
+    color: #0f172a;
+    border-color: #cbd5e1;
+  }
+
+  .status-badge.procurement.completed {
+    background: #ecfdf3;
+    color: #15803d;
+    border-color: #22c55e;
+  }
+
+  .status-badge.procurement.failed-posting,
+  .status-badge.failed-posting {
+    background: #fef2f2;
+    color: #991b1b;
+    border-color: #ef4444;
+  }
+
   /* Card Body */
   .post-card-body {
     margin-bottom: 0.75rem;
@@ -813,4 +839,36 @@
       flex-direction: column;
       align-items: flex-start;
     }
+  }
+
+  .submission-locked-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    margin-top: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    background: #f8fafc;
+    border: 1px dashed #cbd5e1;
+  }
+
+  .submission-locked-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 9999px;
+    background: #ef4444;
+    flex-shrink: 0;
+  }
+
+  .submission-locked-title {
+    margin: 0;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .submission-locked-reason {
+    margin: 0.15rem 0 0;
+    font-size: 0.8rem;
+    color: #475569;
   }

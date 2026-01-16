@@ -283,6 +283,16 @@ const SupplierDashboard = () => {
       const supplierStatus = (file.Status || "pending").toLowerCase();
       const procurementStatus = (file.procurementStatus || file.ProcurementStatus || file.procurementstatus || supplierStatus || "pending").toLowerCase();
 
+      const toBadgeClass = (value, fallback = "pending") => {
+        const key = String(value || "").toLowerCase().replace(/\s+/g, "_");
+        if (["completed"].includes(key)) return "completed";
+        if (["failed_posting", "failed-posting"].includes(key)) return "failed-posting";
+        if (["cancelled", "closed", "expired"].includes(key)) return "closed";
+        if (["answered", "submitted"].includes(key)) return "answered";
+        if (["active", "pending"].includes(key)) return "pending";
+        return fallback;
+      };
+
       // Prefer admin-set procurement status when final; otherwise use supplier file status for submission context
       let status = supplierStatus;
       if (["completed", "failed_posting", "cancelled", "closed", "expired"].includes(procurementStatus)) {
@@ -407,7 +417,32 @@ const SupplierDashboard = () => {
         statusClass = "pending";
       }
 
+      const statusKeyForBadge = isFailedPosting ? "failed_posting" : status;
+      const procurementStatusClass = toBadgeClass(procurementStatus, statusClass);
+      statusClass = toBadgeClass(statusKeyForBadge, statusClass);
+
       const canSubmit = !isFinalized && !isFailedPosting && status !== "answered" && !requiresDecision && !isDeclined;
+
+      let submissionLockReason = "";
+      if (!canSubmit) {
+        if (isFinalized) {
+          if (procurementStatus === "completed") {
+            submissionLockReason = "Admin marked this announcement as Completed. Submissions are closed.";
+          } else if (procurementStatus === "failed_posting") {
+            submissionLockReason = "This posting is marked as Failed Posting. No further submissions are accepted.";
+          } else {
+            submissionLockReason = "This announcement is closed.";
+          }
+        } else if (isFailedPosting) {
+          submissionLockReason = "This posting is marked as Failed Posting. No further submissions are accepted.";
+        } else if (status === "answered") {
+          submissionLockReason = "You already submitted a response for this attempt.";
+        } else if (requiresDecision) {
+          submissionLockReason = "Confirm participation before you can submit.";
+        } else if (isDeclined) {
+          submissionLockReason = "You declined this attempt.";
+        }
+      }
 
       const categoryList = (file.categories || "")
         .split(",")
@@ -449,6 +484,7 @@ const SupplierDashboard = () => {
         descriptionText,
         procurementStatus,
         procurementStatusLabel: formatStatusLabel(procurementStatus),
+        procurementStatusClass,
         normalizedStatus: status,
         currentAttemptNumber: attemptCount,
         optInStatus,
@@ -473,6 +509,7 @@ const SupplierDashboard = () => {
         statusDisplay,
         statusClass,
         canSubmit,
+        submissionLockReason,
         failedPostingDetail: failedPostingDetail || null,
         decisionBanner,
         decisionBannerClass,
@@ -718,11 +755,11 @@ const SupplierDashboard = () => {
 
           const handleOpenSubmission = (event) => {
             event.stopPropagation();
-            if (file.isFailedPosting) {
+            if (!file.canSubmit) {
               setToast({
                 visible: true,
                 type: "info",
-                message: "This posting has closed. Please await new assignments.",
+                message: file.submissionLockReason || "Submissions are closed for this announcement.",
               });
               return;
             }
@@ -765,6 +802,9 @@ const SupplierDashboard = () => {
                 <div className="post-card-header-actions">
                   {showNewPill && <span className="new-pill">New</span>}
                   <span className={`status-badge ${file.statusClass}`}>{file.statusDisplay}</span>
+                    <span className={`status-badge procurement ${file.procurementStatusClass}`}>
+                      {file.procurementStatusLabel}
+                    </span>
                 </div>
               </div>
 
@@ -890,7 +930,7 @@ const SupplierDashboard = () => {
                       type="button"
                       className="card-primary-btn"
                       onClick={handleOpenSubmission}
-                      disabled={file.isFailedPosting}
+                      disabled={!file.canSubmit}
                     >
                       Open Submission
                     </button>
@@ -905,6 +945,16 @@ const SupplierDashboard = () => {
                       Close Quick View
                     </button>
                   </div>
+
+                  {!file.canSubmit && (
+                    <div className="submission-locked-banner">
+                      <span className="submission-locked-dot" />
+                      <div>
+                        <p className="submission-locked-title">Submission closed</p>
+                        <p className="submission-locked-reason">{file.submissionLockReason || "This announcement is closed."}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
