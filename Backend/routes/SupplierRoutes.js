@@ -57,6 +57,7 @@ const supplierFileSelectColumns = `
         pf."EndDate" as "endDate",
         1 AS "attemptCount",
         pf."Status" AS "latestStatus",
+        pf."Status" AS "procurementStatus",
         NULL::text AS "latestNote",
         pf."DatePosted" AS "latestChangedAt",
         lastResponse."ResponseID" AS "lastResponseId",
@@ -99,7 +100,7 @@ const supplierFileGroupBy = `
         pf."FilePath",
         pf."DatePosted",
         pf."EndDate",
-        pf."Status" AS "ProcurementStatus",
+        pf."Status",
         lastResponse."ResponseID",
         lastResponse."ResponseFilePath",
         lastResponse."DateUploaded"`;
