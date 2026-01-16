@@ -86,11 +86,15 @@ const supplierFileJoins = `
       ) lastResponse ON TRUE
       LEFT JOIN LATERAL (
         SELECT
-          COUNT(*) FILTER (WHERE h."NewStatus" = 'ACTIVE') AS attempt_count,
+          attempt_count.attempt_count,
           last_row."NewStatus" AS latest_status,
           last_row."Notes" AS latest_note,
           last_row."ChangedAt" AS latest_changed_at
-        FROM "ProcurementStatusHistory" h
+        FROM LATERAL (
+          SELECT COUNT(*) FILTER (WHERE h."NewStatus" = 'ACTIVE') AS attempt_count
+          FROM "ProcurementStatusHistory" h
+          WHERE h."FileID" = pf."FileID"
+        ) AS attempt_count
         LEFT JOIN LATERAL (
           SELECT h2."NewStatus", h2."Notes", h2."ChangedAt"
           FROM "ProcurementStatusHistory" h2
@@ -98,7 +102,6 @@ const supplierFileJoins = `
           ORDER BY h2."ChangedAt" DESC
           LIMIT 1
         ) AS last_row ON TRUE
-        WHERE h."FileID" = pf."FileID"
       ) statusInfo ON TRUE`;
 
 const supplierFileGroupBy = `
