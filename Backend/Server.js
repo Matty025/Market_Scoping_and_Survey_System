@@ -5,6 +5,7 @@ if (process.env.NODE_ENV !== "production") {
 const express = require("express");
 const cors = require("cors");
 const pool = require("./db.js");
+const { notifyAdminsStatusChange, notifySuppliersStatusChange } = require("./services/announcementNotificationService");
 const emailVerificationService = require("./services/emailVerificationService");
 const { verifyEmailToken } = require("./services/emailVerifyConsume");
 const preverifyStore = require("./services/preverifyStore");
@@ -340,6 +341,114 @@ app.use("/api/reports", reportRoutes);
 const fileRoutes = require("./routes/fileRoutes");
 console.log("[Server.js] fileRoutes loaded.");
 app.use("/api/files", fileRoutes);
+
+// --- Auto-fail postings that lapse after their end date (Asia/Singapore) ---
+const EXPIRY_SWEEP_INTERVAL_MS = 5 * 60 * 1000; // every 5 minutes
+const AUTO_FAIL_NOTES = "Auto-failed: End date passed in Asia/Singapore at 12:00 AM.";
+let autoFailSweepRunning = false;
+
+const getSupplierIdsForFile = async (client, fileId) => {
+  const targetId = Number(fileId);
+  if (!client || !Number.isInteger(targetId)) return [];
+  const { rows } = await client.query(
+    'SELECT DISTINCT "SupplierID" FROM "SupplierFiles" WHERE "FileID" = $1',
+    [targetId]
+  );
+  return rows.map((r) => Number(r.SupplierID)).filter((id) => Number.isInteger(id));
+};
+
+const autoFailExpiredAnnouncements = async () => {
+  if (autoFailSweepRunning) {
+    return;
+  }
+  autoFailSweepRunning = true;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const { rows: expiredRows } = await client.query(`
+      SELECT pf."FileID", pf."Title", pf."Status", pf."EndDate"
+        FROM "ProcurementFiles" pf
+       WHERE pf."Status" NOT IN ('COMPLETED', 'FAILED_POSTING')
+         AND pf."EndDate" IS NOT NULL
+         AND pf."EndDate"::date < ((NOW() AT TIME ZONE 'Asia/Singapore')::date)
+       FOR UPDATE
+    `);
+
+    if (expiredRows.length === 0) {
+      await client.query("COMMIT");
+      return;
+    }
+
+    const notifications = [];
+
+    for (const row of expiredRows) {
+      await client.query('UPDATE "ProcurementFiles" SET "Status" = $1 WHERE "FileID" = $2', ['FAILED_POSTING', row.FileID]);
+
+      await client.query(
+        `INSERT INTO "ProcurementStatusHistory" ("FileID", "OldStatus", "NewStatus", "ChangedBy", "Notes")
+         VALUES ($1, $2, $3, NULL, $4)`,
+        [row.FileID, row.Status || null, 'FAILED_POSTING', AUTO_FAIL_NOTES]
+      );
+
+      await client.query(
+        'UPDATE "SupplierFiles" SET "Status" = $1 WHERE "FileID" = $2 AND "Status" <> $3',
+        ['FAILED_POSTING', row.FileID, 'ANSWERED']
+      );
+
+      const supplierIds = await getSupplierIdsForFile(client, row.FileID);
+      notifications.push({
+        fileId: row.FileID,
+        title: row.Title,
+        previousStatus: row.Status,
+        supplierIds,
+      });
+    }
+
+    await client.query("COMMIT");
+
+    for (const note of notifications) {
+      notifyAdminsStatusChange({
+        fileId: note.fileId,
+        title: note.title || `Announcement ${note.fileId}`,
+        status: 'FAILED_POSTING',
+        previousStatus: note.previousStatus,
+        notes: AUTO_FAIL_NOTES,
+      }).catch((err) => {
+        console.warn('[auto-fail] Admin notification failed:', err && err.message ? err.message : err);
+      });
+
+      if (note.supplierIds && note.supplierIds.length > 0) {
+        notifySuppliersStatusChange({
+          fileId: note.fileId,
+          title: note.title || `Announcement ${note.fileId}`,
+          status: 'FAILED_POSTING',
+          previousStatus: note.previousStatus,
+          notes: AUTO_FAIL_NOTES,
+          supplierIds: note.supplierIds,
+        }).catch((err) => {
+          console.warn('[auto-fail] Supplier notification failed:', err && err.message ? err.message : err);
+        });
+      }
+    }
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error('[auto-fail] Sweep failed:', err && err.message ? err.message : err);
+  } finally {
+    client.release();
+    autoFailSweepRunning = false;
+  }
+};
+
+if (!process.env.VERCEL) {
+  setInterval(() => {
+    autoFailExpiredAnnouncements().catch((err) => console.warn('[auto-fail] Sweep error:', err));
+  }, EXPIRY_SWEEP_INTERVAL_MS);
+
+  setTimeout(() => {
+    autoFailExpiredAnnouncements().catch((err) => console.warn('[auto-fail] Initial sweep error:', err));
+  }, 15 * 1000);
+}
 
 // Lightweight health endpoint for container healthchecks
 app.get('/health', async (req, res) => {

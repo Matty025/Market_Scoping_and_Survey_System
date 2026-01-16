@@ -86,6 +86,34 @@ async function notifySuppliersPosted({ fileId, title, supplierIds }) {
   console.log(`[announcementNotification] Posted email sent for file ${fileId} to ${recipients.length} suppliers.`);
 }
 
+async function notifySuppliersStatusChange({ fileId, title, status, previousStatus, notes, supplierIds }) {
+  if (!sendMail) return;
+  const recipients = await getSupplierEmailsByIds(supplierIds);
+  if (!recipients.length) {
+    console.warn('[announcementNotification] No supplier recipients for status change', { fileId });
+    return;
+  }
+
+  const subject = `[MSSS] Announcement update: ${title || fileId} -> ${status}`;
+  const lines = [
+    `<strong>Announcement:</strong> ${title || `(ID ${fileId})`}`,
+    `<strong>New Status:</strong> ${status || 'N/A'}`,
+  ];
+
+  if (previousStatus) lines.push(`<strong>Previous Status:</strong> ${previousStatus}`);
+  if (notes) {
+    lines.push(`<strong>Notes:</strong> ${notes.toString().replace(/\n/g, '<br/>')}`);
+  }
+
+  const html = `
+    <h3>Announcement status updated</h3>
+    <p>${lines.join('<br/>')}</p>
+  `;
+
+  await sendMail({ to: recipients.map((r) => r.email), subject, html });
+  console.log(`[announcementNotification] Supplier status email sent for file ${fileId} -> ${status} (${recipients.length} recipients)`);
+}
+
 async function getAdminEmails() {
   const { rows } = await db.query(
     `SELECT u."Email"
@@ -128,4 +156,5 @@ async function notifyAdminsStatusChange({ fileId, title, status, previousStatus,
 module.exports = {
   notifySuppliersPosted,
   notifyAdminsStatusChange,
+  notifySuppliersStatusChange,
 };

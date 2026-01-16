@@ -8,7 +8,7 @@ const archiver = require("archiver");
 const fs = require("fs");
 const { sendPendingAccountEmail, sendAccountStatusEmail } = require("../services/adminNotificationService");
 const { notifyBuyerPurchaseStatus } = require("../services/prNotificationService");
-const { notifySuppliersPosted, notifyAdminsStatusChange } = require("../services/announcementNotificationService");
+const { notifySuppliersPosted, notifyAdminsStatusChange, notifySuppliersStatusChange } = require("../services/announcementNotificationService");
 // Require buyer routes to reuse history helper
 const buyerRoutes = require('./BuyerRoutes');
 
@@ -45,6 +45,7 @@ const VALID_ANNOUNCEMENT_STATUSES = new Set([
   "COMPLETED",
   "FAILED_POSTING"
 ]);
+const MAX_ATTEMPTS = 3;
 
 const coerceToInt = (value) => {
   if (value === null || value === undefined) {
@@ -78,6 +79,43 @@ const parseJsonArray = (payload) => {
     return Array.isArray(parsed) ? parsed : [];
   } catch (err) {
     return [];
+  }
+};
+
+const getAssignedSupplierIds = async (client, fileId) => {
+  const targetId = coerceToInt(fileId);
+  if (!client || !targetId) {
+    return [];
+  }
+
+  try {
+    const { rows } = await client.query(
+      'SELECT DISTINCT "SupplierID" FROM "SupplierFiles" WHERE "FileID" = $1',
+      [targetId]
+    );
+    return rows.map((row) => coerceToInt(row.SupplierID)).filter((id) => Number.isInteger(id));
+  } catch (err) {
+    console.warn('[adminRoutes] Failed to load assigned suppliers:', err && err.message ? err.message : err);
+    return [];
+  }
+};
+
+const getActiveAttemptCount = async (client, fileId) => {
+  const targetId = coerceToInt(fileId);
+  if (!client || !targetId) {
+    return 0;
+  }
+
+  try {
+    const { rows } = await client.query(
+      'SELECT COALESCE(COUNT(*) FILTER (WHERE "NewStatus" = \'ACTIVE\'), 0) AS attempts FROM "ProcurementStatusHistory" WHERE "FileID" = $1',
+      [targetId]
+    );
+    const attempts = coerceToInt(rows[0]?.attempts) ?? 0;
+    return attempts || 0;
+  } catch (err) {
+    console.warn('[adminRoutes] Failed to fetch attempt count for file', targetId, err && err.message ? err.message : err);
+    return 0;
   }
 };
 
@@ -549,6 +587,12 @@ router.put("/announcements/:id", protect, upload.single("file"), async (req, res
     previousStatus = existing.Status || null;
     oldFilePath = existing.FilePath;
 
+    const activeAttempts = await getActiveAttemptCount(client, fileId);
+    if (previousStatus !== 'ACTIVE' && activeAttempts >= MAX_ATTEMPTS) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ message: `Attempt limit reached (max ${MAX_ATTEMPTS}). Reposting is no longer allowed.` });
+    }
+
     const trimmedTitle = typeof title === 'string' ? title.trim() : '';
     const titleToSet = trimmedTitle.length > 0 ? trimmedTitle : existing.Title;
     if (!titleToSet) {
@@ -826,7 +870,14 @@ router.patch("/announcements/:id/status", protect, async (req, res) => {
 
     const previousStatus = currentRes.rows[0].Status || null;
 
-    let announcementTitle = null;
+    const activeAttempts = await getActiveAttemptCount(client, fileId);
+    if (requestedStatus === 'ACTIVE' && previousStatus !== 'ACTIVE' && activeAttempts >= MAX_ATTEMPTS) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ message: `Attempt limit reached (max ${MAX_ATTEMPTS}). Reposting is no longer allowed.` });
+    }
+
+  let announcementTitle = null;
+  const assignedSupplierIds = await getAssignedSupplierIds(client, fileId);
 
     const titleRes = await client.query('SELECT "Title" FROM "ProcurementFiles" WHERE "FileID" = $1', [fileId]);
     if (titleRes.rows.length > 0) {
@@ -859,6 +910,19 @@ router.patch("/announcements/:id/status", protect, async (req, res) => {
     }).catch((err) => {
       console.warn('[adminRoutes] Failed to send admin status email:', err && err.message ? err.message : err);
     });
+
+    if (assignedSupplierIds.length > 0) {
+      notifySuppliersStatusChange({
+        fileId,
+        title: announcementTitle || `Announcement ${fileId}`,
+        status: requestedStatus,
+        previousStatus,
+        notes,
+        supplierIds: assignedSupplierIds,
+      }).catch((err) => {
+        console.warn('[adminRoutes] Failed to send supplier status email:', err && err.message ? err.message : err);
+      });
+    }
 
     res.json({
       message: "Announcement status updated.",

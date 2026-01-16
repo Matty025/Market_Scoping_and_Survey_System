@@ -740,6 +740,7 @@ const SupplierDashboard = () => {
           const showProcurementBadge =
             Boolean(file.procurementStatusLabel) &&
             String(file.procurementStatusLabel).toLowerCase() !== String(file.statusDisplay || "").toLowerCase();
+          const showRepostedBadge = Number(file.attemptCount) > 1;
           const cardClassName = [
             "post-card",
             file.dueState,
@@ -805,6 +806,11 @@ const SupplierDashboard = () => {
                 <div className="post-card-header-actions">
                   {showNewPill && <span className="new-pill">New</span>}
                   <span className={`status-badge ${file.statusClass}`}>{file.statusDisplay}</span>
+                  {showRepostedBadge && (
+                    <span className="status-badge reposted" title={file.attemptLabel}>
+                      Reposted • {file.attemptLabel || "2nd attempt"}
+                    </span>
+                  )}
                     {showProcurementBadge && (
                       <span className={`status-badge procurement ${file.procurementStatusClass}`}>
                         {file.procurementStatusLabel}

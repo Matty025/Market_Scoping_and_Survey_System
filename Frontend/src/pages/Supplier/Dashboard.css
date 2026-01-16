@@ -406,6 +406,12 @@
     border-color: #ef4444;
   }
 
+  .status-badge.reposted {
+    background: #e0ecff;
+    color: #1d4ed8;
+    border-color: #93c5fd;
+  }
+
   /* Card Body */
   .post-card-body {
     margin-bottom: 0.75rem;

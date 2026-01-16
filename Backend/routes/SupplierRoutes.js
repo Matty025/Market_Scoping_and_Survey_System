@@ -55,15 +55,15 @@ const supplierFileSelectColumns = `
         pf."FilePath" as "filePath",
         pf."DatePosted" as "datePosted",
         pf."EndDate" as "endDate",
-        1 AS "attemptCount",
-        pf."Status" AS "latestStatus",
+        COALESCE(statusInfo.attempt_count, 1) AS "attemptCount",
+        COALESCE(statusInfo.latest_status, pf."Status") AS "latestStatus",
         pf."Status" AS "procurementStatus",
-        NULL::text AS "latestNote",
-        pf."DatePosted" AS "latestChangedAt",
+        COALESCE(statusInfo.latest_note, NULL::text) AS "latestNote",
+        COALESCE(statusInfo.latest_changed_at, pf."DatePosted") AS "latestChangedAt",
         lastResponse."ResponseID" AS "lastResponseId",
         lastResponse."ResponseFilePath" AS "lastResponseFilePath",
         lastResponse."DateUploaded" AS "lastResponseDate",
-        CASE WHEN pf."EndDate" IS NOT NULL AND pf."EndDate" < NOW() THEN TRUE ELSE FALSE END AS "isExpired",
+        CASE WHEN pf."EndDate" IS NOT NULL AND (pf."EndDate"::date < ((NOW() AT TIME ZONE 'Asia/Singapore')::date)) THEN TRUE ELSE FALSE END AS "isExpired",
         COALESCE(
           array_to_string(array_agg(DISTINCT c."CategoryName" ORDER BY c."CategoryName"), ', '),
           ''
@@ -83,7 +83,23 @@ const supplierFileJoins = `
         WHERE sr."SupplierFileID" = sf."SupplierFileID"
         ORDER BY sr."DateUploaded" DESC
         LIMIT 1
-      ) lastResponse ON TRUE`;
+      ) lastResponse ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT
+          COUNT(*) FILTER (WHERE h."NewStatus" = 'ACTIVE') AS attempt_count,
+          last_row."NewStatus" AS latest_status,
+          last_row."Notes" AS latest_note,
+          last_row."ChangedAt" AS latest_changed_at
+        FROM "ProcurementStatusHistory" h
+        LEFT JOIN LATERAL (
+          SELECT h2."NewStatus", h2."Notes", h2."ChangedAt"
+          FROM "ProcurementStatusHistory" h2
+          WHERE h2."FileID" = pf."FileID"
+          ORDER BY h2."ChangedAt" DESC
+          LIMIT 1
+        ) AS last_row ON TRUE
+        WHERE h."FileID" = pf."FileID"
+      ) statusInfo ON TRUE`;
 
 const supplierFileGroupBy = `
       GROUP BY
@@ -101,6 +117,10 @@ const supplierFileGroupBy = `
         pf."DatePosted",
         pf."EndDate",
         pf."Status",
+        statusInfo.attempt_count,
+        statusInfo.latest_status,
+        statusInfo.latest_note,
+        statusInfo.latest_changed_at,
         lastResponse."ResponseID",
         lastResponse."ResponseFilePath",
         lastResponse."DateUploaded"`;
