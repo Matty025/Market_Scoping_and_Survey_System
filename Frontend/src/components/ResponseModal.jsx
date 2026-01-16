@@ -163,7 +163,6 @@ const ResponseModal = ({ announcement, responses, onClose, isLoading }) => {
     }
   };
 
-  const openHistoryViewer = (supplierName, files = []) => {
   const openHistoryViewer = (supplierName, files = [], supplierFileId = null) => {
     const safeFiles = Array.isArray(files) ? files : [];
     setHistoryViewer({ visible: true, supplierName, files: safeFiles, supplierFileId });
