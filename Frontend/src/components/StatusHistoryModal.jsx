@@ -68,7 +68,10 @@ const StatusHistoryModal = ({ visible, onClose, records = [], announcement, load
     return sorted.map((row) => {
       const next = { ...row };
       const newStatusUpper = next.newStatus ? String(next.newStatus).toUpperCase() : "";
-      if (newStatusUpper === "ACTIVE") {
+      const oldStatusUpper = next.oldStatus ? String(next.oldStatus).toUpperCase() : "";
+      const isInitialActivation = !oldStatusUpper && newStatusUpper === "ACTIVE";
+      const isRepostActivation = ["FAILED_POSTING", "COMPLETED"].includes(oldStatusUpper) && newStatusUpper === "ACTIVE";
+      if (isInitialActivation || isRepostActivation) {
         currentAttempt += 1;
       }
       next.attemptNumber = currentAttempt > 0 ? currentAttempt : null;

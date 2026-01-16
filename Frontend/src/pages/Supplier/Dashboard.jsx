@@ -406,6 +406,9 @@ const SupplierDashboard = () => {
       } else if (isDeclined) {
         statusDisplay = "Declined";
         statusClass = "declined";
+      } else if (status === "active") {
+        statusDisplay = "Active";
+        statusClass = "active";
       } else if (requiresDecision) {
         statusDisplay = "Awaiting Decision";
         statusClass = "pending";
@@ -475,7 +478,7 @@ const SupplierDashboard = () => {
         dateSentObj,
         postedDateObj,
         attemptCount,
-        attemptLabel: attemptCount > 1 ? `${formatOrdinal(attemptCount)} attempt` : "Initial attempt",
+        attemptLabel: attemptCount > 1 ? `${formatOrdinal(attemptCount)} attempt` : "New posting",
         latestStatusLabel,
         latestStatusKey,
         latestStatusAt,
@@ -858,7 +861,15 @@ const SupplierDashboard = () => {
                         </span>
                         {file.endDateObj && (
                           <span className="post-card-expanded-muted">
-                            {file.endDateObj.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
+                            {file.endDateObj.toLocaleString("en-US", {
+                              year: "numeric",
+                              month: "long",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              hour12: true,
+                              timeZone: "Asia/Singapore",
+                            })}
                           </span>
                         )}
                         {file.failedPostingDetail && (

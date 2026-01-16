@@ -337,9 +337,15 @@
   }
 
   .status-badge.pending {
-    background: #fef3c7;
-    color: #92400e;
-    border-color: #fbbf24;
+    background: #fff7ed;
+    color: #9a3412;
+    border-color: #fb923c;
+  }
+
+  .status-badge.active {
+    background: #1d4ed8;
+    color: #ffffff;
+    border-color: #1e40af;
   }
 
   .status-badge.answered {

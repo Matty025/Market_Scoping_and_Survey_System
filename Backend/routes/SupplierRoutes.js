@@ -91,7 +91,9 @@ const supplierFileJoins = `
           last_row."Notes" AS latest_note,
           last_row."ChangedAt" AS latest_changed_at
         FROM LATERAL (
-          SELECT COUNT(*) FILTER (WHERE h."NewStatus" = 'ACTIVE') AS attempt_count
+          SELECT COALESCE(1 + COUNT(*) FILTER (
+                         WHERE h."OldStatus" IN ('FAILED_POSTING', 'COMPLETED') AND h."NewStatus" = 'ACTIVE'
+                       ), 1) AS attempt_count
           FROM "ProcurementStatusHistory" h
           WHERE h."FileID" = pf."FileID"
         ) AS attempt_count

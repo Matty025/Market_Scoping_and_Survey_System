@@ -352,9 +352,14 @@
   }) => {
     const rawCats = announcement.categories || announcement.categoryDisplay || announcement.category || "";
     const isSupplierSpecific = announcement.sendType === "supplier" || announcement.SendType === "supplier";
-    const supplierNames = Array.isArray(announcement.suppliers)
-      ? announcement.suppliers
-      : parseNameList(announcement.suppliers);
+    const supplierObjects = Array.isArray(announcement.supplierObjects)
+      ? announcement.supplierObjects
+      : [];
+    const supplierNames = supplierObjects.length > 0
+      ? supplierObjects.map((s) => s.name).filter(Boolean)
+      : (Array.isArray(announcement.suppliers)
+          ? announcement.suppliers
+          : parseNameList(announcement.suppliers));
     const supplierIdsList = parseIdList(
       announcement.supplierIds ||
         announcement.SupplierIDs ||
@@ -491,7 +496,14 @@
           if (Number.isNaN(date.getTime())) {
             return null;
           }
-          return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+          return date.toLocaleString("en-US", {
+            month: "short",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true,
+            timeZone: "Asia/Singapore",
+          });
         })()
       : null;
 
@@ -607,7 +619,7 @@
                     style={{ fontSize: "12px", padding: "4px 12px", margin: 0 }}
                     onClick={(e) => {
                       e.stopPropagation();
-                      onShowSuppliers?.(supplierNames);
+                      onShowSuppliers?.(supplierObjects.length > 0 ? supplierObjects : supplierNames.map((name) => ({ name, email: "" })));
                     }}
                   >
                     View
@@ -619,6 +631,23 @@
                 <span className="badge">
                   {catsArr.length} {catsArr.length === 1 ? "category" : "categories"}
                 </span>
+                {supplierObjects.length > 0 && (
+                  <>
+                    <span className="badge" style={{ backgroundColor: "#0f172a", color: "#fff" }}>
+                      Suppliers: {supplierObjects.length}
+                    </span>
+                    <button
+                      className="see-more-btn"
+                      style={{ fontSize: "12px", padding: "4px 12px", margin: 0 }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onShowSuppliers?.(supplierObjects);
+                      }}
+                    >
+                      See more
+                    </button>
+                  </>
+                )}
                 <button
                   className="see-more-btn"
                   style={{ fontSize: "12px", padding: "4px 12px", margin: 0 }}
@@ -824,7 +853,10 @@
             <p style={{ color: "#666" }}>No suppliers listed.</p>
           ) : (
             <ul style={{ listStyle: "none", padding: 0 }}>
-              {suppliers.map((name, idx) => (
+              {suppliers.map((item, idx) => {
+                const name = (item && item.name) || (typeof item === "string" ? item : "");
+                const email = (item && item.email) || "";
+                return (
                 <li key={idx} style={{
                   padding: "8px 12px",
                   margin: "6px 0",
@@ -832,9 +864,11 @@
                   borderRadius: 6,
                   border: "1px solid #e5e7eb"
                 }}>
-                  {name}
+                  <div style={{ fontWeight: 600 }}>{name || "(No company name)"}</div>
+                  {email ? <div style={{ color: "#475569", fontSize: "12px" }}>{email}</div> : null}
                 </li>
-              ))}
+                );
+              })}
             </ul>
           )}
         </div>
@@ -1114,6 +1148,10 @@
             ann.TotalSuppliersAssigned
         ) ?? toNullableNumber(ann.assignedSupplierCount ?? ann.assignedsuppliercount);
 
+      const categorySupplierCount = toNullableNumber(
+        ann.CategorySupplierCount ?? ann.categorySupplierCount ?? ann.category_supplier_count
+      );
+
       const pendingSupplierCount = toNullableNumber(
         ann.pendingSupplierCount ??
           ann.pendingsuppliercount ??
@@ -1164,9 +1202,26 @@
           ann.SupplierIds ??
           []
       );
-      const supplierNames = parseNameList(
+
+      const categorySupplierObjectsRaw = ann.categorySupplierObjects ?? ann.CategorySupplierObjects ?? [];
+      const categorySupplierObjects = Array.isArray(categorySupplierObjectsRaw)
+        ? categorySupplierObjectsRaw
+            .map((obj) => ({
+              name: obj?.name || obj?.company_name || obj?.CompanyName || "",
+              email: obj?.email || obj?.Email || "",
+              supplierId: obj?.supplierId || obj?.supplier_id || obj?.SupplierID || null,
+            }))
+            .filter((obj) => obj.name || obj.email || obj.supplierId)
+        : [];
+
+      const supplierNamesRaw = parseNameList(
         ann.suppliers ?? ann.supplierNames ?? ann.supplier_names ?? ann.Suppliers ?? []
       );
+      const supplierObjects = supplierNamesRaw.length > 0
+        ? supplierNamesRaw.map((name) => ({ name, email: "" }))
+        : categorySupplierObjects;
+      const supplierNames = supplierObjects.map((s) => s.name).filter(Boolean);
+      const categorySupplierIds = parseIdList(ann.CategorySupplierIds ?? ann.categorySupplierIds ?? []);
 
       return {
         ...ann,
@@ -1192,8 +1247,8 @@
         procurementStatus,
         attemptSentAt,
         attemptDueAt,
-        assignedSupplierCount: totalSuppliersAssigned ?? null,
-        totalSuppliersAssigned: totalSuppliersAssigned ?? null,
+        assignedSupplierCount: totalSuppliersAssigned ?? categorySupplierCount ?? null,
+        totalSuppliersAssigned: totalSuppliersAssigned ?? categorySupplierCount ?? null,
         pendingSupplierCount,
         answeredSupplierCount,
         completedSupplierCount: answeredSupplierCount,
@@ -1204,7 +1259,8 @@
         awardedSupplierName:
           ann.awardedSupplierName ?? ann.awarded_supplier_name ?? ann.AwardedSupplierName ?? "",
         awardedAt: ann.awardedAt ?? ann.awarded_at ?? ann.AwardedAt ?? null,
-        supplierIds: parsedSupplierIds,
+        supplierIds: parsedSupplierIds.length > 0 ? parsedSupplierIds : categorySupplierIds,
+        supplierObjects,
         categoryIds: categoryIds,
         fileName,
         filePath,
