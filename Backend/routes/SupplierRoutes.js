@@ -99,6 +99,7 @@ const supplierFileGroupBy = `
         pf."FilePath",
         pf."DatePosted",
         pf."EndDate",
+        pf."Status" AS "ProcurementStatus",
         lastResponse."ResponseID",
         lastResponse."ResponseFilePath",
         lastResponse."DateUploaded"`;

@@ -279,8 +279,21 @@ const SupplierDashboard = () => {
       const endDateObj = endDateValue ? new Date(endDateValue) : null;
       const dateSentObj = file.dateSent ? new Date(file.dateSent) : null;
       const postedDateObj = file.datePosted ? new Date(file.datePosted) : null;
-      const status = (file.Status || "Pending").toLowerCase();
-      const isClosedStatus = ["closed", "cancelled", "expired", "completed", "failed_posting"].includes(status);
+
+      const supplierStatus = (file.Status || "pending").toLowerCase();
+      const procurementStatus = (file.procurementStatus || file.ProcurementStatus || file.procurementstatus || supplierStatus || "pending").toLowerCase();
+
+      // Prefer admin-set procurement status when final; otherwise use supplier file status for submission context
+      let status = supplierStatus;
+      if (["completed", "failed_posting", "cancelled", "closed", "expired"].includes(procurementStatus)) {
+        status = procurementStatus;
+      } else if (procurementStatus === "active" || procurementStatus === "pending") {
+        status = supplierStatus || procurementStatus;
+      } else {
+        status = procurementStatus || supplierStatus;
+      }
+
+      const isClosedStatus = ["closed", "cancelled", "expired", "completed", "failed_posting"].includes(procurementStatus);
       const isFinalized = isClosedStatus;
       const hasViewedFromBackend = Boolean(
         file.hasViewed ||
@@ -296,7 +309,7 @@ const SupplierDashboard = () => {
       const attemptCount = Number.isFinite(currentAttemptRaw) && currentAttemptRaw > 0
         ? currentAttemptRaw
         : (attemptCountRaw > 0 ? attemptCountRaw : 1);
-      const latestStatusRaw = file.latestStatus || file.lateststatus || null;
+      const latestStatusRaw = file.latestStatus || file.lateststatus || procurementStatus || null;
       const latestStatusLabel = formatStatusLabel(latestStatusRaw);
       const latestStatusKey = latestStatusRaw ? String(latestStatusRaw).toLowerCase() : null;
       const latestStatusAt = file.latestChangedAt ? new Date(file.latestChangedAt) : null;
@@ -343,7 +356,7 @@ const SupplierDashboard = () => {
       }
 
       const endDatePassed = Boolean(endDateObj && endDateObj.getTime() < now.getTime());
-      const isFailedPosting = status === "failed_posting" || (!isFinalized && status !== "answered" && (isExpiredFlag || endDatePassed));
+      const isFailedPosting = procurementStatus === "failed_posting" || status === "failed_posting" || (!isFinalized && status !== "answered" && (isExpiredFlag || endDatePassed));
       if (isFailedPosting) {
         dueLabel = "Failed Posting";
       }
@@ -434,6 +447,8 @@ const SupplierDashboard = () => {
         latestStatusNote,
         showLatestUpdate,
         descriptionText,
+        procurementStatus,
+        procurementStatusLabel: formatStatusLabel(procurementStatus),
         normalizedStatus: status,
         currentAttemptNumber: attemptCount,
         optInStatus,
@@ -777,6 +792,11 @@ const SupplierDashboard = () => {
                     <div className="post-card-expanded-item">
                       <span className="post-card-expanded-label">Status</span>
                       <span className="post-card-expanded-value">{file.statusDisplay}</span>
+                    </div>
+
+                    <div className="post-card-expanded-item">
+                      <span className="post-card-expanded-label">Announcement Status</span>
+                      <span className="post-card-expanded-value">{file.procurementStatusLabel}</span>
                     </div>
 
                     <div className="post-card-expanded-item">

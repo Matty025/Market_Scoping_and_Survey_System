@@ -5,7 +5,7 @@ import "./ResponseModal.css";
 
 const ResponseModal = ({ announcement, responses, onClose, isLoading }) => {
   const { token } = useAuth(); // token must be here
-  const [historyViewer, setHistoryViewer] = useState({ visible: false, supplierName: "", files: [] });
+  const [historyViewer, setHistoryViewer] = useState({ visible: false, supplierName: "", supplierFileId: null, files: [] });
 
   const formatDateTime = (value, options = {}) => {
     if (!value) return "—";
@@ -113,11 +113,18 @@ const ResponseModal = ({ announcement, responses, onClose, isLoading }) => {
     }
   };
 
-  const buildFileUrl = (filePath) => {
+  const buildFileUrl = ({ filePath, supplierFileId, responseId }) => {
+    const base = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+    // Primary: stream through admin endpoint to ensure auth and storage access
+    if (supplierFileId) {
+      const search = responseId ? `?responseId=${encodeURIComponent(responseId)}` : '';
+      return `${base}/api/admin/supplier-files/${supplierFileId}/response-file${search}`;
+    }
+
     if (!filePath) return null;
     const normalized = String(filePath).replace(/\\/g, "/");
     if (/^https?:\/\//i.test(normalized)) return normalized;
-    const base = import.meta.env.VITE_API_URL || 'http://localhost:3001';
     return `${base}${normalized.startsWith('/') ? '' : '/'}${normalized}`;
   };
 
@@ -157,8 +164,9 @@ const ResponseModal = ({ announcement, responses, onClose, isLoading }) => {
   };
 
   const openHistoryViewer = (supplierName, files = []) => {
+  const openHistoryViewer = (supplierName, files = [], supplierFileId = null) => {
     const safeFiles = Array.isArray(files) ? files : [];
-    setHistoryViewer({ visible: true, supplierName, files: safeFiles });
+    setHistoryViewer({ visible: true, supplierName, files: safeFiles, supplierFileId });
   };
 
   const closeHistoryViewer = () => {
@@ -232,7 +240,11 @@ const ResponseModal = ({ announcement, responses, onClose, isLoading }) => {
                       <td>
                         {(() => {
                           const historyList = Array.isArray(res.responseHistory) ? res.responseHistory : [];
-                          const latestFileUrl = buildFileUrl(res.responseFilePath);
+                          const latestFileUrl = buildFileUrl({
+                            filePath: res.responseFilePath,
+                            supplierFileId: res.supplierFileId,
+                            responseId: res.responseId,
+                          });
                           if (latestFileUrl) {
                             return (
                               <div className="response-file-actions">
@@ -247,7 +259,7 @@ const ResponseModal = ({ announcement, responses, onClose, isLoading }) => {
                                   <button
                                     type="button"
                                     className="view-history-btn"
-                                    onClick={() => openHistoryViewer(res.companyName, historyList)}
+                                    onClick={() => openHistoryViewer(res.companyName, historyList, res.supplierFileId)}
                                   >
                                     View Files
                                   </button>
@@ -261,7 +273,7 @@ const ResponseModal = ({ announcement, responses, onClose, isLoading }) => {
                               <button
                                 type="button"
                                 className="view-history-btn"
-                                onClick={() => openHistoryViewer(res.companyName, historyList)}
+                                onClick={() => openHistoryViewer(res.companyName, historyList, res.supplierFileId)}
                               >
                                 View Previous Files
                               </button>
@@ -292,7 +304,11 @@ const ResponseModal = ({ announcement, responses, onClose, isLoading }) => {
                   {historyViewer.files.map((file, idx) => {
                     const attemptNumber = Number.isInteger(file?.attemptIndex) ? file.attemptIndex : null;
                     const attemptLabelRendered = attemptNumber ? `Attempt #${attemptNumber}` : formatAttempt(file?.attemptIndex, null);
-                    const fileUrl = buildFileUrl(file?.responseFilePath || "");
+                    const fileUrl = buildFileUrl({
+                      filePath: file?.responseFilePath || "",
+                      supplierFileId: historyViewer.supplierFileId,
+                      responseId: file?.responseId,
+                    });
                     return (
                       <li key={file?.responseId || idx} className="response-history-item">
                         <div className="response-history-meta">

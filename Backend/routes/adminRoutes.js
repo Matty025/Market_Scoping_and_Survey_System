@@ -1492,6 +1492,66 @@ router.get("/announcements/:id/responses", protect, async (req, res) => {
   }
 });
 
+// @desc    Stream the latest (or specific) supplier response PDF for admins
+// @route   GET /api/admin/supplier-files/:supplierFileId/response-file?responseId=optional
+// @access  Private (Admin)
+router.get("/supplier-files/:supplierFileId/response-file", protect, async (req, res) => {
+  if (req.user.role.toLowerCase() !== 'admin') {
+    return res.status(403).json({ message: "Access denied. Admins only." });
+  }
+
+  const supplierFileId = parseInt(req.params.supplierFileId, 10);
+  const responseId = req.query.responseId ? parseInt(req.query.responseId, 10) : null;
+
+  if (!Number.isInteger(supplierFileId)) {
+    return res.status(400).json({ message: "Invalid supplier file id." });
+  }
+
+  try {
+    const params = [supplierFileId];
+    let whereClause = 'sr."SupplierFileID" = $1';
+
+    if (Number.isInteger(responseId)) {
+      params.push(responseId);
+      whereClause += ` AND sr."ResponseID" = $${params.length}`;
+    }
+
+    const query = `
+      SELECT sr."ResponseFilePath", sr."ResponseID", pf."Title"
+      FROM "SupplierResponses" sr
+      JOIN "SupplierFiles" sf ON sr."SupplierFileID" = sf."SupplierFileID"
+      JOIN "ProcurementFiles" pf ON sf."FileID" = pf."FileID"
+      WHERE ${whereClause}
+      ORDER BY sr."DateUploaded" DESC NULLS LAST, sr."ResponseID" DESC
+      LIMIT 1
+    `;
+
+    const { rows } = await pool.query(query, params);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "Response file not found." });
+    }
+
+    const filePath = rows[0].ResponseFilePath;
+    const title = rows[0].Title || `response-${supplierFileId}`;
+
+    const stream = await downloadFile(filePath);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${title}-response.pdf"`);
+
+    stream.pipe(res);
+  } catch (err) {
+    console.error("Error downloading response file (admin):", err);
+
+    if (err.message && err.message.includes('not found')) {
+      return res.status(404).json({ message: "File not found in storage" });
+    }
+
+    res.status(500).json({ message: "Error downloading file" });
+  }
+});
+
 // @desc    Get all market items with advanced filtering for Admin
 // @route   GET /api/admin/market-items
 // @access  Private (Admin)
