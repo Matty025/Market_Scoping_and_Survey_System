@@ -146,6 +146,78 @@
     return Number.isNaN(parsed) ? null : parsed;
   };
 
+  const parseIdList = (input) => {
+    if (Array.isArray(input)) {
+      const ids = input
+        .map((item) => {
+          if (item === null || item === undefined) return null;
+          if (typeof item === "object") {
+            const candidate =
+              item.id ?? item.ID ?? item.Id ?? item.supplier_id ?? item.SupplierID ?? item.value;
+            if (candidate !== undefined && candidate !== null) {
+              const num = Number(candidate);
+              return Number.isNaN(num) ? String(candidate) : num;
+            }
+            return null;
+          }
+          const num = Number(item);
+          return Number.isNaN(num) ? String(item) : num;
+        })
+        .filter((val) => val !== null && val !== undefined);
+      return Array.from(new Set(ids));
+    }
+
+    if (typeof input === "string") {
+      const trimmed = input.trim();
+      if (!trimmed) return [];
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parseIdList(parsed);
+        }
+      } catch (err) {
+        // ignore JSON parse errors
+      }
+
+      return trimmed
+        .split(/[\s,]+/)
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .map((part) => {
+          const num = Number(part);
+          return Number.isNaN(num) ? part : num;
+        });
+    }
+
+    return [];
+  };
+
+  const parseNameList = (input) => {
+    if (Array.isArray(input)) {
+      return input
+        .map((item) => (item === null || item === undefined ? "" : String(item)))
+        .map((str) => str.trim())
+        .filter(Boolean);
+    }
+    if (typeof input === "string") {
+      return input
+        .split(/[,\n]/)
+        .map((str) => str.trim())
+        .filter(Boolean);
+    }
+    return [];
+  };
+
+  const mapCategoryNamesToIds = (names, nameIndex) => {
+    if (!Array.isArray(names) || names.length === 0) {
+      return [];
+    }
+    const ids = names
+      .map((name) => nameIndex[name.trim().toUpperCase()])
+      .filter((id) => id !== undefined && id !== null);
+    return Array.from(new Set(ids));
+  };
+
   const parseAnnouncementsResponse = (payload) => {
     if (Array.isArray(payload)) {
       return {
@@ -281,15 +353,19 @@
   }) => {
     const rawCats = announcement.categories || announcement.categoryDisplay || announcement.category || "";
     const isSupplierSpecific = announcement.sendType === "supplier" || announcement.SendType === "supplier";
-    const supplierNames = Array.isArray(announcement.suppliers) ? announcement.suppliers : [];
-    const supplierIdsList = (() => {
-      if (Array.isArray(announcement.supplierIds)) return announcement.supplierIds;
-      if (Array.isArray(announcement.SupplierIDs)) return announcement.SupplierIDs;
-      if (Array.isArray(announcement.supplier_ids)) return announcement.supplier_ids;
-      if (Array.isArray(announcement.suppliersIds)) return announcement.suppliersIds;
-      if (Array.isArray(announcement.suppliers_ids)) return announcement.suppliers_ids;
-      return [];
-    })();
+    const supplierNames = Array.isArray(announcement.suppliers)
+      ? announcement.suppliers
+      : parseNameList(announcement.suppliers);
+    const supplierIdsList = parseIdList(
+      announcement.supplierIds ||
+        announcement.SupplierIDs ||
+        announcement.supplier_ids ||
+        announcement.suppliersIds ||
+        announcement.suppliers_ids ||
+        announcement.assignedSupplierIds ||
+        announcement.assigned_suppliers ||
+        []
+    );
     const responseCountRaw =
       announcement.respondingSupplierCount ??
       announcement.responseCount ??
@@ -809,6 +885,16 @@
     const [historyModal, setHistoryModal] = useState(HISTORY_MODAL_INITIAL);
     const [activeView, setActiveView] = useState("announcements");
 
+    const categoryNameIndex = useMemo(() => {
+      const idx = {};
+      Object.entries(categoryNameToId || {}).forEach(([name, id]) => {
+        if (typeof name === "string") {
+          idx[name.toUpperCase()] = id;
+        }
+      });
+      return idx;
+    }, [categoryNameToId]);
+
     const supplierIdToName = useMemo(() => {
       const map = {};
       supplierOptions.forEach((sup) => {
@@ -824,32 +910,55 @@
       if (!announcement) {
         return [];
       }
-      const ids = Array.isArray(announcement.supplierIds) ? announcement.supplierIds : [];
-      const rawNames = Array.isArray(announcement.suppliers) ? announcement.suppliers : [];
+      const ids = parseIdList(
+        announcement.supplierIds ||
+          announcement.SupplierIDs ||
+          announcement.supplier_ids ||
+          announcement.suppliersIds ||
+          announcement.suppliers_ids ||
+          announcement.assignedSupplierIds ||
+          announcement.assigned_suppliers ||
+          []
+      );
+      const rawNames = parseNameList(announcement.suppliers);
       return ids.map((id, index) => ({
         id,
         name: supplierIdToName[id] || rawNames[index] || `Supplier ${id}`,
       }));
     }, [statusDialog.announcement, supplierIdToName]);
 
-    const buildAnnouncementFormInitialValues = (record) => {
+    const buildAnnouncementFormInitialValues = (record, nameIndex = {}) => {
       if (!record) {
         return null;
       }
 
       const normalizedSendType = String(record.sendType || "category").toLowerCase() === "supplier" ? "supplier" : "category";
-      const categories = Array.isArray(record.categoryIds)
-        ? Array.from(
-            new Set(record.categoryIds.filter((id) => typeof id === "number" && !Number.isNaN(id)))
-          )
-        : [];
+
+      const parsedCategoryIds = parseIdList(
+        record.categoryIds || record.CategoryIDs || record.categoryId || record.CategoryID || []
+      );
+      let categories = Array.from(
+        new Set(parsedCategoryIds.filter((id) => typeof id === "number" && !Number.isNaN(id)))
+      );
+      if (categories.length === 0) {
+        const categoryNames = parseNameList(record.categories || record.categoryDisplay || record.category || "");
+        categories = mapCategoryNamesToIds(categoryNames, nameIndex);
+      }
+
       const rawSupplierIds =
-        record.supplierIds || record.SupplierIDs || record.supplier_ids || record.suppliersIds || record.suppliers_ids || [];
-      const suppliers = Array.isArray(rawSupplierIds)
-        ? Array.from(
-            new Set(rawSupplierIds.filter((id) => typeof id === "number" && !Number.isNaN(id)))
-          )
-        : [];
+        record.supplierIds ||
+        record.SupplierIDs ||
+        record.supplier_ids ||
+        record.suppliersIds ||
+        record.suppliers_ids ||
+        record.assignedSupplierIds ||
+        record.assigned_suppliers ||
+        [];
+      const suppliers = Array.from(
+        new Set(
+          parseIdList(rawSupplierIds).filter((id) => typeof id === "number" && !Number.isNaN(id))
+        )
+      );
 
       return {
         title: record.title || "",
@@ -865,8 +974,8 @@
     };
 
     const announcementFormInitialValues = useMemo(
-      () => buildAnnouncementFormInitialValues(editingAnnouncement),
-      [editingAnnouncement]
+      () => buildAnnouncementFormInitialValues(editingAnnouncement, categoryNameIndex),
+      [editingAnnouncement, categoryNameIndex]
     );
 
     useEffect(() => {
@@ -888,6 +997,7 @@
     const formatAnnouncementRecord = (ann, overrides = {}) => {
       const categoryLookup = overrides.categoryMap ?? categoryMap;
       const fileCategoryLookup = overrides.fileCategoryMap ?? fileCategoryMap;
+      const nameIndex = overrides.categoryNameIndex ?? categoryNameIndex ?? {};
       const postedRaw = ann.DatePosted || ann.posted || ann.datePosted;
       const endRaw = ann.EndDate || ann.end || ann.endDate;
       const postedDateObj = postedRaw ? new Date(postedRaw) : null;
@@ -923,6 +1033,23 @@
       const fileCats = fileCategoryLookup[fileKey];
 
       const sendType = ann.sendType || ann.SendType || ann.send_type;
+
+      const parsedCategoryIds = parseIdList(
+        ann.categoryIds ??
+          ann.CategoryIDs ??
+          ann.categoryId ??
+          ann.CategoryID ??
+          ann.category_ids ??
+          ann.CategoryIds ??
+          []
+      );
+      let categoryIds = parsedCategoryIds.filter((id) => typeof id === "number" && !Number.isNaN(id));
+      if (categoryIds.length === 0) {
+        const categoryNames = parseNameList(
+          ann.categories || ann.categoryName || ann.category || (Array.isArray(fileCats) ? fileCats : [])
+        );
+        categoryIds = mapCategoryNamesToIds(categoryNames, nameIndex);
+      }
 
       const statusRaw =
         ann.status ??
@@ -976,6 +1103,11 @@
       let displayText = "Uncategorized";
       if (sendType === "supplier") {
         displayText = "Supplier-specific";
+      } else if (categoryIds.length > 0) {
+        const namesFromIds = categoryIds.map((cid) => categoryLookup[cid]).filter(Boolean);
+        if (namesFromIds.length > 0) {
+          displayText = namesFromIds.join(", ");
+        }
       } else if (ann.categories) {
         displayText = ann.categories;
       } else if (ann.categoryName) {
@@ -1049,6 +1181,21 @@
         ann.file_path ??
         "";
 
+      const parsedSupplierIds = parseIdList(
+        ann.supplierIds ??
+          ann.SupplierIDs ??
+          ann.supplier_ids ??
+          ann.suppliersIds ??
+          ann.suppliers_ids ??
+          ann.assignedSupplierIds ??
+          ann.assigned_suppliers ??
+          ann.SupplierIds ??
+          []
+      );
+      const supplierNames = parseNameList(
+        ann.suppliers ?? ann.supplierNames ?? ann.supplier_names ?? ann.Suppliers ?? []
+      );
+
       return {
         ...ann,
         posted: postedStr,
@@ -1060,7 +1207,7 @@
         status: normalizedStatus,
         derivedStatus,
         isFailedPosting,
-        suppliers: Array.isArray(ann.suppliers) ? ann.suppliers : [],
+        suppliers: supplierNames,
         responseCount: respondingSupplierCount,
         respondingSupplierCount,
         rawResponseCount,
@@ -1085,19 +1232,8 @@
         awardedSupplierName:
           ann.awardedSupplierName ?? ann.awarded_supplier_name ?? ann.AwardedSupplierName ?? "",
         awardedAt: ann.awardedAt ?? ann.awarded_at ?? ann.AwardedAt ?? null,
-        supplierIds:
-          Array.isArray(ann.supplierIds)
-            ? ann.supplierIds
-            : Array.isArray(ann.SupplierIDs)
-            ? ann.SupplierIDs
-            : Array.isArray(ann.supplier_ids)
-            ? ann.supplier_ids
-            : Array.isArray(ann.suppliersIds)
-            ? ann.suppliersIds
-            : Array.isArray(ann.suppliers_ids)
-            ? ann.suppliers_ids
-            : [],
-        categoryIds: Array.isArray(ann.categoryIds) ? ann.categoryIds : [],
+        supplierIds: parsedSupplierIds,
+        categoryIds: categoryIds,
         fileName,
         filePath,
       };
@@ -1173,6 +1309,7 @@
           const formattedAnnouncements = (announcementItems || []).map((ann) => formatAnnouncementRecord(ann, {
             categoryMap: catMap,
             fileCategoryMap: fMap,
+            categoryNameIndex,
           }));
 
           setAnnouncements(formattedAnnouncements);
@@ -1236,7 +1373,9 @@
           });
 
           const { items, total, page } = parseAnnouncementsResponse(announcementsRes.data);
-          const formatted = (items || []).map(formatAnnouncementRecord);
+          const formatted = (items || []).map((ann) =>
+            formatAnnouncementRecord(ann, { categoryNameIndex })
+          );
           setAnnouncements(formatted);
           setTotalAnnouncements(total);
           setCurrentPage(page);
@@ -1245,7 +1384,7 @@
         }
       };
       run();
-    }, [selectedFilter, searchQuery, postedDate, token, categoryNameToId, categoryMap, fileCategoryMap, currentPage, refreshKey]);
+    }, [selectedFilter, searchQuery, postedDate, token, categoryNameToId, categoryMap, fileCategoryMap, categoryNameIndex, currentPage, refreshKey]);
 
     const handlePostAnnouncement = async (formData) => {
       const data = new FormData();
@@ -1335,6 +1474,7 @@
           const formatted = formatAnnouncementRecord(updated, {
             categoryMap,
             fileCategoryMap,
+            categoryNameIndex,
           });
           setAnnouncements((prev) =>
             prev.map((item) => {
