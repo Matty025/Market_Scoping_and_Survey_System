@@ -1588,13 +1588,35 @@
       setShowSupplierModal(true);
     };
 
-    const handleRepostAnnouncement = (announcement) => {
-      if (!announcement) {
+    const handleRepostAnnouncement = async (announcement) => {
+      if (!announcement || !announcement.id) {
         return;
       }
-      setEditingAnnouncement(announcement);
-      setModalMode("edit");
-      setShowModal(true);
+
+      try {
+        // Fetch full detail so categories/suppliers are pre-filled on repost
+        const { data } = await api.get(`/api/admin/announcements/${announcement.id}/detail`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const detail = data?.announcement || announcement;
+        const formatted = formatAnnouncementRecord(detail, {
+          categoryMap,
+          fileCategoryMap,
+          categoryNameIndex,
+        });
+
+        setEditingAnnouncement(formatted);
+        setModalMode("edit");
+        setShowModal(true);
+      } catch (err) {
+        console.error("Failed to load announcement detail for repost:", err);
+        setToast({
+          visible: true,
+          type: "error",
+          message: "Could not load announcement details for repost. Please try again.",
+        });
+      }
     };
 
     const openStatusDialog = (announcement, statusUpper, allowStatusChoice = false) => {
