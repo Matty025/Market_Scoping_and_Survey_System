@@ -2085,9 +2085,43 @@ router.get("/announcements/:id/detail", protect, async (req, res) => {
         JOIN "Categories" c ON c."CategoryID" = pfc."CategoryID"
         WHERE pfc."FileID" = $1
         GROUP BY pfc."FileID"
+      ),
+      cat_desc AS (
+        WITH RECURSIVE cat_tree AS (
+          SELECT pfc."CategoryID"
+            FROM "ProcurementFileCategories" pfc
+           WHERE pfc."FileID" = $1
+          UNION ALL
+          SELECT c."CategoryID"
+            FROM "Categories" c
+            JOIN cat_tree ct ON c."ParentCategoryID" = ct."CategoryID"
+        )
+        SELECT DISTINCT cat_tree."CategoryID" FROM cat_tree
+      ),
+      cat_suppliers AS (
+        SELECT DISTINCT sc."SupplierID" AS supplier_id,
+               s."CompanyName" AS company_name,
+               u."Email" AS email
+          FROM "SupplierCategories" sc
+          JOIN cat_desc cd ON cd."CategoryID" = sc."CategoryID"
+          JOIN "Suppliers" s ON s."SupplierID" = sc."SupplierID"
+          LEFT JOIN "Users" u ON u."SupplierID" = sc."SupplierID"
+      ),
+      cat_suppliers_agg AS (
+        SELECT COUNT(*) AS total_category_suppliers,
+               ARRAY_AGG(DISTINCT company_name) AS company_names,
+               ARRAY_AGG(DISTINCT email) FILTER (WHERE email IS NOT NULL) AS emails,
+               ARRAY_AGG(DISTINCT supplier_id) AS supplier_ids,
+               COALESCE(JSON_AGG(DISTINCT jsonb_build_object(
+                 'name', company_name,
+                 'email', email,
+                 'supplierId', supplier_id
+               )) FILTER (WHERE company_name IS NOT NULL), '[]'::json) AS supplier_objects
+          FROM cat_suppliers
       )
       SELECT b.*,
              COALESCE(stats.total_suppliers, 0) AS "TotalSuppliersAssigned",
+             COALESCE(cat_suppliers_agg.total_category_suppliers, 0) AS "CategorySupplierCount",
              COALESCE(stats.pending_count, 0) AS "PendingCount",
              COALESCE(stats.answered_count, 0) AS "AnsweredCount",
              COALESCE(stats.viewed_count, 0) AS "ViewedCount",
@@ -2095,6 +2129,10 @@ router.get("/announcements/:id/detail", protect, async (req, res) => {
              COALESCE(array_to_string(cats.names, ', '), '') AS "Categories",
              COALESCE(cats.ids, ARRAY[]::int[]) AS "CategoryIDs",
              COALESCE(stats.supplier_ids, ARRAY[]::int[]) AS "SupplierIDs",
+             COALESCE(cat_suppliers_agg.company_names, ARRAY[]::text[]) AS "CategorySuppliers",
+             COALESCE(cat_suppliers_agg.emails, ARRAY[]::text[]) AS "CategorySupplierEmails",
+             COALESCE(cat_suppliers_agg.supplier_ids, ARRAY[]::int[]) AS "CategorySupplierIds",
+             cat_suppliers_agg.supplier_objects AS "CategorySupplierObjects",
              COALESCE(
                (
                  SELECT ARRAY_AGG(DISTINCT s."CompanyName")
@@ -2111,8 +2149,11 @@ router.get("/announcements/:id/detail", protect, async (req, res) => {
       FROM base b
       LEFT JOIN stats ON stats."FileID" = b."FileID"
       LEFT JOIN cats ON cats."FileID" = b."FileID"
+       LEFT JOIN cat_suppliers_agg ON TRUE
       LEFT JOIN LATERAL (
-        SELECT COUNT(*) FILTER (WHERE h."NewStatus" = 'ACTIVE') AS attempt_count,
+        SELECT COALESCE(1 + COUNT(*) FILTER (
+                      WHERE h."OldStatus" IN ('FAILED_POSTING', 'COMPLETED') AND h."NewStatus" = 'ACTIVE'
+                    ), 1) AS attempt_count,
                MAX(CASE WHEN h."NewStatus" = 'ACTIVE' THEN h."ChangedAt" END) AS latest_active_at,
                (
                  SELECT h2."NewStatus" FROM "ProcurementStatusHistory" h2
