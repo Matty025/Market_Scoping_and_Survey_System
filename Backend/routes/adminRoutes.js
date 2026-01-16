@@ -699,24 +699,72 @@ router.put("/announcements/:id", protect, upload.single("file"), async (req, res
     }
 
     const { rows: detailRows } = await pool.query(
-      `SELECT pf.*, COALESCE(attempts.attempt_count, 1) AS "AttemptNumber",
+      `WITH base AS (
+         SELECT pf."FileID", pf."Title", pf."Description", pf."FilePath", pf."DatePosted", pf."EndDate", pf."SendType", pf."Status", pf."CreatedBy",
+                u."FullName" AS "CreatedByName", u."Email" AS "CreatedByEmail",
+                (pf."EndDate" IS NOT NULL AND pf."EndDate" < NOW()) AS "IsExpired",
+                NULL::text AS "FileName"
+         FROM "ProcurementFiles" pf
+         LEFT JOIN "Users" u ON u."UserID" = pf."CreatedBy"
+         WHERE pf."FileID" = $1
+       ),
+       stats AS (
+         SELECT sf."FileID",
+                COUNT(*) AS total_suppliers,
+                COUNT(*) FILTER (WHERE sf."Status" = 'PENDING') AS pending_count,
+                COUNT(*) FILTER (WHERE sf."Status" = 'ANSWERED') AS answered_count,
+                COUNT(*) FILTER (WHERE sf."ViewedAt" IS NOT NULL) AS viewed_count,
+                COUNT(*) FILTER (WHERE sf."OptInStatus" = 'DECLINED') AS declined_count,
+                ARRAY_AGG(DISTINCT sf."SupplierID") AS supplier_ids
+         FROM "SupplierFiles" sf
+         WHERE sf."FileID" = $1
+         GROUP BY sf."FileID"
+       ),
+       cats AS (
+         SELECT pfc."FileID",
+                ARRAY_AGG(DISTINCT c."CategoryName") AS names,
+                ARRAY_AGG(DISTINCT c."CategoryID") AS ids
+         FROM "ProcurementFileCategories" pfc
+         JOIN "Categories" c ON c."CategoryID" = pfc."CategoryID"
+         WHERE pfc."FileID" = $1
+         GROUP BY pfc."FileID"
+       )
+       SELECT b.*,
+              COALESCE(stats.total_suppliers, 0) AS "TotalSuppliersAssigned",
+              COALESCE(stats.pending_count, 0) AS "PendingCount",
+              COALESCE(stats.answered_count, 0) AS "AnsweredCount",
+              COALESCE(stats.viewed_count, 0) AS "ViewedCount",
+              COALESCE(stats.declined_count, 0) AS "DeclinedCount",
+              COALESCE(array_to_string(cats.names, ', '), '') AS "Categories",
+              COALESCE(cats.ids, ARRAY[]::int[]) AS "CategoryIDs",
+              COALESCE(stats.supplier_ids, ARRAY[]::int[]) AS "SupplierIDs",
+              COALESCE(
+                (
+                  SELECT ARRAY_AGG(DISTINCT s."CompanyName")
+                  FROM "Suppliers" s
+                  WHERE s."SupplierID" = ANY(COALESCE(stats.supplier_ids, ARRAY[]::int[]))
+                ),
+                ARRAY[]::text[]
+              ) AS "Suppliers",
+              COALESCE(attempts.attempt_count, 1) AS "AttemptNumber",
               attempts.latest_active_at AS "AttemptSentAt",
               attempts.latest_status AS "AttemptStatus"
-       FROM "ProcurementFilesWithDetails" AS pf
+       FROM base b
+       LEFT JOIN stats ON stats."FileID" = b."FileID"
+       LEFT JOIN cats ON cats."FileID" = b."FileID"
        LEFT JOIN LATERAL (
          SELECT COUNT(*) FILTER (WHERE h."NewStatus" = 'ACTIVE') AS attempt_count,
                 MAX(CASE WHEN h."NewStatus" = 'ACTIVE' THEN h."ChangedAt" END) AS latest_active_at,
                 (
                   SELECT h2."NewStatus"
                   FROM "ProcurementStatusHistory" h2
-                  WHERE h2."FileID" = pf."FileID"
+                  WHERE h2."FileID" = b."FileID"
                   ORDER BY h2."ChangedAt" DESC
                   LIMIT 1
                 ) AS latest_status
          FROM "ProcurementStatusHistory" h
-         WHERE h."FileID" = pf."FileID"
-       ) AS attempts ON TRUE
-       WHERE pf."FileID" = $1`,
+         WHERE h."FileID" = b."FileID"
+       ) AS attempts ON TRUE`,
       [fileId]
     );
 
@@ -1893,33 +1941,80 @@ router.get("/announcements/:id/detail", protect, async (req, res) => {
 
   try {
     const detailQuery = `
-            SELECT pf.*,
-              COALESCE(attempts.attempt_count, 1) AS "AttemptNumber",
-              attempts.latest_active_at AS "AttemptSentAt",
-              attempts.latest_status AS "AttemptStatus",
-              COALESCE(response_stats.responder_distinct, 0) AS "DistinctResponderCount",
-              COALESCE(response_stats.response_total, 0) AS "RawResponseCount"
-      FROM "ProcurementFilesWithDetails" pf
+      WITH base AS (
+        SELECT pf."FileID", pf."Title", pf."Description", pf."FilePath", pf."DatePosted", pf."EndDate", pf."SendType", pf."Status", pf."CreatedBy",
+               u."FullName" AS "CreatedByName", u."Email" AS "CreatedByEmail",
+               (pf."EndDate" IS NOT NULL AND pf."EndDate" < NOW()) AS "IsExpired",
+               NULL::text AS "FileName"
+        FROM "ProcurementFiles" pf
+        LEFT JOIN "Users" u ON u."UserID" = pf."CreatedBy"
+        WHERE pf."FileID" = $1
+      ),
+      stats AS (
+        SELECT sf."FileID",
+               COUNT(*) AS total_suppliers,
+               COUNT(*) FILTER (WHERE sf."Status" = 'PENDING') AS pending_count,
+               COUNT(*) FILTER (WHERE sf."Status" = 'ANSWERED') AS answered_count,
+               COUNT(*) FILTER (WHERE sf."ViewedAt" IS NOT NULL) AS viewed_count,
+               COUNT(*) FILTER (WHERE sf."OptInStatus" = 'DECLINED') AS declined_count,
+               ARRAY_AGG(DISTINCT sf."SupplierID") AS supplier_ids
+        FROM "SupplierFiles" sf
+        WHERE sf."FileID" = $1
+        GROUP BY sf."FileID"
+      ),
+      cats AS (
+        SELECT pfc."FileID",
+               ARRAY_AGG(DISTINCT c."CategoryName") AS names,
+               ARRAY_AGG(DISTINCT c."CategoryID") AS ids
+        FROM "ProcurementFileCategories" pfc
+        JOIN "Categories" c ON c."CategoryID" = pfc."CategoryID"
+        WHERE pfc."FileID" = $1
+        GROUP BY pfc."FileID"
+      )
+      SELECT b.*,
+             COALESCE(stats.total_suppliers, 0) AS "TotalSuppliersAssigned",
+             COALESCE(stats.pending_count, 0) AS "PendingCount",
+             COALESCE(stats.answered_count, 0) AS "AnsweredCount",
+             COALESCE(stats.viewed_count, 0) AS "ViewedCount",
+             COALESCE(stats.declined_count, 0) AS "DeclinedCount",
+             COALESCE(array_to_string(cats.names, ', '), '') AS "Categories",
+             COALESCE(cats.ids, ARRAY[]::int[]) AS "CategoryIDs",
+             COALESCE(stats.supplier_ids, ARRAY[]::int[]) AS "SupplierIDs",
+             COALESCE(
+               (
+                 SELECT ARRAY_AGG(DISTINCT s."CompanyName")
+                 FROM "Suppliers" s
+                 WHERE s."SupplierID" = ANY(COALESCE(stats.supplier_ids, ARRAY[]::int[]))
+               ),
+               ARRAY[]::text[]
+             ) AS "Suppliers",
+             COALESCE(attempts.attempt_count, 1) AS "AttemptNumber",
+             attempts.latest_active_at AS "AttemptSentAt",
+             attempts.latest_status AS "AttemptStatus",
+             COALESCE(response_stats.responder_distinct, 0) AS "DistinctResponderCount",
+             COALESCE(response_stats.response_total, 0) AS "RawResponseCount"
+      FROM base b
+      LEFT JOIN stats ON stats."FileID" = b."FileID"
+      LEFT JOIN cats ON cats."FileID" = b."FileID"
       LEFT JOIN LATERAL (
         SELECT COUNT(*) FILTER (WHERE h."NewStatus" = 'ACTIVE') AS attempt_count,
                MAX(CASE WHEN h."NewStatus" = 'ACTIVE' THEN h."ChangedAt" END) AS latest_active_at,
                (
                  SELECT h2."NewStatus" FROM "ProcurementStatusHistory" h2
-                 WHERE h2."FileID" = pf."FileID"
+                 WHERE h2."FileID" = b."FileID"
                  ORDER BY h2."ChangedAt" DESC
                  LIMIT 1
                ) AS latest_status
         FROM "ProcurementStatusHistory" h
-        WHERE h."FileID" = pf."FileID"
+        WHERE h."FileID" = b."FileID"
       ) attempts ON TRUE
-            LEFT JOIN LATERAL (
-         SELECT COUNT(*) AS response_total,
-           COUNT(DISTINCT sf."SupplierID") AS responder_distinct
-         FROM "SupplierFiles" sf
-         JOIN "SupplierResponses" sr ON sr."SupplierFileID" = sf."SupplierFileID"
-         WHERE sf."FileID" = pf."FileID"
-            ) response_stats ON TRUE
-      WHERE pf."FileID" = $1
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*) AS response_total,
+               COUNT(DISTINCT sf."SupplierID") AS responder_distinct
+        FROM "SupplierFiles" sf
+        JOIN "SupplierResponses" sr ON sr."SupplierFileID" = sf."SupplierFileID"
+        WHERE sf."FileID" = b."FileID"
+      ) response_stats ON TRUE
       LIMIT 1
     `;
     const { rows } = await pool.query(detailQuery, [fileId]);

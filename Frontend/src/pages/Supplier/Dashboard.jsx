@@ -737,6 +737,9 @@ const SupplierDashboard = () => {
           const isExpanded = expandedFileId === file.SupplierFileID;
           const isViewed = Boolean(file.hasViewed);
           const showNewPill = !isViewed;
+          const showProcurementBadge =
+            Boolean(file.procurementStatusLabel) &&
+            String(file.procurementStatusLabel).toLowerCase() !== String(file.statusDisplay || "").toLowerCase();
           const cardClassName = [
             "post-card",
             file.dueState,
@@ -802,9 +805,11 @@ const SupplierDashboard = () => {
                 <div className="post-card-header-actions">
                   {showNewPill && <span className="new-pill">New</span>}
                   <span className={`status-badge ${file.statusClass}`}>{file.statusDisplay}</span>
-                    <span className={`status-badge procurement ${file.procurementStatusClass}`}>
-                      {file.procurementStatusLabel}
-                    </span>
+                    {showProcurementBadge && (
+                      <span className={`status-badge procurement ${file.procurementStatusClass}`}>
+                        {file.procurementStatusLabel}
+                      </span>
+                    )}
                 </div>
               </div>
 
