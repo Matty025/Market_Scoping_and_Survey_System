@@ -280,11 +280,8 @@ const SupplierDashboard = () => {
       const dateSentObj = file.dateSent ? new Date(file.dateSent) : null;
       const postedDateObj = file.datePosted ? new Date(file.datePosted) : null;
       const status = (file.Status || "Pending").toLowerCase();
-      const awardedSupplierName = file.awardedSupplierName || file.AwardedSupplierName || file.awardedsuppliername || "";
-      const isWinner = status === "awarded";
-      const isNotWinner = status === "not_awarded";
-      const isClosedStatus = ["closed", "cancelled", "expired"].includes(status);
-      const isFinalized = isWinner || isNotWinner || isClosedStatus;
+      const isClosedStatus = ["closed", "cancelled", "expired", "completed", "failed_posting"].includes(status);
+      const isFinalized = isClosedStatus;
       const hasViewedFromBackend = Boolean(
         file.hasViewed ||
         file.viewed ||
@@ -346,27 +343,16 @@ const SupplierDashboard = () => {
       }
 
       const endDatePassed = Boolean(endDateObj && endDateObj.getTime() < now.getTime());
-      const isFailedPosting = !isFinalized && status !== "answered" && (isExpiredFlag || endDatePassed);
+      const isFailedPosting = status === "failed_posting" || (!isFinalized && status !== "answered" && (isExpiredFlag || endDatePassed));
       if (isFailedPosting) {
         dueLabel = "Failed Posting";
       }
 
       if (isFinalized) {
-        if (isWinner) {
-          dueState = "awarded";
-          dueLabel = "Awarded";
-        } else if (isNotWinner) {
-          dueState = "not-awarded";
-          dueLabel = awardedSupplierName
-            ? `Awarded to ${awardedSupplierName}`
-            : "Awarded to another supplier";
-        } else {
-          dueState = status || "finalized";
-          dueLabel = formatStatusLabel(status);
-        }
+        dueState = status || "finalized";
+        dueLabel = formatStatusLabel(status);
         deadlineSortValue = Number.POSITIVE_INFINITY;
         failedPostingDetail = "";
-        showLatestUpdate = showLatestUpdate || isWinner || isNotWinner;
       }
 
       const isMultiAttempt = attemptCount > 1;
@@ -376,13 +362,7 @@ const SupplierDashboard = () => {
 
       let statusDisplay;
       let statusClass;
-      if (isWinner) {
-        statusDisplay = "Won";
-        statusClass = "awarded";
-      } else if (isNotWinner) {
-        statusDisplay = "Not Selected";
-        statusClass = "not-awarded";
-      } else if (status === "answered") {
+      if (status === "answered") {
         statusDisplay = optInStatus === "SUBMITTED" ? "Submitted" : "Answered";
         statusClass = "answered";
       } else if (status === "closed") {
@@ -394,6 +374,9 @@ const SupplierDashboard = () => {
       } else if (status === "expired") {
         statusDisplay = "Expired";
         statusClass = "expired";
+      } else if (status === "completed") {
+        statusDisplay = "Completed";
+        statusClass = "completed";
       } else if (isFailedPosting) {
         statusDisplay = "Failed Posting";
         statusClass = "failed";
@@ -420,21 +403,7 @@ const SupplierDashboard = () => {
 
       let decisionBanner = "";
       let decisionBannerClass = "";
-      if (isWinner) {
-        const congratulations = latestStatusNote || "Congratulations! You won this announcement.";
-        decisionBanner = congratulations;
-        decisionBannerClass = "awarded";
-      } else if (isNotWinner) {
-        const baseMessage = awardedSupplierName
-          ? `Not selected. Awarded to ${awardedSupplierName}.`
-          : "Not selected for this announcement.";
-        if (latestStatusNote && !baseMessage.includes(latestStatusNote)) {
-          decisionBanner = `${baseMessage} ${latestStatusNote}`.trim();
-        } else {
-          decisionBanner = baseMessage;
-        }
-        decisionBannerClass = "not-awarded";
-      } else if (requiresDecision) {
+      if (requiresDecision) {
         decisionBanner = "Action needed: confirm participation for this attempt.";
         decisionBannerClass = "pending";
       } else if (isDeclined) {
@@ -493,10 +462,7 @@ const SupplierDashboard = () => {
         decisionBanner,
         decisionBannerClass,
         searchIndex: `${file.Title || ""} ${descriptionText} ${(file.categories || "")}`.toLowerCase(),
-        isWinner,
-        isNotWinner,
         isFinalized,
-        awardedSupplierName,
         hasViewed,
       };
     });
@@ -511,9 +477,9 @@ const SupplierDashboard = () => {
     const total = processedFiles.length;
     const answered = processedFiles.filter((file) => file.normalizedStatus === "answered").length;
     const pending = processedFiles.filter((file) => !file.isFinalized && file.normalizedStatus !== "answered" && !file.isFailedPosting).length;
-    const won = processedFiles.filter((file) => file.isWinner).length;
-    const closed = processedFiles.filter((file) => file.isFinalized && !file.isWinner && !file.isNotWinner).length;
-    return { total, answered, pending, won, closed };
+    const completed = processedFiles.filter((file) => file.normalizedStatus === "completed").length;
+    const failed = processedFiles.filter((file) => file.isFailedPosting).length;
+    return { total, answered, pending, completed, failed };
   }, [processedFiles]);
 
   const filteredFiles = useMemo(() => {
@@ -654,12 +620,12 @@ const SupplierDashboard = () => {
             <span className="metric-value">{statsSummary.answered}</span>
           </div>
           <div className="supplier-metric-card metric-accent">
-            <span className="metric-label">Won</span>
-            <span className="metric-value">{statsSummary.won}</span>
+            <span className="metric-label">Completed</span>
+            <span className="metric-value">{statsSummary.completed}</span>
           </div>
           <div className="supplier-metric-card metric-accent">
-            <span className="metric-label">Closed</span>
-            <span className="metric-value">{statsSummary.closed}</span>
+            <span className="metric-label">Failed Posting</span>
+            <span className="metric-value">{statsSummary.failed}</span>
           </div>
         </div>
         <div className="supplier-metrics-footer">
@@ -718,7 +684,7 @@ const SupplierDashboard = () => {
         {paginatedFiles.map((file) => {
           const isExpanded = expandedFileId === file.SupplierFileID;
           const isViewed = Boolean(file.hasViewed);
-          const showNewPill = !isViewed && !file.isWinner && !file.isNotWinner;
+          const showNewPill = !isViewed;
           const cardClassName = [
             "post-card",
             file.dueState,
@@ -865,12 +831,6 @@ const SupplierDashboard = () => {
                       </div>
                     )}
 
-                    {file.awardedSupplierName && (
-                      <div className="post-card-expanded-item">
-                        <span className="post-card-expanded-label">Awarded To</span>
-                        <span className="post-card-expanded-value">{file.awardedSupplierName}</span>
-                      </div>
-                    )}
                   </div>
 
                   {file.showLatestUpdate && (

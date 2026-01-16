@@ -50,7 +50,7 @@
 
   const normalizeStatus = (status) => (status ? String(status).toUpperCase() : "");
 
-  const FINALIZED_STATUSES = new Set(["AWARDED"]);
+  const FINALIZED_STATUSES = new Set(["COMPLETED"]);
 
   const deriveAnnouncementStatus = (status, isExpired) => {
     const normalized = normalizeStatus(status);
@@ -69,13 +69,12 @@
 
   const STATUS_CONFIRMATION_MESSAGES = {
     ACTIVE: "Repost this announcement and mark it as active again?",
-    AWARDED: "Award this announcement to the selected supplier?",
+    COMPLETED: "Mark this announcement as completed?",
     FAILED_POSTING: "Mark this announcement as failed posting?",
   };
 
   const STATUSES_REQUIRING_NOTES = new Set([]);
-  const STATUSES_REQUIRING_SUPPLIER = new Set(["AWARDED"]);
-  const STATUS_CHOICES = ["ACTIVE", "AWARDED", "FAILED_POSTING"];
+  const STATUS_CHOICES = ["ACTIVE", "COMPLETED", "FAILED_POSTING"];
 
   const STATUS_DIALOG_INITIAL = {
     visible: false,
@@ -83,7 +82,6 @@
     message: "",
     announcement: null,
     notes: "",
-    awardedSupplierId: "",
     statusOptions: [],
     error: null,
     submitting: false,
@@ -394,11 +392,11 @@
     const statusLabel = formatStatusLabel(derivedStatus);
     const statusColor = getStatusBadgeColor(derivedStatus);
     const isFailedPosting = derivedStatus === "FAILED_POSTING";
-    const isAwardedStatus = derivedStatus === "AWARDED";
+    const isCompletedStatus = derivedStatus === "COMPLETED";
     const isExpired = Boolean(computedExpired);
     const isFinalStatus = FINALIZED_STATUSES.has(derivedStatus);
     let baseClassName = "announcement-card";
-    if (isAwardedStatus) {
+    if (isCompletedStatus) {
       baseClassName += " awarded";
     } else if (isFailedPosting) {
       baseClassName += " failed-posting";
@@ -459,9 +457,9 @@
     const procurementBadgeColor = getStatusBadgeColor(procurementStatus);
     const attemptSentAt = announcement.attemptSentAt || announcement.attempt_sent_at || null;
     const attemptDueAt = announcement.attemptDueAt || announcement.attempt_due_at || null;
-    const awardedSupplierName = announcement.awardedSupplierName || announcement.awarded_supplier_name || "";
-    const normalizedWinnerName = awardedSupplierName ? awardedSupplierName.trim() : "";
-    const showWinnerBadge = isAwardedStatus || derivedStatus === "CLOSED" || normalizedWinnerName.length > 0;
+    const awardedSupplierName = "";
+    const normalizedWinnerName = "";
+    const showWinnerBadge = false;
     const descriptionText = announcement.description && announcement.description.trim().length > 0
       ? announcement.description
       : "No description provided yet.";
@@ -560,13 +558,13 @@
     };
 
     const actionButtons = [];
-    const canMarkWinner = !isAwardedStatus && supplierIdsList.length > 0;
+    const canMarkWinner = !isCompletedStatus;
     const canRepost = isFailedPosting;
 
     if (canMarkWinner) {
       actionButtons.push({
-        status: "AWARDED",
-        label: "Mark Winner",
+        status: "COMPLETED",
+        label: "Mark as Completed",
         variant: "primary",
         disabled: false,
         tooltip: undefined,
@@ -666,9 +664,7 @@
           {engagementSummary && expanded && (
             <p className="announcement-preview-line">Engagement: {engagementSummary}</p>
           )}
-          {awardedSupplierName && expanded && (
-            <p className="announcement-preview-line">Awarded: {awardedSupplierName}</p>
-          )}
+          {/* Winner removed; only completion status remains */}
           {hasAttachment && expanded && (
             <p className="announcement-preview-line">Attachment: {attachmentName}</p>
           )}
@@ -788,12 +784,7 @@
                     <span className="announcement-expanded-value">{engagementSummary}</span>
                   </div>
                 )}
-                {awardedSupplierName && (
-                  <div className="announcement-expanded-row">
-                    <span className="announcement-expanded-label">Awarded Supplier</span>
-                    <span className="announcement-expanded-value">{awardedSupplierName}</span>
-                  </div>
-                )}
+                {/* Winner details removed for simplified flow */}
               </div>
             </div>
             <div className="announcement-expanded-actions">
@@ -906,27 +897,7 @@
       return map;
     }, [supplierOptions]);
 
-    const dialogSupplierOptions = useMemo(() => {
-      const announcement = statusDialog.announcement;
-      if (!announcement) {
-        return [];
-      }
-      const ids = parseIdList(
-        announcement.supplierIds ||
-          announcement.SupplierIDs ||
-          announcement.supplier_ids ||
-          announcement.suppliersIds ||
-          announcement.suppliers_ids ||
-          announcement.assignedSupplierIds ||
-          announcement.assigned_suppliers ||
-          []
-      );
-      const rawNames = parseNameList(announcement.suppliers);
-      return ids.map((id, index) => ({
-        id,
-        name: supplierIdToName[id] || rawNames[index] || `Supplier ${id}`,
-      }));
-    }, [statusDialog.announcement, supplierIdToName]);
+    const dialogSupplierOptions = useMemo(() => [], []);
 
     const buildAnnouncementFormInitialValues = (record, nameIndex = {}) => {
       if (!record) {
@@ -1290,7 +1261,12 @@
           const uniqueSuppliersMap = {};
           (suppliersRes.data || []).forEach((s) => {
             if (!uniqueSuppliersMap[s.id]) {
-              uniqueSuppliersMap[s.id] = { id: s.id, name: s.name };
+              uniqueSuppliersMap[s.id] = {
+                id: s.id,
+                name: s.name,
+                email: s.email || s.contactEmail || s.ContactEmail || s.company_email,
+                contact: s.contactPerson || s.contact_person || s.contact || s.phone || s.mobile,
+              };
             }
           });
           setSupplierOptions(Object.values(uniqueSuppliersMap));
@@ -1626,22 +1602,6 @@
         return;
       }
 
-      const requiresSupplier = STATUSES_REQUIRING_SUPPLIER.has(statusUpper);
-      const supplierIds = Array.isArray(announcement.supplierIds)
-        ? announcement.supplierIds
-        : Array.isArray(announcement.SupplierIDs)
-        ? announcement.SupplierIDs
-        : Array.isArray(announcement.supplier_ids)
-        ? announcement.supplier_ids
-        : Array.isArray(announcement.suppliersIds)
-        ? announcement.suppliersIds
-        : Array.isArray(announcement.suppliers_ids)
-        ? announcement.suppliers_ids
-        : [];
-      const preferredSupplierId = requiresSupplier
-        ? announcement.awardedSupplierId ?? supplierIds[0] ?? ""
-        : "";
-
       setStatusDialog({
         ...STATUS_DIALOG_INITIAL,
         visible: true,
@@ -1650,10 +1610,6 @@
         message:
           STATUS_CONFIRMATION_MESSAGES[statusUpper] ||
           `Update status to ${formatStatusLabel(statusUpper)}?`,
-        awardedSupplierId:
-          preferredSupplierId !== undefined && preferredSupplierId !== null && preferredSupplierId !== ""
-            ? String(preferredSupplierId)
-            : "",
         statusOptions: allowStatusChoice ? STATUS_CHOICES : [],
       });
     };
@@ -1671,7 +1627,6 @@
       const statusUpper = statusDialog.status;
       const notesTrimmed = statusDialog.notes.trim();
       const requiresNotes = false;
-      const requiresSupplier = STATUSES_REQUIRING_SUPPLIER.has(statusUpper);
       const requiresStatusChoice = Array.isArray(statusDialog.statusOptions) && statusDialog.statusOptions.length > 0;
 
       if (requiresNotes && notesTrimmed.length === 0) {
@@ -1684,24 +1639,6 @@
         return;
       }
 
-      const candidateSupplierIds = Array.isArray(announcement.supplierIds) ? announcement.supplierIds : [];
-      let supplierIdValue = null;
-      if (requiresSupplier) {
-        if (candidateSupplierIds.length === 0) {
-          setStatusDialog((prev) => ({
-            ...prev,
-            error: "No suppliers are associated with this announcement.",
-          }));
-          return;
-        }
-        const parsedId = parseInt(statusDialog.awardedSupplierId, 10);
-        if (Number.isNaN(parsedId)) {
-          setStatusDialog((prev) => ({ ...prev, error: "Please select a supplier." }));
-          return;
-        }
-        supplierIdValue = parsedId;
-      }
-
       try {
         setStatusDialog((prev) => ({ ...prev, submitting: true, error: null }));
         setStatusUpdatingId(announcement.id);
@@ -1709,9 +1646,6 @@
         const payload = { status: statusUpper };
         if (notesTrimmed.length > 0) {
           payload.notes = notesTrimmed;
-        }
-        if (supplierIdValue !== null) {
-          payload.awardedSupplierId = supplierIdValue;
         }
 
         const response = await api.patch(
@@ -1721,25 +1655,8 @@
         );
 
         const updatedStatus = response.data?.status || statusUpper;
-        const updatedSupplierId =
-          response.data?.awardedSupplierId !== undefined
-            ? response.data.awardedSupplierId
-            : supplierIdValue;
-
-        let derivedSupplierName = "";
-        if (updatedSupplierId !== null && updatedSupplierId !== undefined) {
-          const ids = Array.isArray(announcement.supplierIds) ? announcement.supplierIds : [];
-          const names = Array.isArray(announcement.suppliers) ? announcement.suppliers : [];
-          const idx = ids.findIndex((id) => id === updatedSupplierId);
-          derivedSupplierName =
-            supplierIdToName[updatedSupplierId] ||
-            (idx >= 0 ? names[idx] : undefined) ||
-            `Supplier ${updatedSupplierId}`;
-        }
-
-        const requiresSupplierForStatus = STATUSES_REQUIRING_SUPPLIER.has(updatedStatus);
-        const updatedSupplierName =
-          response.data?.awardedSupplierName || (requiresSupplierForStatus ? derivedSupplierName : "");
+        const updatedSupplierId = undefined;
+        const updatedSupplierName = "";
 
         setAnnouncements((prev) =>
           prev.map((item) => {
@@ -1768,13 +1685,8 @@
               derivedStatus: nextDerivedStatus,
               isFailedPosting: nextIsFailedPosting,
               isExpired: isCancelled || nextIsExpired,
-              awardedSupplierId:
-                updatedSupplierId !== undefined && updatedSupplierId !== null
-                  ? updatedSupplierId
-                  : isCancelled
-                  ? null
-                  : item.awardedSupplierId ?? null,
-              awardedSupplierName: isCancelled ? "" : updatedSupplierName || item.awardedSupplierName || "",
+              awardedSupplierId: null,
+              awardedSupplierName: "",
             };
           })
         );
@@ -1830,28 +1742,6 @@
         return;
       }
 
-      if (statusUpper === "AWARDED") {
-        const supplierIds = Array.isArray(announcement.supplierIds)
-          ? announcement.supplierIds
-          : Array.isArray(announcement.SupplierIDs)
-          ? announcement.SupplierIDs
-          : Array.isArray(announcement.supplier_ids)
-          ? announcement.supplier_ids
-          : Array.isArray(announcement.suppliersIds)
-          ? announcement.suppliersIds
-          : Array.isArray(announcement.suppliers_ids)
-          ? announcement.suppliers_ids
-          : [];
-        if (supplierIds.length === 0) {
-          setToast({
-            visible: true,
-            type: "warning",
-            message: "Assign suppliers to this announcement before marking a winner.",
-          });
-          return;
-        }
-      }
-
       if (allowStatusChoice) {
         openStatusDialog(announcement, statusUpper, true);
         return;
@@ -1879,13 +1769,9 @@
     };
 
     const statusDialogRequiresNotes = false;
-    const statusDialogRequiresSupplier = statusDialog.status
-      ? STATUSES_REQUIRING_SUPPLIER.has(statusDialog.status)
-      : false;
     const statusDialogRequiresStatusChoice = Array.isArray(statusDialog.statusOptions) && statusDialog.statusOptions.length > 0;
     const statusDialogSubmitDisabled =
       statusDialog.submitting ||
-      (statusDialogRequiresSupplier && !statusDialog.awardedSupplierId) ||
       (statusDialogRequiresStatusChoice && !statusDialog.status);
     const statusDialogStatusLabel = statusDialog.status
       ? formatStatusLabel(statusDialog.status)
@@ -2121,16 +2007,16 @@
               error: null,
             }))
           }
-          supplierOptions={statusDialogRequiresSupplier ? dialogSupplierOptions : []}
-          supplierRequired={statusDialogRequiresSupplier}
-          supplierValue={statusDialog.awardedSupplierId}
-          onSupplierChange={(value) =>
-            setStatusDialog((prev) => ({
-              ...prev,
-              awardedSupplierId: value,
-              error: null,
-            }))
-          }
+          supplierOptions={dialogSupplierOptions}
+          supplierRequired={false}
+          supplierValue={""}
+          onSupplierChange={() => {}}
+          supplierSearchValue=""
+          onSupplierSearchChange={() => {}}
+          manualWinnerName=""
+          manualWinnerEmail=""
+          manualWinnerContact=""
+          onManualWinnerChange={() => {}}
           notesValue={statusDialog.notes}
           onNotesChange={(value) =>
             setStatusDialog((prev) => ({

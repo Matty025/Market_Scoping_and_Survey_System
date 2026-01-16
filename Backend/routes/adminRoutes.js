@@ -8,7 +8,7 @@ const archiver = require("archiver");
 const fs = require("fs");
 const { sendPendingAccountEmail, sendAccountStatusEmail } = require("../services/adminNotificationService");
 const { notifyBuyerPurchaseStatus } = require("../services/prNotificationService");
-const { notifySuppliersPosted, notifyWinner, notifyLosers, notifyAdminsStatusChange } = require("../services/announcementNotificationService");
+const { notifySuppliersPosted, notifyAdminsStatusChange } = require("../services/announcementNotificationService");
 // Require buyer routes to reuse history helper
 const buyerRoutes = require('./BuyerRoutes');
 
@@ -42,10 +42,7 @@ const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 100;
 const VALID_ANNOUNCEMENT_STATUSES = new Set([
   "ACTIVE",
-  "CLOSED",
-  "AWARDED",
-  "CANCELLED",
-  "EXPIRED",
+  "COMPLETED",
   "FAILED_POSTING"
 ]);
 
@@ -146,9 +143,6 @@ const mapProcurementViewRow = (row) => {
     createdBy: row.CreatedBy,
     createdByName: row.CreatedByName,
     createdByEmail: row.CreatedByEmail,
-    awardedSupplierId: row.AwardedSupplierID,
-    awardedSupplierName: row.AwardedSupplierName,
-    awardedAt: row.AwardedAt,
     isExpired: Boolean(row.IsExpired),
     totalSuppliersAssigned: Number(row.TotalSuppliersAssigned || 0),
     pendingSupplierCount: Number(row.PendingCount || 0),
@@ -759,18 +753,13 @@ router.patch("/announcements/:id/status", protect, async (req, res) => {
     : '';
   const rawNotes = typeof req.body.notes === 'string' ? req.body.notes.trim() : '';
   let notes = rawNotes.length > 0 ? rawNotes : null;
-  const awardedSupplierId = coerceToInt(req.body.awardedSupplierId);
 
   if (!VALID_ANNOUNCEMENT_STATUSES.has(requestedStatus)) {
     return res.status(400).json({ message: `Invalid status. Allowed values: ${Array.from(VALID_ANNOUNCEMENT_STATUSES).join(', ')}` });
   }
 
-  if ((requestedStatus === 'CANCELLED' || requestedStatus === 'CLOSED' || requestedStatus === 'AWARDED' || requestedStatus === 'FAILED_POSTING') && !notes) {
+  if (!notes) {
     notes = `Status set to ${requestedStatus} by admin.`;
-  }
-
-  if (requestedStatus === 'AWARDED' && !awardedSupplierId) {
-    return res.status(400).json({ message: "Please select the supplier that won this announcement." });
   }
 
   const client = await pool.connect();
@@ -789,82 +778,11 @@ router.patch("/announcements/:id/status", protect, async (req, res) => {
 
     const previousStatus = currentRes.rows[0].Status || null;
 
-    let awardedSupplierName = null;
-    let losingSupplierIds = [];
     let announcementTitle = null;
 
     const titleRes = await client.query('SELECT "Title" FROM "ProcurementFiles" WHERE "FileID" = $1', [fileId]);
     if (titleRes.rows.length > 0) {
       announcementTitle = titleRes.rows[0].Title || null;
-    }
-
-    const needsWinner = (requestedStatus === 'AWARDED') || (requestedStatus === 'CLOSED' && awardedSupplierId);
-    if (needsWinner) {
-      const supplierRes = await client.query(
-          `SELECT s."SupplierID",
-                  COALESCE(
-                    NULLIF(TRIM(s."CompanyName"), ''),
-                    'Supplier ' || s."SupplierID"
-                  ) AS "DisplayName"
-           FROM "Suppliers" s
-           WHERE s."SupplierID" = $1`,
-        [awardedSupplierId]
-      );
-
-      if (supplierRes.rows.length === 0) {
-        await client.query("ROLLBACK");
-        return res.status(400).json({ message: "Awarded supplier not found." });
-      }
-
-      const assignmentCheck = await client.query(
-        'SELECT 1 FROM "SupplierFiles" WHERE "FileID" = $1 AND "SupplierID" = $2 LIMIT 1',
-        [fileId, awardedSupplierId]
-      );
-
-      if (assignmentCheck.rows.length === 0) {
-        await client.query("ROLLBACK");
-        return res.status(400).json({ message: "Selected supplier is not part of this announcement." });
-      }
-
-      awardedSupplierName = supplierRes.rows[0].DisplayName || `Supplier ${awardedSupplierId}`;
-
-      await client.query(
-        `UPDATE "ProcurementFiles"
-         SET "AwardedSupplierID" = $1,
-             "AwardedAt" = NOW()
-         WHERE "FileID" = $2`,
-        [awardedSupplierId, fileId]
-      );
-
-      await client.query(
-        `UPDATE "SupplierFiles"
-         SET "Status" = $1
-         WHERE "FileID" = $2 AND "SupplierID" = $3`,
-        ['AWARDED', fileId, awardedSupplierId]
-      );
-
-      const losingRes = await client.query(
-        'SELECT "SupplierID" FROM "SupplierFiles" WHERE "FileID" = $1 AND "SupplierID" <> $2',
-        [fileId, awardedSupplierId]
-      );
-      losingSupplierIds = uniqueIntegers(losingRes.rows.map((row) => row.SupplierID));
-
-      if (losingSupplierIds.length > 0) {
-        await client.query(
-          `UPDATE "SupplierFiles"
-           SET "Status" = $3
-           WHERE "FileID" = $1 AND "SupplierID" = ANY($2::int[])`,
-          [fileId, losingSupplierIds, 'NOT_AWARDED']
-        );
-      }
-    } else if (requestedStatus === 'CANCELLED') {
-      await client.query(
-        `UPDATE "ProcurementFiles"
-         SET "AwardedSupplierID" = NULL,
-             "AwardedAt" = NULL
-         WHERE "FileID" = $1`,
-        [fileId]
-      );
     }
 
     if (previousStatus !== requestedStatus) {
@@ -890,9 +808,6 @@ router.patch("/announcements/:id/status", protect, async (req, res) => {
       status: requestedStatus,
       previousStatus,
       notes,
-      awardedSupplierId,
-      awardedSupplierName,
-      losingSupplierIds,
     }).catch((err) => {
       console.warn('[adminRoutes] Failed to send admin status email:', err && err.message ? err.message : err);
     });
@@ -902,9 +817,9 @@ router.patch("/announcements/:id/status", protect, async (req, res) => {
       fileId,
       previousStatus,
       status: requestedStatus,
-      awardedSupplierId: awardedSupplierId || null,
-      awardedSupplierName: awardedSupplierName,
-      losingSupplierIds
+      awardedSupplierId: null,
+      awardedSupplierName: null,
+      losingSupplierIds: [],
     });
   } catch (err) {
     await client.query("ROLLBACK").catch(() => {});
@@ -922,131 +837,9 @@ router.patch("/announcements/:id/award", protect, async (req, res) => {
   if (req.user.role.toLowerCase() !== 'admin') {
     return res.status(403).json({ message: "Access denied. Admins only." });
   }
-
-  const fileId = coerceToInt(req.params.id);
-  const supplierId = coerceToInt(req.body.supplierId);
-  const notes = typeof req.body.notes === 'string' ? req.body.notes : `Awarded to supplier ${supplierId}`;
-
-  if (!fileId || !supplierId) {
-    return res.status(400).json({ message: "Valid announcement id and supplier id are required." });
-  }
-
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    const fileRes = await client.query(
-      'SELECT "FileID", "Status", "Title" FROM "ProcurementFiles" WHERE "FileID" = $1',
-      [fileId]
-    );
-
-    if (fileRes.rows.length === 0) {
-      await client.query("ROLLBACK");
-      return res.status(404).json({ message: "Announcement not found." });
-    }
-
-    const currentStatus = fileRes.rows[0].Status || null;
-    const announcementTitle = fileRes.rows[0].Title || `Announcement ${fileId}`;
-
-    const assignmentRes = await client.query(
-      'SELECT "SupplierFileID" FROM "SupplierFiles" WHERE "FileID" = $1 AND "SupplierID" = $2',
-      [fileId, supplierId]
-    );
-
-    if (assignmentRes.rows.length === 0) {
-      await client.query("ROLLBACK");
-      return res.status(400).json({ message: "Supplier is not assigned to this announcement." });
-    }
-
-    await client.query(
-      `UPDATE "ProcurementFiles"
-       SET "Status" = $1, "AwardedSupplierID" = $2, "AwardedAt" = NOW()
-       WHERE "FileID" = $3`,
-      ['AWARDED', supplierId, fileId]
-    );
-
-    await client.query(
-      `UPDATE "SupplierFiles"
-       SET "Status" = $1
-       WHERE "FileID" = $2 AND "SupplierID" = $3`,
-      ['AWARDED', fileId, supplierId]
-    );
-
-    const losingRes = await client.query(
-      'SELECT "SupplierID" FROM "SupplierFiles" WHERE "FileID" = $1 AND "SupplierID" <> $2',
-      [fileId, supplierId]
-    );
-    const losingSupplierIds = uniqueIntegers(losingRes.rows.map((row) => row.SupplierID));
-
-    if (losingSupplierIds.length > 0) {
-      await client.query(
-        `UPDATE "SupplierFiles"
-         SET "Status" = $3
-         WHERE "FileID" = $1 AND "SupplierID" = ANY($2::int[])`,
-        [fileId, losingSupplierIds, 'NOT_AWARDED']
-      );
-    }
-
-    const supplierRes = await client.query(
-      'SELECT "DisplayName" FROM "Suppliers" WHERE "SupplierID" = $1',
-      [supplierId]
-    );
-    const awardedSupplierName =
-      supplierRes.rows.length > 0
-        ? supplierRes.rows[0].DisplayName || `Supplier ${supplierId}`
-        : `Supplier ${supplierId}`;
-
-    await recordStatusHistory(client, {
-      fileId,
-      oldStatus: currentStatus,
-      newStatus: 'AWARDED',
-      changedBy: coerceToInt(req.user?.userID || req.user?.id),
-      notes
-    });
-
-    await client.query("COMMIT");
-
-    notifyAdminsStatusChange({
-      fileId,
-      title: announcementTitle,
-      status: 'AWARDED',
-      previousStatus: currentStatus,
-      notes,
-      awardedSupplierId: supplierId,
-      awardedSupplierName,
-      losingSupplierIds,
-    }).catch((err) => {
-      console.warn('[adminRoutes] Failed to send admin status email (award route):', err && err.message ? err.message : err);
-    });
-
-    notifyWinner({ fileId, title: announcementTitle, winnerSupplierId: supplierId }).catch((err) => {
-      console.warn('[adminRoutes] Failed to send winner email:', err && err.message ? err.message : err);
-    });
-
-    if (losingSupplierIds.length > 0) {
-      notifyLosers({
-        fileId,
-        title: announcementTitle,
-        winnerName: awardedSupplierName,
-        loserSupplierIds: losingSupplierIds,
-      }).catch((err) => {
-        console.warn('[adminRoutes] Failed to send loser emails:', err && err.message ? err.message : err);
-      });
-    }
-
-    res.json({
-      message: "Announcement awarded successfully.",
-      fileId,
-      supplierId,
-      status: 'AWARDED',
-      losingSupplierIds
-    });
-  } catch (err) {
-    await client.query("ROLLBACK").catch(() => {});
-    console.error("Error awarding announcement:", err);
-    res.status(500).json({ message: "Server error while awarding announcement.", error: err.message });
-  } finally {
-    client.release();
-  }
+  return res.status(410).json({
+    message: "Award workflow has been retired. Use the status endpoint to mark announcements as completed or failed.",
+  });
 });
 
 // @desc    Get status history for an announcement

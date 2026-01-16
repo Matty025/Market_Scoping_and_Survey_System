@@ -46,7 +46,7 @@ const StatusUpdateModal = ({
     onNotesChange?.(event.target.value);
   };
 
-  const shouldRenderSupplierField = supplierRequired || supplierOptions.length > 0;
+  const shouldRenderSupplierField = false;
   const confirmDisabled = disableConfirm || submitting;
 
   const notesLabel = notesRequired ? "Notes" : "Notes (optional)";
@@ -85,32 +85,7 @@ const StatusUpdateModal = ({
           </div>
         )}
 
-        {shouldRenderSupplierField && (
-          <div className="status-update-modal__field">
-            <label htmlFor="status-update-modal-supplier">
-              Awarded Supplier
-              {supplierRequired && <span className="status-update-modal__required-marker">*</span>}
-            </label>
-            <select
-              id="status-update-modal-supplier"
-              value={supplierValue}
-              onChange={handleSupplierChange}
-              disabled={submitting}
-            >
-              <option value="">Select supplier…</option>
-              {supplierOptions.map((option) => (
-                <option key={option.id} value={String(option.id)}>
-                  {option.name}
-                </option>
-              ))}
-            </select>
-            {supplierRequired && supplierOptions.length === 0 && (
-              <small className="status-update-modal__hint">
-                No suppliers are associated with this announcement.
-              </small>
-            )}
-          </div>
-        )}
+        {/* Supplier selection removed for simplified statuses */}
 
         {showNotes && (
           <div className="status-update-modal__field">

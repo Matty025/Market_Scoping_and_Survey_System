@@ -86,39 +86,6 @@ async function notifySuppliersPosted({ fileId, title, supplierIds }) {
   console.log(`[announcementNotification] Posted email sent for file ${fileId} to ${recipients.length} suppliers.`);
 }
 
-async function notifyWinner({ fileId, title, winnerSupplierId }) {
-  if (!sendMail || !winnerSupplierId) return;
-  const recipients = await getSupplierEmailsByIds([winnerSupplierId]);
-  if (!recipients.length) return;
-  const r = recipients[0];
-  const subject = `[MSSS] Awarded: ${title || fileId}`;
-  const html = `
-    <h3>Congratulations!</h3>
-    <p>You have been awarded for the announcement <strong>${title || '(untitled announcement)'}</strong>.</p>
-    <p>Please sign in to review next steps.</p>
-  `;
-  await sendMail({ to: r.email, subject, html });
-  console.log(`[announcementNotification] Winner email sent to supplier ${winnerSupplierId} for file ${fileId}`);
-}
-
-async function notifyLosers({ fileId, title, winnerName, loserSupplierIds }) {
-  if (!sendMail) return;
-  const recipients = await getSupplierEmailsByIds(loserSupplierIds);
-  if (!recipients.length) return;
-  const subject = `[MSSS] Update: ${title || fileId}`;
-  const html = `
-    <h3>Thank you for participating</h3>
-    <p>The announcement <strong>${title || '(untitled announcement)'}</strong> has been awarded to <strong>${winnerName || 'another supplier'}</strong>.</p>
-    <p>We appreciate your participation and encourage you to join future opportunities.</p>
-  `;
-  await sendMail({
-    to: recipients.map((r) => r.email),
-    subject,
-    html,
-  });
-  console.log(`[announcementNotification] Loser emails sent for file ${fileId} to ${recipients.length} suppliers.`);
-}
-
 async function getAdminEmails() {
   const { rows } = await db.query(
     `SELECT u."Email"
@@ -130,7 +97,7 @@ async function getAdminEmails() {
   return rows.map((r) => r.Email).filter(Boolean);
 }
 
-async function notifyAdminsStatusChange({ fileId, title, status, previousStatus, notes, awardedSupplierId, awardedSupplierName, losingSupplierIds }) {
+async function notifyAdminsStatusChange({ fileId, title, status, previousStatus, notes }) {
   if (!sendMail) return;
   const recipients = await getAdminEmails();
   if (!recipients.length) {
@@ -145,12 +112,6 @@ async function notifyAdminsStatusChange({ fileId, title, status, previousStatus,
   ];
 
   if (previousStatus) lines.push(`<strong>Previous Status:</strong> ${previousStatus}`);
-  if (awardedSupplierId) {
-    lines.push(`<strong>Awarded Supplier:</strong> ${awardedSupplierName || `Supplier ${awardedSupplierId}`} (ID ${awardedSupplierId})`);
-  }
-  if (Array.isArray(losingSupplierIds) && losingSupplierIds.length > 0) {
-    lines.push(`<strong>Non-awarded suppliers:</strong> ${losingSupplierIds.join(', ')}`);
-  }
   if (notes) {
     lines.push(`<strong>Notes:</strong> ${notes.toString().replace(/\n/g, '<br/>')}`);
   }
@@ -166,7 +127,5 @@ async function notifyAdminsStatusChange({ fileId, title, status, previousStatus,
 
 module.exports = {
   notifySuppliersPosted,
-  notifyWinner,
-  notifyLosers,
   notifyAdminsStatusChange,
 };
