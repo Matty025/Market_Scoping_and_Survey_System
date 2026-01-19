@@ -2,6 +2,20 @@ const db = require("../db");
 const nodemailer = require("nodemailer");
 const mailer = require("../utils/mailer");
 
+const STATUS_LABELS = {
+  PENDING: "Pending Review",
+  REVIEWED: "Reviewed",
+  IN_PROGRESS: "In Progress",
+  COMPLETED: "Completed",
+  REJECTED: "Rejected",
+};
+
+const formatStatusLabel = (status) => {
+  if (!status) return "Pending Review";
+  const key = status.toString().toUpperCase();
+  return STATUS_LABELS[key] || key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+};
+
 // Resolve sendMail from shared mailer with fallbacks
 let sendMail =
   (mailer && typeof mailer.sendMail === "function" && mailer.sendMail)
@@ -91,8 +105,10 @@ async function notifyBuyerPurchaseStatus(uploadId, status, feedback) {
   const info = await getBuyerForUpload(uploadId);
   if (!info || !info.email) return;
 
-  const statusLabel = (status || info.status || "").toString().toUpperCase();
-  const note = (feedback && feedback.toString().trim()) || (info.feedback && info.feedback.toString().trim()) || "No additional notes were provided.";
+  const statusLabel = formatStatusLabel(status || info.status || "");
+  const note = (feedback && feedback.toString().trim())
+    || (info.feedback && info.feedback.toString().trim())
+    || "No additional notes were provided.";
 
   await sendMail({
     to: info.email,
