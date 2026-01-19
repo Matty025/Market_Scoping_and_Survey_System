@@ -360,6 +360,10 @@
       : (Array.isArray(announcement.suppliers)
           ? announcement.suppliers
           : parseNameList(announcement.suppliers));
+    const supplierModalPayload = supplierObjects.length > 0
+      ? supplierObjects
+      : supplierNames.map((name) => ({ name, email: "" }));
+    const hasSuppliersForModal = supplierModalPayload.length > 0;
     const supplierIdsList = parseIdList(
       announcement.supplierIds ||
         announcement.SupplierIDs ||
@@ -572,6 +576,18 @@
       }
     };
 
+    const handleShowSuppliersList = (event) => {
+      event.stopPropagation();
+      if (!hasSuppliersForModal) return;
+      onShowSuppliers?.(supplierModalPayload);
+    };
+
+    const handleShowCategoriesList = (event) => {
+      event.stopPropagation();
+      if (!catsArr.length) return;
+      onShowCategories?.(catsArr);
+    };
+
     const actionButtons = [];
     const canMarkWinner = !isCompletedStatus;
     const canRepost = isFailedPosting;
@@ -609,58 +625,42 @@
           <div className="announcement-header-right">
             {isSupplierSpecific ? (
               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <span className="badge" style={{ backgroundColor: "#8b5cf6" }}>
+                <button
+                  type="button"
+                  className="badge badge-action"
+                  style={{ backgroundColor: "#8b5cf6", color: "#fff" }}
+                  title={hasSuppliersForModal ? "View supplier recipients" : "No suppliers listed"}
+                  disabled={!hasSuppliersForModal}
+                  onClick={handleShowSuppliersList}
+                >
                   {supplierNames.length === 0
                     ? "No suppliers"
                     : supplierNames.length <= 2
                       ? `👥 Sent to ${supplierNames.join(", ")}`
                       : `👥 Sent to ${firstTwoSuppliers.join(", ")} +${remainingSuppliers} more`}
-                </span>
-                {supplierNames.length > 0 && (
-                  <button
-                    className="see-more-btn"
-                    style={{ fontSize: "12px", padding: "4px 12px", margin: 0 }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onShowSuppliers?.(supplierObjects.length > 0 ? supplierObjects : supplierNames.map((name) => ({ name, email: "" })));
-                    }}
-                  >
-                    View
-                  </button>
-                )}
+                </button>
               </div>
             ) : catsArr.length > 0 ? (
               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <span className="badge">
-                  {catsArr.length} {catsArr.length === 1 ? "category" : "categories"}
-                </span>
-                {supplierObjects.length > 0 && (
-                  <>
-                    <span className="badge" style={{ backgroundColor: "#0f172a", color: "#fff" }}>
-                      Suppliers: {supplierObjects.length}
-                    </span>
-                    <button
-                      className="see-more-btn"
-                      style={{ fontSize: "12px", padding: "4px 12px", margin: 0 }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onShowSuppliers?.(supplierObjects);
-                      }}
-                    >
-                      See more
-                    </button>
-                  </>
-                )}
                 <button
-                  className="see-more-btn"
-                  style={{ fontSize: "12px", padding: "4px 12px", margin: 0 }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onShowCategories(catsArr);
-                  }}
+                  type="button"
+                  className="badge badge-action"
+                  title="View categories"
+                  onClick={handleShowCategoriesList}
                 >
-                  View
+                  📂 {catsArr.length} {catsArr.length === 1 ? "category" : "categories"}
                 </button>
+                {hasSuppliersForModal && (
+                  <button
+                    type="button"
+                    className="badge badge-action"
+                    style={{ backgroundColor: "#0f172a", color: "#fff" }}
+                    title="View supplier recipients"
+                    onClick={handleShowSuppliersList}
+                  >
+                    👥 Suppliers: {supplierModalPayload.length}
+                  </button>
+                )}
               </div>
             ) : (
               <span className="badge" style={{ backgroundColor: "#6b7280" }}>
