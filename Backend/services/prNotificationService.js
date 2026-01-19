@@ -82,6 +82,8 @@ async function notifyAdminNewPurchaseRequest(uploadId) {
   const info = await getBuyerForUpload(uploadId);
   if (!info) return;
 
+  const buyerDisplay = info.fullName || info.email || "Buyer";
+
   const recipients = await getAdminEmails();
   if (!recipients.length) return;
 
@@ -92,7 +94,7 @@ async function notifyAdminNewPurchaseRequest(uploadId) {
     html: `
       <h3>New purchase request submitted</h3>
       <p><strong>Title:</strong> ${info.title || "(no title)"}</p>
-      <p><strong>Buyer:</strong> ${info.fullName || "(unknown)"}</p>
+      <p><strong>Buyer:</strong> ${buyerDisplay}</p>
       <p>Please review and update the status in the admin console.</p>
     `,
   });
@@ -109,12 +111,13 @@ async function notifyBuyerPurchaseStatus(uploadId, status, feedback) {
   const note = (feedback && feedback.toString().trim())
     || (info.feedback && info.feedback.toString().trim())
     || "No additional notes were provided.";
+  const buyerDisplay = info.fullName || info.email || "Buyer";
 
   await sendMail({
     to: info.email,
     subject: `[MSSS] Purchase Request ${statusLabel}`,
     html: `
-      <h3>Hello ${info.fullName || "Buyer"},</h3>
+      <h3>Hello ${buyerDisplay},</h3>
       <p>Your purchase request <strong>${info.title || "(untitled)"}</strong> is now <strong>${statusLabel}</strong>.</p>
       <p><strong>Notes:</strong></p>
       <p>${note.replace(/\n/g, "<br/>")}</p>
