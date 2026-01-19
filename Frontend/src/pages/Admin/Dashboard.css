@@ -686,18 +686,20 @@
   box-shadow: 0 4px 10px rgba(15, 45, 98, 0.2);
 }
 
+
 .badge-action {
   cursor: pointer;
-  border: 1px solid rgba(15, 45, 98, 0.18);
-  background: linear-gradient(135deg, #ffffff 0%, rgba(238, 244, 255, 0.9) 100%);
-  color: var(--philgeps-deep-blue);
-  transition: transform 0.15s ease, box-shadow 0.2s ease, border-color 0.15s ease;
+  border: 1px solid rgba(15, 45, 98, 0.35);
+  background: linear-gradient(135deg, var(--philgeps-bright-blue) 0%, var(--philgeps-deep-blue) 100%);
+  color: #ffffff;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, border-color 0.15s ease, filter 0.15s ease;
 }
 
 .badge-action:hover {
-  box-shadow: 0 10px 18px rgba(15, 45, 98, 0.16);
+  box-shadow: 0 12px 20px rgba(15, 45, 98, 0.28);
   transform: translateY(-1px);
-  border-color: rgba(28, 63, 124, 0.35);
+  border-color: rgba(246, 180, 0, 0.65);
+  filter: brightness(1.05);
 }
 
 .badge-action:focus-visible {
