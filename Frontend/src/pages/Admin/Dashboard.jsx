@@ -76,6 +76,23 @@
   const STATUSES_REQUIRING_NOTES = new Set([]);
   const STATUS_CHOICES = ["ACTIVE", "COMPLETED", "FAILED_POSTING"];
 
+  const DEFAULT_TIME_ZONE = "Asia/Singapore";
+  const DATE_ONLY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+
+  const parseDatePreservingEndOfDay = (value) => {
+    if (!value) return null;
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (DATE_ONLY_REGEX.test(trimmed)) {
+        const [year, month, day] = trimmed.split("-").map(Number);
+        // Treat YYYY-MM-DD as 11:59 PM SGT (15:59 UTC) to match end-of-day expectation.
+        return new Date(Date.UTC(year, month - 1, day, 15, 59, 59, 999));
+      }
+    }
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  };
+
   const STATUS_DIALOG_INITIAL = {
     visible: false,
     status: null,
@@ -496,17 +513,17 @@
     const attemptSentDisplayShort = formatShortDateTime(attemptSentAt);
     const attemptDueDisplayShort = attemptDueAt
       ? (() => {
-          const date = new Date(attemptDueAt);
-          if (Number.isNaN(date.getTime())) {
+          const parsedDue = parseDatePreservingEndOfDay(attemptDueAt);
+          if (!parsedDue) {
             return null;
           }
-          return date.toLocaleString("en-US", {
+          return parsedDue.toLocaleString("en-US", {
             month: "short",
             day: "numeric",
             hour: "2-digit",
             minute: "2-digit",
             hour12: true,
-            timeZone: "Asia/Singapore",
+            timeZone: DEFAULT_TIME_ZONE,
           });
         })()
       : null;
@@ -1013,7 +1030,7 @@
       const postedRaw = ann.DatePosted || ann.posted || ann.datePosted;
       const endRaw = ann.EndDate || ann.end || ann.endDate;
       const postedDateObj = postedRaw ? new Date(postedRaw) : null;
-      const endDateObj = endRaw ? new Date(endRaw) : null;
+      const endDateObj = endRaw ? parseDatePreservingEndOfDay(endRaw) : null;
       const postedStr = postedDateObj
         ? postedDateObj.toLocaleDateString("en-US", {
             year: "numeric",
@@ -1028,8 +1045,8 @@
         : "N/A";
       const endIso = (() => {
         if (!endRaw) return "";
-        const parsed = new Date(endRaw);
-        if (Number.isNaN(parsed.getTime())) {
+        const parsed = parseDatePreservingEndOfDay(endRaw);
+        if (!parsed) {
           return "";
         }
         const adjusted = new Date(parsed.getTime() - parsed.getTimezoneOffset() * 60000);

@@ -10,6 +10,7 @@ const UploadProducts = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [toast, setToast] = useState({ visible: false, message: "", type: "info" });
   const [instructionsExpanded, setInstructionsExpanded] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     fetchHistory();
@@ -50,6 +51,7 @@ const UploadProducts = () => {
   };
 
   const handleSubmit = async () => {
+    if (isUploading) return; // Prevent spamming multiple uploads
     if (!selectedFile) return setToast({ visible: true, message: 'Please select a file to upload.', type: 'error' });
     if (!token) return setToast({ visible: true, message: 'Not authenticated', type: 'error' });
 
@@ -57,6 +59,7 @@ const UploadProducts = () => {
     formData.append('file', selectedFile);
 
     try {
+      setIsUploading(true);
       const res = await api.post(`/api/supplier-files/uploads`, formData, {
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
       });
@@ -70,6 +73,8 @@ const UploadProducts = () => {
     } catch (err) {
       console.error('Upload failed', err);
       setToast({ visible: true, message: `Upload failed: ${err.response?.data?.message || err.message}`, type: 'error' });
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -102,8 +107,10 @@ const UploadProducts = () => {
 
       <div className="upload-section">
         <div className="upload-controls">
-          <input id="fileUpload" type="file" accept=".csv, .xlsx" onChange={handleFileChange} />
-          <button className="upload-btn" onClick={handleSubmit}>Upload</button>
+          <input id="fileUpload" type="file" accept=".csv, .xlsx" onChange={handleFileChange} disabled={isUploading} />
+          <button className="upload-btn" onClick={handleSubmit} disabled={isUploading}>
+            {isUploading ? 'Uploading…' : 'Upload'}
+          </button>
         </div>
         <p className="note">
           Supported formats: <strong>.csv</strong>, <strong>.xlsx</strong>. For the optional

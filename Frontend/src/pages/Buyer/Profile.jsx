@@ -162,7 +162,7 @@ export default function BuyerProfile() {
           />
           <label className="avatar-upload">
             <input type="file" accept="image/*" onChange={handleAvatarChange} disabled={uploading} />
-            {uploading ? "Uploading..." : "Change photo"}
+            {uploading ? "Uploading..." : "Change Logo"}
           </label>
         </div>
         <div className="profile-main">
