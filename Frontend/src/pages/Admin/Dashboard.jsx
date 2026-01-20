@@ -78,19 +78,41 @@
 
   const DEFAULT_TIME_ZONE = "Asia/Singapore";
   const DATE_ONLY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+  const MIDNIGHT_UTC_REGEX = /^\d{4}-\d{2}-\d{2}T00:00(:00(\.000)?)?Z$/i;
 
   const parseDatePreservingEndOfDay = (value) => {
     if (!value) return null;
+
+    const setToEndOfDaySgt = (year, month, day) => new Date(Date.UTC(year, month - 1, day, 15, 59, 59, 999));
+
     if (typeof value === "string") {
       const trimmed = value.trim();
       if (DATE_ONLY_REGEX.test(trimmed)) {
         const [year, month, day] = trimmed.split("-").map(Number);
         // Treat YYYY-MM-DD as 11:59 PM SGT (15:59 UTC) to match end-of-day expectation.
-        return new Date(Date.UTC(year, month - 1, day, 15, 59, 59, 999));
+        return setToEndOfDaySgt(year, month, day);
+      }
+
+      if (MIDNIGHT_UTC_REGEX.test(trimmed)) {
+        const [datePart] = trimmed.split("T");
+        const [year, month, day] = datePart.split("-").map(Number);
+        // Handle ISO midnight Z as an all-day date; shift to 11:59 PM SGT.
+        return setToEndOfDaySgt(year, month, day);
       }
     }
+
     const parsed = new Date(value);
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
+    if (Number.isNaN(parsed.getTime())) return null;
+
+    // Heuristic: if parsed UTC time is exactly midnight, treat as all-day and move to end-of-day SGT.
+    if (parsed.getUTCHours() === 0 && parsed.getUTCMinutes() === 0 && parsed.getUTCSeconds() === 0) {
+      const year = parsed.getUTCFullYear();
+      const month = parsed.getUTCMonth() + 1;
+      const day = parsed.getUTCDate();
+      return setToEndOfDaySgt(year, month, day);
+    }
+
+    return parsed;
   };
 
   const STATUS_DIALOG_INITIAL = {
