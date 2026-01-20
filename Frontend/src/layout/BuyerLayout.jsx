@@ -20,10 +20,10 @@ const BuyerLayout = () => {
     } catch {}
   }, []);
 
-  // Auto-hide sidebar on very small phones (<=430px width)
+  // Auto-hide sidebar on mobile/tablet widths (<=768px)
   useEffect(() => {
     const applyMobileSidebarRule = () => {
-      if (window.innerWidth <= 430) {
+      if (window.innerWidth <= 768) {
         setIsSidebarOpen(false);
       }
     };
@@ -40,6 +40,21 @@ const BuyerLayout = () => {
     }
   }, [location.pathname]);
 
+  // Prevent background scroll only when sidebar overlays on small screens
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const html = document.documentElement;
+    const body = document.body;
+    const isOverlay = typeof window !== "undefined" && window.innerWidth <= 768;
+    const nextOverflow = isOverlay && isSidebarOpen ? "hidden" : "";
+    html.style.overflow = nextOverflow;
+    body.style.overflow = nextOverflow;
+    return () => {
+      html.style.overflow = "";
+      body.style.overflow = "";
+    };
+  }, [isSidebarOpen]);
+
   const toggleSidebar = (nextCollapsed) => {
     if (typeof nextCollapsed === "boolean") {
       setIsSidebarOpen(!nextCollapsed);
@@ -48,7 +63,7 @@ const BuyerLayout = () => {
     }
   };
 
-  const isMobileCompact = typeof window !== "undefined" && window.innerWidth <= 430;
+  const isMobileCompact = typeof window !== "undefined" && window.innerWidth <= 768;
 
   return (
     <div className={`admin-layout ${!isSidebarOpen ? "collapsed" : ""} ${isMobileCompact ? "mobile-compact" : ""} ${isSidebarOpen ? "sidebar-open" : ""}`}>

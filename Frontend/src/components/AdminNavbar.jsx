@@ -33,11 +33,6 @@ const AdminNavbar = ({ title = "Admin", onToggle, isCollapsed, className = "" })
         </div>
       </div>
       <div className="navbar-actions">
-        <input
-          type="text"
-          placeholder="Search..."
-          className="navbar-search-bar"
-        />
         <button className="icon-btn" title="Notifications">
           <FaBell />
         </button>
