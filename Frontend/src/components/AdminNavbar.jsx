@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { FaBell, FaUserCircle, FaBars, FaChevronLeft } from "react-icons/fa";
+import { FaBell, FaUserCircle, FaBars } from "react-icons/fa";
 import { useAuth } from "./AuthContext";
 import "./AdminNavbar.css";
 
@@ -22,9 +22,9 @@ const AdminNavbar = ({ title = "Admin", onToggle, isCollapsed, className = "" })
             title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
             aria-label="Toggle sidebar"
           >
-            {/* Show bars on mobile, chevron on larger screens */}
+            {/* Always show hamburger icon (mobile and desktop) */}
             <span className="hamburger-icon-mobile"><FaBars /></span>
-            <span className="hamburger-icon-desktop"><FaChevronLeft className={isCollapsed ? "rotated" : ""} /></span>
+            <span className="hamburger-icon-desktop"><FaBars /></span>
           </button>
         )}
         <div className="navbar-title-wrap">

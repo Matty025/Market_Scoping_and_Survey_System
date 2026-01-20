@@ -1,17 +1,15 @@
 
 import React, { useEffect, useRef, useState } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import AdminNavbar from "../components/AdminNavbar";
-import Footer from "../components/Footer";
 import "./BuyerLayout.css"; // Reuse admin layout styles (ensure this file exists or copy from AdminLayout.css)
 
 const BuyerLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isHeaderHidden, setIsHeaderHidden] = useState(false);
-  const [showFooter, setShowFooter] = useState(false);
   const lastScrollYRef = useRef(0);
   const contentRef = useRef(null);
+  const location = useLocation();
 
   useEffect(() => {
     try {
@@ -34,36 +32,13 @@ const BuyerLayout = () => {
     return () => window.removeEventListener("resize", applyMobileSidebarRule);
   }, []);
 
-  // Header hide/show on scroll and footer visibility when at bottom for small devices
+  // Reset scroll on route change
   useEffect(() => {
-    const el = contentRef.current;
-    if (!el) return;
-
-    const handleScroll = () => {
-      const y = el.scrollTop;
-      const lastY = lastScrollYRef.current;
-      const isMobile = typeof window !== "undefined" && window.innerWidth <= 430;
-
-      if (isMobile) {
-        if (y > lastY + 4) {
-          setIsHeaderHidden(true);
-        } else if (y < lastY - 4 || y <= 4) {
-          setIsHeaderHidden(false);
-        }
-      } else {
-        setIsHeaderHidden(false);
-      }
-
-      lastScrollYRef.current = y;
-
-      // Footer only when fully scrolled
-      const reachedBottom = Math.ceil(y + el.clientHeight) >= el.scrollHeight;
-      setShowFooter(reachedBottom && isMobile);
-    };
-
-    el.addEventListener("scroll", handleScroll, { passive: true });
-    return () => el.removeEventListener("scroll", handleScroll);
-  }, []);
+    lastScrollYRef.current = 0;
+    if (contentRef.current) {
+      contentRef.current.scrollTop = 0;
+    }
+  }, [location.pathname]);
 
   const toggleSidebar = (nextCollapsed) => {
     if (typeof nextCollapsed === "boolean") {
@@ -74,7 +49,6 @@ const BuyerLayout = () => {
   };
 
   const isMobileCompact = typeof window !== "undefined" && window.innerWidth <= 430;
-  const shouldShowFooter = isMobileCompact ? showFooter : true;
 
   return (
     <div className={`admin-layout ${!isSidebarOpen ? "collapsed" : ""} ${isMobileCompact ? "mobile-compact" : ""} ${isSidebarOpen ? "sidebar-open" : ""}`}>
@@ -87,13 +61,12 @@ const BuyerLayout = () => {
           title="Buyer"
           onToggle={toggleSidebar}
           isCollapsed={!isSidebarOpen}
-          className={isHeaderHidden ? "navbar-hidden" : ""}
+          className=""
         />
 
         <div className="admin-content" ref={contentRef}>
           <Outlet />
         </div>
-        {shouldShowFooter && <Footer />}
       </div>
 
       {isSidebarOpen && <div className="sidebar-overlay" onClick={toggleSidebar}></div>}

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { 
-  FaChevronLeft, FaSignOutAlt, FaTachometerAlt, FaShoppingCart, 
+  FaBars, FaSignOutAlt, FaTachometerAlt, FaShoppingCart, 
   FaUpload, FaChartLine, FaUser, FaUsers, FaCog, FaBuilding 
 } from "react-icons/fa";
 import logo from "../assets/Logo.png";
@@ -94,8 +94,8 @@ const Sidebar = ({ isCollapsed = false, onToggle = () => {}, role }) => {
         title={isCollapsed ? "Open Sidebar" : "Close Sidebar"}
         aria-label="Toggle sidebar"
         aria-expanded={!isCollapsed}
-      >
-        <FaChevronLeft className={`toggle-icon ${isCollapsed ? "rotated" : ""}`} />
+      > 
+        <FaBars className="toggle-icon" />
       </button>
 
       <div className="sidebar-header">

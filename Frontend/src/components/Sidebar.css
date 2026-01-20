@@ -18,7 +18,8 @@
   flex-direction: column;
   width: 260px;
   min-width: 260px;
-  height: 100vh;
+  height: 100dvh;
+  min-height: 100dvh;
   background: linear-gradient(180deg, var(--sidebar-gradient-top) 0%, rgba(15, 62, 122, 0.92) 45%, var(--sidebar-gradient-mid) 85%, var(--sidebar-gradient-bottom) 100%);
   color: var(--sidebar-text);
   border-right: 1px solid rgba(255,255,255,0.12);
@@ -80,10 +81,6 @@
 .toggle-icon {
   transition: transform 200ms ease;
   color: var(--sidebar-muted);
-}
-
-.toggle-icon.rotated {
-  transform: rotate(180deg);
 }
 
 .sidebar-header {

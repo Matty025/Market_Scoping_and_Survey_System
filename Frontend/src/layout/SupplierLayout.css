@@ -1,7 +1,9 @@
 .admin-layout {
   display: flex;
+  min-height: 100dvh;
   height: 100vh;
   transition: all 0.3s ease;
+  --navbar-height: 72px;
 }
 
 /* Main content beside sidebar */
@@ -11,6 +13,7 @@
   display: flex;
   flex-direction: column;
   transition: margin-left 0.3s ease;
+  min-height: 100dvh;
 }
 
 /* When sidebar is collapsed */
@@ -24,6 +27,8 @@
   background-color: #f5f6fa;
   overflow-y: auto;
   box-sizing: border-box;
+  overscroll-behavior: contain; /* prevent bounce/over-scroll gray gap */
+  min-height: calc(100dvh - var(--navbar-height));
 }
 
 @media (max-width: 768px) {
@@ -34,6 +39,7 @@
 
 /* Mobile compact mode (<=430px) */
 @media (max-width: 430px) {
+  .admin-layout { --navbar-height: 64px; }
   .admin-layout.mobile-compact .sidebar {
     transform: translateX(0);
     transition: transform 0.25s ease;
@@ -54,7 +60,8 @@
     position: fixed;
     top: 0;
     left: 0;
-    height: 100vh;
+    height: 100dvh;
+    min-height: 100dvh;
     z-index: 1000;
   }
 }
