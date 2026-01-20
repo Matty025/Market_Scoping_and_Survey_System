@@ -9,10 +9,12 @@
 ================================*/
 .login-container {
   display: flex;
+  min-height: 100vh;
   height: 100vh;
   overflow: hidden;
   font-family: "Inter", sans-serif;
   position: relative;
+  background: #f8fafc;
 }
 
 /* ===============================
@@ -190,11 +192,14 @@
 @media (max-width: 768px) {
   .login-container {
     flex-direction: column;
+    height: auto;
+    min-height: 100vh;
   }
 
   .left-section {
-    height: 38vh;
-    padding: 30px;
+    height: auto;
+    min-height: 36vh;
+    padding: 26px 22px;
     text-align: center;
   }
 
@@ -203,12 +208,9 @@
   }
 
   .right-section {
-    height: 62vh;
-  }
-
-  .login-card {
-    width: 90%;
-    padding: 30px;
+    height: auto;
+    min-height: 64vh;
+    padding: 24px 18px;
   }
 }
 
@@ -223,5 +225,83 @@
 @media (min-width: 1440px) {
   .left-section h1 {
     font-size: 3.5rem;
+  }
+}
+
+/* Small phones (<=480px) */
+@media (max-width: 480px) {
+  .left-section {
+    padding: 20px 16px;
+  }
+
+  .left-section::before {
+    width: 180px;
+    height: 180px;
+    top: 8%;
+    left: 10%;
+    filter: blur(24px);
+  }
+
+  .left-section::after {
+    width: 220px;
+    height: 220px;
+    bottom: 8%;
+    right: 6%;
+    filter: blur(28px);
+  }
+
+  .left-section h1 {
+    font-size: 2.2rem;
+    margin-bottom: 14px;
+  }
+
+  .left-section h3 {
+    font-size: 1rem;
+    max-width: 100%;
+    line-height: 1.45;
+  }
+
+  .right-section {
+    padding: 18px 14px 24px;
+  }
+
+  .right-section::before {
+    width: 240px;
+    height: 240px;
+    top: -120px;
+    right: -120px;
+    filter: blur(50px);
+  }
+
+  .right-section::after {
+    width: 200px;
+    height: 200px;
+    bottom: -90px;
+    left: -90px;
+    filter: blur(40px);
+  }
+}
+
+/* Very small phones (<=375px width, iPhone SE) */
+@media (max-width: 375px) {
+  .login-container {
+    padding: 0 10px;
+  }
+
+  .left-section {
+    padding: 16px 12px;
+  }
+
+  .left-section h1 {
+    font-size: 1.9rem;
+  }
+
+  .left-section h3 {
+    font-size: 0.95rem;
+    line-height: 1.4;
+  }
+
+  .right-section {
+    padding: 14px 10px 20px;
   }
 }

@@ -334,6 +334,10 @@
     padding: 20px 16px;
     border-radius: 16px;
   }
+  .logo-image {
+    width: 150px;
+    margin-bottom: 12px;
+  }
   .login-title {
     font-size: 20px;
     margin-bottom: 14px;
@@ -347,7 +351,7 @@
     font-size: 14px;
   }
   .input-icon {
-    padding: 9px 10px;
+    padding: 10px 10px;
     margin-bottom: 12px;
   }
   .input-icon input {
@@ -358,7 +362,7 @@
     font-size: 12px;
   }
   .login-btn {
-    padding: 10px;
+    padding: 12px;
     font-size: 15px;
   }
   .register-link {
@@ -374,18 +378,21 @@
     padding: 24px 18px;
     border-radius: 16px;
   }
+  .logo-image {
+    width: 170px;
+  }
   .login-title {
     font-size: 22px;
     margin-bottom: 18px;
   }
   .role-toggle { margin-bottom: 16px; }
   .input-icon {
-    padding: 10px 12px;
+    padding: 12px 12px;
     margin-bottom: 14px;
   }
   .login-options { margin-bottom: 16px; }
   .login-btn {
-    padding: 12px;
+    padding: 13px;
     font-size: 16px;
   }
 }
