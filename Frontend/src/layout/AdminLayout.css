@@ -1,57 +1,5 @@
 .admin-layout {
   display: flex;
-}
-
-.admin-main {
-  margin-left: 260px; /* matches expanded sidebar */
-  width: calc(100% - 260px);
-  transition: margin-left 200ms ease, width 200ms ease;
-}
-
-.admin-layout.collapsed .admin-main {
-  margin-left: 72px; /* matches collapsed sidebar */
-  width: calc(100% - 72px);
-}
-
-.admin-content {
-  padding: 16px;
-  min-height: calc(100vh - 120px); /* account for navbar+footer */
-  box-sizing: border-box;
-}
-
-.sidebar-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.35);
-  backdrop-filter: blur(1px);
-  z-index: 999; /* under sidebar (1000), over content */
-}
-
-/* Tablet */
-@media (max-width: 1024px) and (min-width: 768px) {
-  .admin-main {
-    margin-left: 220px;
-    width: calc(100% - 220px);
-  }
-  .admin-layout.collapsed .admin-main {
-    margin-left: 64px;
-    width: calc(100% - 64px);
-  }
-}
-
-/* Mobile */
-@media (max-width: 767px) {
-  .admin-main {
-    margin-left: 190px;
-    width: calc(100% - 190px);
-  }
-  .admin-layout.collapsed .admin-main {
-    margin-left: 56px;
-    width: calc(100% - 56px);
-  }
-}
-.admin-layout {
-  display: flex;
   height: 100vh;
   transition: all 0.3s ease;
 }
@@ -74,9 +22,44 @@
 
 .admin-content {
   flex: 1;
-  padding: 20px;
+  padding: 12px 14px;
   background-color: #f5f6fa;
   overflow-y: auto;
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .admin-content {
+    padding: 10px 12px;
+  }
+}
+
+/* Mobile compact mode (<=430px) */
+@media (max-width: 430px) {
+  .admin-layout.mobile-compact .sidebar {
+    transform: translateX(0);
+    transition: transform 0.25s ease;
+  }
+  .admin-layout.mobile-compact:not(.sidebar-open) .sidebar {
+    display: block;
+    transform: translateX(-110%);
+  }
+  .admin-layout.mobile-compact .admin-main {
+    margin-left: 0;
+  }
+  .admin-layout.mobile-compact .admin-content {
+    padding: 14px 12px 20px;
+  }
+
+  /* When sidebar is opened via toggle on mobile */
+  .admin-layout.mobile-compact.sidebar-open .sidebar {
+    display: flex;
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    z-index: 1000;
+  }
 }
 
 /* Floating sidebar overlay (rendered when sidebar open) */

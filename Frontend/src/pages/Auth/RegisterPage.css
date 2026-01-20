@@ -19,7 +19,7 @@
   text-align: center;
   max-width: 480px;
   width: 100%;
-  margin: 60px auto;
+  margin: 40px auto;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   box-sizing: border-box;
   position: relative;
@@ -414,4 +414,171 @@
 
 .login-link button:hover::after {
   width: 100%;
+}
+
+/* ===============================
+   RESPONSIVE ADJUSTMENTS
+   Targeting small devices (iPhone SE 375x667 and similar)
+================================*/
+
+@media (max-width: 480px) {
+  .register-card {
+    max-width: 360px;
+    padding: 26px 18px;
+    margin: 24px auto;
+    border-radius: 18px;
+  }
+
+  .register-title {
+    font-size: 24px;
+    margin-bottom: 18px;
+  }
+
+  .role-toggle {
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+
+  .role-toggle button {
+    padding: 10px 0;
+    font-size: 14px;
+    border-radius: 10px;
+  }
+
+  .input-group input {
+    padding: 12px 14px;
+    margin-bottom: 14px;
+    font-size: 14px;
+  }
+
+  .verify-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .verify-actions .verify-btn,
+  .verify-actions .verify-btn.secondary {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .verify-guide,
+  .verify-error {
+    font-size: 12px;
+  }
+
+  .password-field input {
+    padding-right: 44px;
+  }
+
+  .register-btn {
+    padding: 13px;
+    font-size: 16px;
+    margin-top: 18px;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .cancel-btn {
+    width: 100%;
+    padding: 13px;
+    font-size: 15px;
+  }
+
+  .document-section {
+    padding: 14px 12px;
+    margin-top: 18px;
+  }
+
+  .document-section h3 {
+    font-size: 15px;
+    margin-bottom: 10px;
+  }
+
+  .checkboxes label {
+    font-size: 13px;
+    margin-bottom: 8px;
+  }
+
+  .note {
+    font-size: 12px;
+  }
+
+  .login-link {
+    font-size: 12.5px;
+    margin-top: 16px;
+  }
+}
+
+@media (max-width: 375px) {
+  .register-card {
+    max-width: 340px;
+    padding: 20px 14px;
+    margin: 16px auto;
+    border-radius: 16px;
+  }
+
+  .register-title {
+    font-size: 22px;
+    margin-bottom: 16px;
+  }
+
+  .role-toggle {
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  .role-toggle button {
+    padding: 9px 0;
+    font-size: 13px;
+  }
+
+  .input-group input {
+    padding: 11px 12px;
+    margin-bottom: 12px;
+    font-size: 13.5px;
+  }
+
+  .verify-actions {
+    gap: 6px;
+  }
+
+  .verify-btn,
+  .verify-btn.secondary {
+    padding: 10px 12px;
+    font-size: 13.5px;
+  }
+
+  .document-section {
+    padding: 12px 10px;
+  }
+
+  .register-btn {
+    padding: 12px;
+    font-size: 15px;
+  }
+
+  .cancel-btn {
+    padding: 12px;
+    font-size: 14px;
+  }
+
+  .login-link {
+    font-size: 12px;
+  }
+}
+
+@media (max-height: 580px) {
+  .register-card {
+    margin: 12px auto;
+    padding: 18px 14px;
+  }
+
+  .register-title {
+    margin-bottom: 12px;
+  }
 }

@@ -69,8 +69,19 @@ const Sidebar = ({ isCollapsed = false, onToggle = () => {}, role }) => {
           { to: "/admin/settings", label: "Settings", icon: <FaCog /> },
         ];
 
+  const isMobile = typeof window !== "undefined" && window.innerWidth <= 430;
+  const isHidden = isCollapsed; // default hidden; opened only via hamburger toggle
+
+  const handleNavClick = () => {
+    if (onToggle) {
+      onToggle(true); // always close after navigation
+    }
+  };
+
+  const sidebarClass = `sidebar ${isCollapsed ? "collapsed" : ""} ${isMobile && isCollapsed ? "sidebar-hidden-mobile" : ""} ${isHidden ? "sidebar-hidden-global" : ""}`;
+
   return (
-    <aside className={`sidebar ${isCollapsed ? "collapsed" : ""}`}>
+    <aside className={sidebarClass}>
       <button
         className="sidebar-toggle-btn"
         onClick={() => onToggle(!isCollapsed)}
@@ -118,6 +129,7 @@ const Sidebar = ({ isCollapsed = false, onToggle = () => {}, role }) => {
             className={({ isActive }) =>
               `sidebar-link ${isActive ? "active" : ""}`
             }
+            onClick={handleNavClick}
             title={isCollapsed ? link.label : undefined}
           >
             <span className="sidebar-link-icon">{link.icon}</span>

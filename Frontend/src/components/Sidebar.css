@@ -45,6 +45,24 @@
   min-width: 72px;
 }
 
+/* Fully hide sidebar when flagged hidden (all viewports) */
+.sidebar.sidebar-hidden-global {
+  transform: translateX(-110%);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.25s ease, opacity 0.25s ease;
+}
+
+/* Fully hide collapsed sidebar on very small screens */
+@media (max-width: 430px) {
+  .sidebar.sidebar-hidden-mobile {
+    transform: translateX(-110%);
+    display: block;
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
 .sidebar-toggle-btn { display: none; }
 
 .sidebar-toggle-btn:focus-visible { box-shadow: none; }

@@ -4,7 +4,7 @@ import { FaBell, FaUserCircle, FaBars, FaChevronLeft } from "react-icons/fa";
 import { useAuth } from "./AuthContext";
 import "./AdminNavbar.css";
 
-const AdminNavbar = ({ title = "Admin", onToggle, isCollapsed }) => {
+const AdminNavbar = ({ title = "Admin", onToggle, isCollapsed, className = "" }) => {
   const { fullName, userRole } = useAuth();
   const navigate = useNavigate();
   
@@ -13,7 +13,7 @@ const AdminNavbar = ({ title = "Admin", onToggle, isCollapsed }) => {
   const roleLower = (userRole || "").toLowerCase();
   
   return (
-    <header className="admin-navbar">
+    <header className={`admin-navbar ${className}`}>
       <div className="navbar-left">
         {onToggle && (
           <button

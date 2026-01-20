@@ -1,52 +1,3 @@
-.supplier-layout {
-  display: flex;
-}
-
-.supplier-main {
-  margin-left: 260px;
-  width: calc(100% - 260px);
-  transition: margin-left 200ms ease, width 200ms ease;
-}
-
-.supplier-layout.collapsed .supplier-main {
-  margin-left: 72px;
-  width: calc(100% - 72px);
-}
-
-.supplier-content {
-  padding: 16px;
-  box-sizing: border-box;
-}
-
-.sidebar-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.35);
-  backdrop-filter: blur(1px);
-  z-index: 999;
-}
-
-@media (max-width: 1024px) and (min-width: 768px) {
-  .supplier-main {
-    margin-left: 220px;
-    width: calc(100% - 220px);
-  }
-  .supplier-layout.collapsed .supplier-main {
-    margin-left: 64px;
-    width: calc(100% - 64px);
-  }
-}
-
-@media (max-width: 767px) {
-  .supplier-main {
-    margin-left: 190px;
-    width: calc(100% - 190px);
-  }
-  .supplier-layout.collapsed .supplier-main {
-    margin-left: 56px;
-    width: calc(100% - 56px);
-  }
-}
 .admin-layout {
   display: flex;
   height: 100vh;
@@ -56,7 +7,7 @@
 /* Main content beside sidebar */
 .admin-main {
   flex: 1;
-  margin-left: 240px; /* same as sidebar width */
+  margin-left: 0; /* float sidebar: do not push content */
   display: flex;
   flex-direction: column;
   transition: margin-left 0.3s ease;
@@ -64,12 +15,46 @@
 
 /* When sidebar is collapsed */
 .admin-layout.collapsed .admin-main {
-  margin-left: 50px; /* match your collapsed sidebar width */
+  margin-left: 0; /* keep full width */
 }
 
 .admin-content {
   flex: 1;
-  padding: 20px;
+  padding: 12px 14px;
   background-color: #f5f6fa;
   overflow-y: auto;
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .admin-content {
+    padding: 10px 12px;
+  }
+}
+
+/* Mobile compact mode (<=430px) */
+@media (max-width: 430px) {
+  .admin-layout.mobile-compact .sidebar {
+    transform: translateX(0);
+    transition: transform 0.25s ease;
+  }
+  .admin-layout.mobile-compact:not(.sidebar-open) .sidebar {
+    display: block;
+    transform: translateX(-110%);
+  }
+  .admin-layout.mobile-compact .admin-main {
+    margin-left: 0;
+  }
+  .admin-layout.mobile-compact .admin-content {
+    padding: 14px 12px 20px;
+  }
+
+  .admin-layout.mobile-compact.sidebar-open .sidebar {
+    display: flex;
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    z-index: 1000;
+  }
 }
