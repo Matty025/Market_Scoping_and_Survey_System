@@ -1149,6 +1149,7 @@ router.get("/suppliers", protect, async (req, res) => {
         s."Address" as location,
         s."DateCreated" as "dateJoined",
         u."AccountStatus" as status,
+        u."ProfileImageUrl" as "logoPath",
         (
           SELECT "CategoryName" FROM "Categories" c
           JOIN "SupplierCategories" sc ON c."CategoryID" = sc."CategoryID"
@@ -1163,7 +1164,25 @@ router.get("/suppliers", protect, async (req, res) => {
       ORDER BY s."DateCreated" DESC;
     `;
     const { rows } = await pool.query(suppliersQuery);
-    res.json(rows);
+
+    const withLogos = await Promise.all(rows.map(async (row) => {
+      let logoSignedUrl = null;
+      if (row.logoPath) {
+        try {
+          logoSignedUrl = await generateSignedUrl(row.logoPath, 60);
+        } catch (sigErr) {
+          console.warn('[adminRoutes] Failed to sign supplier logo for directory:', sigErr && sigErr.message ? sigErr.message : sigErr);
+          logoSignedUrl = null;
+        }
+      }
+      return {
+        ...row,
+        logoPath: row.logoPath || null,
+        logoUrl: logoSignedUrl || row.logoPath || null,
+      };
+    }));
+
+    res.json(withLogos);
   } catch (err) {
     console.error("Error fetching suppliers:", err.message);
     res.status(500).json({ message: "Server error" });
@@ -1769,9 +1788,11 @@ router.get("/market-items", protect, async (req, res) => {
         COALESCE(i."DateUpdated", i."DatePosted") AS date,
         i."EffectiveUntil" AS "effectiveUntil",
         s."CompanyName" AS company,
+        COALESCE(MAX(u."ProfileImageUrl"), NULL) AS "logoPath",
         STRING_AGG(c."CategoryName", ', ') AS categories
       FROM "Items" i
       JOIN "Suppliers" s ON i."SupplierID" = s."SupplierID"
+      LEFT JOIN "Users" u ON u."SupplierID" = s."SupplierID"
       LEFT JOIN "ItemCategories" ic ON i."ItemID" = ic."ItemID"
       LEFT JOIN "Categories" c ON ic."CategoryID" = c."CategoryID"
     `;
@@ -1825,9 +1846,23 @@ router.get("/market-items", protect, async (req, res) => {
 
     const { rows } = await pool.query(baseQuery, queryParams);
 
-    const result = rows.map((item) => ({
-      ...item,
-      categories: item.categories || "",
+    const result = await Promise.all(rows.map(async (item) => {
+      let logoSignedUrl = null;
+      if (item.logoPath) {
+        try {
+          logoSignedUrl = await generateSignedUrl(item.logoPath, 60);
+        } catch (sigErr) {
+          console.warn('[adminRoutes] Failed to sign supplier logo:', sigErr && sigErr.message ? sigErr.message : sigErr);
+          logoSignedUrl = null;
+        }
+      }
+
+      return {
+        ...item,
+        categories: item.categories || "",
+        logoPath: item.logoPath || null,
+        logoUrl: logoSignedUrl || item.logoPath || null,
+      };
     }));
 
     res.json(result);

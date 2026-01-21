@@ -4,6 +4,20 @@ import "./Market.css";
 import api from "../../api";
 import { useAuth } from "../../components/AuthContext";
 
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabasePublicBucket = import.meta.env.VITE_SUPABASE_PUBLIC_BUCKET || "public";
+
+const getSupplierLogo = (item) => {
+  const raw = item?.logoUrl || item?.logo || item?.logo_url || item?.companyLogo || item?.logoURL || null;
+  if (!raw || !supabaseUrl) return raw || null;
+  if (/^https?:\/\//i.test(raw)) return raw;
+  const cleaned = raw.replace(/^\/+/, "");
+  const parts = cleaned.split("/");
+  const bucket = parts.length > 1 ? parts[0] : supabasePublicBucket;
+  const key = parts.length > 1 ? parts.slice(1).join("/") : cleaned;
+  return `${supabaseUrl}/storage/v1/object/public/${bucket}/${key}`;
+};
+
 const computeEffectiveStatus = (rawValue) => {
   if (rawValue === undefined || rawValue === null || rawValue === "") {
     return {
@@ -14,7 +28,7 @@ const computeEffectiveStatus = (rawValue) => {
       badgeClass: "badge-none",
       formattedDate: null,
       isExpired: false,
-    };
+    };rr
   }
 
   const effectiveDate = dayjs(rawValue);
@@ -517,7 +531,10 @@ const Market = () => {
       {/* PRODUCT GRID */}
       <div className="market-grid">
         {isLoading ? (
-          <p className="no-items">Loading products...</p>
+          <div className="market-loading">
+            <div className="loading-spinner" aria-hidden />
+            <p>Loading products...</p>
+          </div>
         ) : displayedItems.length === 0 ? (
           <div className="no-items-container">
             <p className="no-items">
@@ -541,6 +558,8 @@ const Market = () => {
               .filter(Boolean);
             const previewCategories = categories.slice(0, 2).join(", ");
             const hasAdditionalCategories = categories.length > 2;
+            const logoSrc = getSupplierLogo(item);
+            const logoInitial = (item.company || item.name || "?").charAt(0).toUpperCase();
 
             return (
               <div
@@ -549,7 +568,25 @@ const Market = () => {
                 onClick={() => setModalItem(item)}
               >
                 <div className="market-card-content">
-                  <h4>{item.name}</h4>
+                  <div className="market-card-header">
+                    <div className={`market-logo ${logoSrc ? "" : "fallback"}`} aria-hidden>
+                      {logoSrc ? (
+                        <img
+                          src={logoSrc}
+                          alt=""
+                          onError={(e) => {
+                            const el = e.currentTarget.closest('.market-logo');
+                            if (el) el.classList.add('fallback');
+                          }}
+                        />
+                      ) : null}
+                      <span>{logoInitial}</span>
+                    </div>
+                    <div className="market-card-title">
+                      <h4>{item.name}</h4>
+                      <p className="market-supplier-name">{item.company}</p>
+                    </div>
+                  </div>
                   {item.description && (
                     <p className="item-description">{item.description}</p>
                   )}
@@ -571,9 +608,6 @@ const Market = () => {
                       )}
                     </p>
                   )}
-                  <p>
-                    <strong>Supplier:</strong> {item.company}
-                  </p>
                   {item.location && (
                     <p>
                       <strong>Location:</strong> {item.location}

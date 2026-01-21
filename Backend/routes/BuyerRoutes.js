@@ -424,9 +424,11 @@ router.get('/market-items', protect, async (req, res) => {
         COALESCE(i."DateUpdated", i."DatePosted") AS date,
         i."EffectiveUntil" AS "effectiveUntil",
         s."CompanyName" AS company,
+        COALESCE(MAX(u."ProfileImageUrl"), NULL) AS "logoPath",
         STRING_AGG(c."CategoryName", ', ') AS categories
       FROM "Items" i
       JOIN "Suppliers" s ON i."SupplierID" = s."SupplierID"
+      LEFT JOIN "Users" u ON u."SupplierID" = s."SupplierID"
       LEFT JOIN "ItemCategories" ic ON i."ItemID" = ic."ItemID"
       LEFT JOIN "Categories" c ON ic."CategoryID" = c."CategoryID"
     `;
@@ -503,7 +505,25 @@ router.get('/market-items', protect, async (req, res) => {
 
     const result = await db.query(baseQuery, queryParams);
     const rows = result.rows || [];
-    const mapped = rows.map((item) => ({ ...item, categories: item.categories || '' }));
+
+    const mapped = await Promise.all(rows.map(async (item) => {
+      let logoSignedUrl = null;
+      if (item.logoPath) {
+        try {
+          logoSignedUrl = await generateSignedUrl(item.logoPath, 60);
+        } catch (sigErr) {
+          console.warn('[BuyerRoutes] Failed to sign supplier logo:', sigErr && sigErr.message ? sigErr.message : sigErr);
+          logoSignedUrl = null;
+        }
+      }
+      return {
+        ...item,
+        categories: item.categories || '',
+        logoPath: item.logoPath || null,
+        logoUrl: logoSignedUrl || item.logoPath || null,
+      };
+    }));
+
     res.json(mapped);
   } catch (err) {
     console.error('[BuyerRoutes.js] Error fetching market items:', err);

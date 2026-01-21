@@ -6,6 +6,9 @@
   margin-left: 0 !important;
   max-width: 100% !important;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 /* Ensure the admin layout cannot reduce the width */
@@ -21,6 +24,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .bookmark-view-btn {
@@ -40,7 +45,13 @@
 }
 
 .bookmark-view-btn:hover {
-  opacity: 0.9;
+  background: #1d4ed8;
+  color: #fff;
+}
+
+.bookmark-view-btn.active:hover {
+  background: #eab308;
+  color: #000;
 }
 
 /* ========== FILTER BAR ========== */
@@ -49,6 +60,8 @@
   flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 10px;
+  width: 100%;
+  align-items: flex-start;
 }
 
 .market-search-input,
@@ -58,8 +71,28 @@
   padding: 8px 12px;
   border-radius: 6px;
   border: 1px solid #d1d5db;
-  min-width: 180px;
+  min-width: 0;
+  flex: 1 1 160px;
   font-size: 0.95rem;
+  max-width: 100%;
+}
+
+.market-filter-bar .see-more-btn {
+  flex: 1 1 140px;
+  min-height: 38px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background: #f3f4f6;
+  color: #111;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.market-filter-bar .see-more-btn:hover {
+  background: #e5e7eb;
+  border-color: #cbd5e1;
 }
 
 /* ========== PRODUCT GRID ========== */
@@ -88,6 +121,60 @@
   font-size: 1rem;
   color: #222;
   margin-bottom: 4px;
+}
+
+.market-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.market-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #e0e7ff;
+  border: 1px solid #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  box-shadow: 0 6px 12px rgba(59, 130, 246, 0.16);
+}
+
+.market-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.market-logo span {
+  display: none;
+  font-weight: 700;
+  color: #1e3a8a;
+}
+
+.market-logo.fallback span {
+  display: block;
+}
+
+.market-card-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.market-card-title h4 {
+  margin: 0;
+}
+
+.market-supplier-name {
+  margin: 0;
+  color: #475569;
+  font-size: 0.9rem;
 }
 
 .market-card p {
@@ -125,6 +212,16 @@
   text-align: center;
   color: #777;
   font-style: italic;
+}
+
+.market-loading {
+  grid-column: 1 / -1;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #475569;
+  font-weight: 600;
+  padding: 6px 8px;
 }
 
 /* ========== ITEM DETAILS MODAL ========== */
@@ -237,6 +334,7 @@
   .market-filter-bar {
     flex-direction: column;
     gap: 8px;
+    align-items: stretch;
   }
 
   .market-modal-content {
@@ -250,6 +348,37 @@
   .bookmark-btn {
     font-size: 0.8rem;
     padding: 5px 8px;
+  }
+
+  .market-search-input,
+  .market-category-select,
+  .market-supplier-select,
+  .market-date-input,
+  .market-filter-bar .see-more-btn {
+    width: 100%;
+    flex: 0 0 auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .market-filter-bar {
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .market-search-input,
+  .market-category-select,
+  .market-supplier-select,
+  .market-date-input {
+    width: 100%;
+    flex: 0 0 auto;
+    padding: 8px 10px;
+    font-size: 0.9rem;
+  }
+
+  .market-filter-bar .see-more-btn {
+    width: 100%;
+    flex: 0 0 auto;
   }
 }
 

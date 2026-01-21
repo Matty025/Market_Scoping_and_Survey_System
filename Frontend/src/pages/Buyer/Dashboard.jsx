@@ -27,6 +27,7 @@ const Dashboard = () => {
   const [uploadStatus, setUploadStatus] = useState("");
   const [validationErrors, setValidationErrors] = useState([]);
   const [requests, setRequests] = useState([]);
+  const [requestsLoading, setRequestsLoading] = useState(true);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [deleteStatus, setDeleteStatus] = useState("");
@@ -223,14 +224,20 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchRequests = async () => {
       const token = localStorage.getItem("token");
-      if (!token) return;
+      if (!token) {
+        setRequestsLoading(false);
+        return;
+      }
+      setRequestsLoading(true);
       
       try {
         const res = await api.get("/api/buyer/requests", { headers: { Authorization: `Bearer ${token}` } });
         setRequests(res.data.requests || []);
       } catch (err) {
         console.error("Fetch error", err);
+        setRequests([]);
       }
+      setRequestsLoading(false);
     };
     
     fetchRequests();
@@ -438,7 +445,12 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {requests.length === 0 ? (
+          {requestsLoading ? (
+            <div className="requests-loading">
+              <span className="requests-loading-spinner" aria-hidden="true" />
+              <p>Loading your requests...</p>
+            </div>
+          ) : requests.length === 0 ? (
             <div className="no-requests">
               <div style={{ textAlign: "center", padding: "40px", color: "#64748b" }}>
                 <p>No requests submitted yet.</p>

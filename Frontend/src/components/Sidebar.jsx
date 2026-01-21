@@ -57,7 +57,6 @@ const Sidebar = ({ isCollapsed = false, onToggle = () => {}, role }) => {
       ? [
           { to: "/buyer/dashboard", label: "Dashboard", icon: <FaTachometerAlt /> },
           { to: "/buyer/market", label: "Market", icon: <FaShoppingCart /> },
-          { to: "/buyer/market-suppliers", label: "Market Suppliers", icon: <FaBuilding /> },
           { to: "/buyer/profile", label: "Profile", icon: <FaUser /> },
         ]
       : [

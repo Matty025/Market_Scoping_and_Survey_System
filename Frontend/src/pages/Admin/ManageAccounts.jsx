@@ -42,6 +42,7 @@ const mapUIToBackend = (uiStatus) => {
 const ManageAccounts = () => {
   const { token, userRole } = useAuth();
   const [users, setUsers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [activeTab, setActiveTab] = useState("suppliers");
@@ -66,6 +67,7 @@ const ManageAccounts = () => {
 
   const fetchUsers = async () => {
     if (!token) return setToast({ visible: true, message: "Not authenticated", type: "error" });
+    setLoadingUsers(true);
     try {
       const res = await api.get(`/api/admin/users`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -83,6 +85,8 @@ const ManageAccounts = () => {
     } catch (err) {
       console.error("Failed to fetch users:", err);
       setToast({ visible: true, message: "Failed to load users", type: "error" });
+    } finally {
+      setLoadingUsers(false);
     }
   };
 
@@ -209,49 +213,64 @@ const ManageAccounts = () => {
           </tr>
         </thead>
         <tbody>
-          {displayedAccounts.map((acc) => (
-            <tr key={acc.id}>
-              <td>{acc.name}</td>
-              <td>{acc.role}</td>
-              <td>
-                <span className={`status ${acc.status}`}>{acc.status.toUpperCase()}</span>
-              </td>
-              <td>{acc.lastUpdated}</td>
-              <td className="actions-cell">
-                {acc.role === 'admin' ? (
-                  <span className="admin-label">Admin</span>
-                ) : (
-                  <>
-                    {acc.status === "pending" && (
-                      <>
-                        <button onClick={() => handleApprove(acc)} className="approve-btn">
-                          Approve
-                        </button>
-                        <button onClick={() => handleReject(acc)} className="reject-btn">
-                          Reject
-                        </button>
-                      </>
-                    )}
-                    {acc.status === "active" && (
-                      <button onClick={() => handleBlacklist(acc)} className="blacklist-btn">
-                        Blacklist
-                      </button>
-                    )}
-                    {acc.status === "blacklisted" && (
-                      <button onClick={() => handleReinstate(acc)} className="approve-btn">
-                        Reinstate
-                      </button>
-                    )}
-                    {acc.status === "rejected" && (
-                      <button onClick={() => handleReinstate(acc)} className="approve-btn">
-                        Reinstate
-                      </button>
-                    )}
-                  </>
-                )}
+          {loadingUsers ? (
+            <tr>
+              <td colSpan="5" className="no-results">
+                <div className="table-loading">
+                  <div className="loading-spinner" aria-hidden />
+                  <span>Loading accounts...</span>
+                </div>
               </td>
             </tr>
-          ))}
+          ) : displayedAccounts.length === 0 ? (
+            <tr>
+              <td colSpan="5" className="no-results">No accounts found.</td>
+            </tr>
+          ) : (
+            displayedAccounts.map((acc) => (
+              <tr key={acc.id}>
+                <td data-label="Name">{acc.name}</td>
+                <td data-label="Role">{acc.role}</td>
+                <td data-label="Status">
+                  <span className={`status ${acc.status}`}>{acc.status.toUpperCase()}</span>
+                </td>
+                <td data-label="Last Updated">{acc.lastUpdated}</td>
+                <td className="actions-cell" data-label="Actions">
+                  {acc.role === 'admin' ? (
+                    <span className="admin-label">Admin</span>
+                  ) : (
+                    <>
+                      {acc.status === "pending" && (
+                        <>
+                          <button onClick={() => handleApprove(acc)} className="approve-btn">
+                            Approve
+                          </button>
+                          <button onClick={() => handleReject(acc)} className="reject-btn">
+                            Reject
+                          </button>
+                        </>
+                      )}
+                      {acc.status === "active" && (
+                        <button onClick={() => handleBlacklist(acc)} className="blacklist-btn">
+                          Blacklist
+                        </button>
+                      )}
+                      {acc.status === "blacklisted" && (
+                        <button onClick={() => handleReinstate(acc)} className="approve-btn">
+                          Reinstate
+                        </button>
+                      )}
+                      {acc.status === "rejected" && (
+                        <button onClick={() => handleReinstate(acc)} className="approve-btn">
+                          Reinstate
+                        </button>
+                      )}
+                    </>
+                  )}
+                </td>
+              </tr>
+            ))
+          )}
         </tbody>
       </table>
 

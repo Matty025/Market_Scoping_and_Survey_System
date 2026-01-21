@@ -759,6 +759,19 @@
     font-weight: 500;
   }
 
+  .supplier-loading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    background: #ffffff;
+    border: 1px solid rgba(28, 63, 124, 0.12);
+    border-radius: 12px;
+    color: #64748b;
+    box-shadow: 0 10px 18px rgba(15, 45, 98, 0.08);
+    margin: 12px 0;
+  }
+
   /* Category Pills */
   .category-pill {
     padding: 0.35rem 0.75rem;

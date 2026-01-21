@@ -699,7 +699,12 @@ const SupplierDashboard = () => {
         </div>
       </section>
 
-      {isLoading && <p>Loading files...</p>}
+      {isLoading && (
+        <div className="supplier-loading">
+          <div className="loading-spinner" aria-hidden />
+          <p>Loading files...</p>
+        </div>
+      )}
       {error && <p className="error-message">{error}</p>}
 
       <div className="supplier-filters">

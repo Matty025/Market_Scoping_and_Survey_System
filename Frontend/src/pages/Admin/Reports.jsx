@@ -57,7 +57,14 @@ const Reports = () => {
     }));
   };
 
-  if (loading) return <p>Loading supplier reports...</p>;
+  if (loading) {
+    return (
+      <div className="reports-loading">
+        <div className="loading-spinner" aria-hidden />
+        <p>Loading supplier reports...</p>
+      </div>
+    );
+  }
   if (error) return <p className="error">{error}</p>;
   if (suppliers.length === 0) return <p>No suppliers found.</p>;
 

@@ -142,7 +142,14 @@ export default function Profile() {
     }
   };
 
-  if (loading) return <div className="profile-card">Loading profile...</div>;
+  if (loading) {
+    return (
+      <div className="profile-card profile-loading">
+        <div className="loading-spinner" aria-hidden />
+        <p>Loading profile...</p>
+      </div>
+    );
+  }
   if (error) return <div className="profile-card error">{error}</div>;
   if (!profile) return <div className="profile-card">No profile data.</div>;
 

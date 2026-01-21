@@ -8,6 +8,18 @@
   gap: 1.75rem;
 }
 
+.reports-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: #ffffff;
+  border: 1px solid rgba(28, 63, 124, 0.14);
+  border-radius: 12px;
+  box-shadow: 0 12px 20px rgba(15, 45, 98, 0.1);
+  color: #64748b;
+}
+
 .reports-header {
   background: linear-gradient(135deg, #ffffff 0%, rgba(255, 255, 255, 0.78) 100%);
   border: 1px solid rgba(28, 63, 124, 0.12);

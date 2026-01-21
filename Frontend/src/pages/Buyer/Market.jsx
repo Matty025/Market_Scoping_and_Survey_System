@@ -3,6 +3,19 @@ import api from "../../api";
 import { useAuth } from "../../components/AuthContext";
 import "./Market.css";
 
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabasePublicBucket = import.meta.env.VITE_SUPABASE_PUBLIC_BUCKET || "public";
+
+const buildPublicLogoUrl = (logoPath) => {
+  if (!logoPath || !supabaseUrl) return logoPath || null;
+  if (/^https?:\/\//i.test(logoPath)) return logoPath;
+  const cleaned = logoPath.replace(/^\/+/, "");
+  const parts = cleaned.split("/");
+  const bucket = parts.length > 1 ? parts[0] : supabasePublicBucket;
+  const key = parts.length > 1 ? parts.slice(1).join("/") : cleaned;
+  return `${supabaseUrl}/storage/v1/object/public/${bucket}/${key}`;
+};
+
 const Market = () => {
   const { token } = useAuth();
 
@@ -83,6 +96,7 @@ const Market = () => {
           category: cats[0] || "Uncategorized",
           categories: cats,
           company: it.company || "",
+          logo: it.logoUrl || it.logo || it.logo_url || it.companyLogo || it.logoURL || null,
           updated: it.date || it.dateUpdated || it.datePosted || null,
           unit: it.unit || "",
           price: Number(it.price) || 0,
@@ -271,20 +285,42 @@ const Market = () => {
 
           <div className="market-grid">
             {isLoading ? (
-              <p className="no-items">Loading products...</p>
+              <div className="market-loading">
+                <span className="loading-spinner" aria-hidden="true" />
+                <p>Loading products...</p>
+              </div>
             ) : filteredItems.length === 0 ? (
               <p className="no-items">No items found.</p>
             ) : (
               filteredItems.map((item) => {
                 const isBookmarked = bookmarks.some((b) => b.id === item.id);
                 const isInCart = cart.some((c) => c.id === item.id);
+                const logoSrc = buildPublicLogoUrl(item.logo);
+                const logoInitial = (item.company || item.product || "?").charAt(0).toUpperCase();
                 return (
                   <div key={item.id} className="market-card" onClick={() => setModalItem(item)}>
-                    <h4>{item.product}</h4>
+                    <div className="market-card-header">
+                      <div className={`market-logo ${logoSrc ? "" : "fallback"}`} aria-hidden>
+                        {logoSrc ? (
+                          <img
+                            src={logoSrc}
+                            alt=""
+                            onError={(e) => {
+                              const el = e.currentTarget.closest('.market-logo');
+                              if (el) el.classList.add('fallback');
+                            }}
+                          />
+                        ) : null}
+                        <span>{logoInitial}</span>
+                      </div>
+                      <div className="market-card-title">
+                        <h4>{item.product}</h4>
+                        <p className="market-supplier-name">{item.company}</p>
+                      </div>
+                    </div>
                     {item.description && (
                       <p className="market-desc">{item.description.length > 140 ? `${item.description.slice(0, 140)}...` : item.description}</p>
                     )}
-                    <p><strong>Supplier:</strong> {item.company}</p>
                     <p><strong>₱{Number(item.price).toLocaleString()}</strong></p>
                     <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
                       <button className={`bookmark-btn ${isBookmarked ? "active" : ""}`} onClick={(e) => { e.stopPropagation(); toggleBookmark(item); }}>

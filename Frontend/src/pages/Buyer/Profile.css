@@ -26,6 +26,13 @@
   gap: 8px;
 }
 
+.profile-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #475569;
+  font-weight: 600;
+}
 .avatar {
   width: 120px;
   height: 120px;

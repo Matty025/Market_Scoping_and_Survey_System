@@ -12,6 +12,14 @@
   color: #b91c1c;
 }
 
+.profile-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px;
+  color: #64748b;
+}
+
 .profile-header {
   display: flex;
   gap: 16px;

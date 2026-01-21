@@ -1912,7 +1912,12 @@
 
         <StatsSection stats={stats} />
 
-        {isLoading && <p>Loading dashboard data...</p>}
+        {isLoading && (
+          <div className="dashboard-loading">
+            <div className="loading-spinner" aria-hidden />
+            <p>Loading dashboard data...</p>
+          </div>
+        )}
         {error && <p className="error-message">{error}</p>}
 
         <div className="collapsible-section">
@@ -2007,7 +2012,12 @@
               </div>
             )}
             {activeView === 'announcements' ? (
-              announcements.length === 0 ? (
+              isLoading ? (
+                <div className="announcements-loading">
+                  <div className="loading-spinner" aria-hidden />
+                  <p>Loading announcements...</p>
+                </div>
+              ) : announcements.length === 0 ? (
                 <p>No announcements found.</p>
               ) : (
                 <>

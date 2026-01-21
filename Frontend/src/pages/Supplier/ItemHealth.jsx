@@ -288,7 +288,10 @@ export default function SupplierItemHealth() {
             {loading ? (
               <tr>
                 <td colSpan={8} className="reports-placeholder">
-                  Loading items...
+                  <div className="reports-loading">
+                    <div className="loading-spinner" aria-hidden />
+                    <span>Loading items...</span>
+                  </div>
                 </td>
               </tr>
             ) : error ? (
@@ -308,16 +311,16 @@ export default function SupplierItemHealth() {
                 const badge = item.staleInfo.badge;
                 return (
                   <tr key={item.id}>
-                    <td>
+                    <td data-label="Item">
                       <div className="reports-item-name">
                         <strong>{item.name}</strong>
                         {item.description ? <span>{item.description}</span> : null}
                       </div>
                     </td>
-                    <td>₱{Number(item.price ?? 0).toLocaleString()}</td>
-                    <td>{Number(item.stock ?? 0).toLocaleString()} {item.unit || ""}</td>
-                    <td>{item.categoryNames || "Uncategorized"}</td>
-                    <td>
+                    <td data-label="Price">₱{Number(item.price ?? 0).toLocaleString()}</td>
+                    <td data-label="Stock">{Number(item.stock ?? 0).toLocaleString()} {item.unit || ""}</td>
+                    <td data-label="Categories">{item.categoryNames || "Uncategorized"}</td>
+                    <td data-label="Effective Window">
                       {item.effectiveInfo?.hasEffective ? (
                         <div className="reports-effective-wrap">
                           <span className={item.effectiveInfo.badgeClass}>{item.effectiveInfo.badgeLabel}</span>
@@ -330,15 +333,15 @@ export default function SupplierItemHealth() {
                         <span className="reports-effective-none">No effective date</span>
                       )}
                     </td>
-                    <td>{formatDate(item.dateUpdated || item.datePosted)}</td>
-                    <td>
+                    <td data-label="Last Updated">{formatDate(item.dateUpdated || item.datePosted)}</td>
+                    <td data-label="Status">
                       <span className={badge.className}>{badge.label}</span>
                       <small className="reports-stale-label">{item.staleInfo.label}</small>
                       {item.effectiveInfo?.requiresUpdate ? (
                         <small className="reports-effective-flag">Needs attention: past effective window</small>
                       ) : null}
                     </td>
-                    <td>
+                    <td className="reports-actions-cell" data-label="Actions">
                       <div className="reports-actions">
                         <button
                           type="button"

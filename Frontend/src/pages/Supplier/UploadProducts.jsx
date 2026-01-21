@@ -11,6 +11,7 @@ const UploadProducts = () => {
   const [toast, setToast] = useState({ visible: false, message: "", type: "info" });
   const [instructionsExpanded, setInstructionsExpanded] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(true);
 
   useEffect(() => {
     fetchHistory();
@@ -19,6 +20,7 @@ const UploadProducts = () => {
 
   const fetchHistory = async () => {
     if (!token) return;
+    setIsHistoryLoading(true);
     try {
       const res = await api.get(`/api/supplier-files/uploads/history`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -26,6 +28,8 @@ const UploadProducts = () => {
       setUploadHistory(res.data || []);
     } catch (err) {
       console.error('Failed to fetch upload history', err);
+    } finally {
+      setIsHistoryLoading(false);
     }
   };
 
@@ -236,24 +240,35 @@ const UploadProducts = () => {
               </tr>
             </thead>
             <tbody>
-              {uploadHistory.length > 0 ? uploadHistory.map((record) => (
-                <tr key={record.id}>
-                  <td>{record.fileName}</td>
-                  <td>{new Date(record.date).toLocaleString("en-US", {
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric',
-                      hour: 'numeric',
-                      minute: '2-digit'
-                    })}</td>
-                  <td>{record.rowCount}</td>
-                  <td><span className={`status-badge ${record.status.toLowerCase()}`}>{record.status}</span></td>
-                  <td>
-                    <button className="btn-delete" onClick={() => handleDelete(record.id)}>Delete</button>
+              {isHistoryLoading ? (
+                <tr>
+                  <td colSpan={5} className="history-placeholder">
+                    <div className="history-loading">
+                      <div className="loading-spinner" aria-hidden />
+                      <span>Loading uploads...</span>
+                    </div>
                   </td>
                 </tr>
-              )) : (
-                <tr><td colSpan={5}>No uploads yet.</td></tr>
+              ) : uploadHistory.length > 0 ? (
+                uploadHistory.map((record) => (
+                  <tr key={record.id}>
+                    <td data-label="File Name">{record.fileName}</td>
+                    <td data-label="Date Uploaded">{new Date(record.date).toLocaleString("en-US", {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit'
+                      })}</td>
+                    <td data-label="Rows">{record.rowCount}</td>
+                    <td data-label="Status"><span className={`status-badge ${record.status.toLowerCase()}`}>{record.status}</span></td>
+                    <td className="history-actions" data-label="Actions">
+                      <button className="btn-delete" onClick={() => handleDelete(record.id)}>Delete</button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr><td colSpan={5} className="history-placeholder">No uploads yet.</td></tr>
               )}
             </tbody>
           </table>

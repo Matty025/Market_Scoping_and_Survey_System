@@ -6,6 +6,19 @@ import SupplierActionHistory from "./SupplierActionHistory";
 import Modal from "../../components/Modal"; // Correctly import a real Modal component
 
 const backendBase = import.meta.env.VITE_API_URL || "http://localhost:3001";
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabasePublicBucket = import.meta.env.VITE_SUPABASE_PUBLIC_BUCKET || "public";
+
+const getSupplierLogo = (supplier) => {
+  const raw = supplier?.logoUrl || supplier?.logo || supplier?.logo_url || supplier?.companyLogo || supplier?.logoURL || supplier?.profileImageUrl || null;
+  if (!raw || !supabaseUrl) return raw || null;
+  if (/^https?:\/\//i.test(raw)) return raw;
+  const cleaned = raw.replace(/^\/+/, "");
+  const parts = cleaned.split("/");
+  const bucket = parts.length > 1 ? parts[0] : supabasePublicBucket;
+  const key = parts.length > 1 ? parts.slice(1).join("/") : cleaned;
+  return `${supabaseUrl}/storage/v1/object/public/${bucket}/${key}`;
+};
 
 const MarketSuppliers = () => {
   const { token } = useAuth();
@@ -116,7 +129,12 @@ const MarketSuppliers = () => {
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan="8" className="no-results">Loading suppliers...</td>
+                <td colSpan="8" className="no-results">
+                  <div className="table-loading">
+                    <div className="loading-spinner" aria-hidden />
+                    <span>Loading suppliers...</span>
+                  </div>
+                </td>
               </tr>
             ) : error ? (
               <tr>
@@ -125,11 +143,31 @@ const MarketSuppliers = () => {
                 </td>
               </tr>
             ) : filteredSuppliers.length > 0 ? (
-               filteredSuppliers.map((supplier) => (
+               filteredSuppliers.map((supplier) => {
+                const logoSrc = getSupplierLogo(supplier);
+                const logoInitial = (supplier.name || "?").charAt(0).toUpperCase();
+                return (
                 <tr key={supplier.id}>
-                  <td>{supplier.name}</td>
-                  <td>{supplier.email}</td>
-                  <td>
+                  <td data-label="Supplier Name">
+                    <div className="supplier-name-cell">
+                      <div className={`supplier-logo ${logoSrc ? "" : "fallback"}`} aria-hidden>
+                        {logoSrc ? (
+                          <img
+                            src={logoSrc}
+                            alt=""
+                            onError={(e) => {
+                              const el = e.currentTarget.closest('.supplier-logo');
+                              if (el) el.classList.add('fallback');
+                            }}
+                          />
+                        ) : null}
+                        <span>{logoInitial}</span>
+                      </div>
+                      <span className="supplier-name-text">{supplier.name}</span>
+                    </div>
+                  </td>
+                  <td data-label="Email">{supplier.email}</td>
+                  <td data-label="Category">
                     {Array.isArray(supplier.category) && supplier.category.length ? (
                       <div className={`category-cell ${expandedCategories[supplier.id] ? "expanded" : ""}`}>
                         <span className="category-text">
@@ -151,21 +189,21 @@ const MarketSuppliers = () => {
                       </div>
                     ) : supplier.category || 'N/A'}
                   </td>
-                  <td>{supplier.location || "N/A"}</td>
-                  <td>{supplier.totalProducts}</td>
-                  <td>
+                  <td data-label="Location">{supplier.location || "N/A"}</td>
+                  <td data-label="Total Products">{supplier.totalProducts}</td>
+                  <td data-label="History">
                     <button onClick={() => handleViewHistoryClick(supplier)} className="view-history-btn">
                       View History
                     </button>
                   </td>
-                  <td>
+                  <td data-label="Status">
                     <span
                       className={`status-badge ${supplier.status?.toLowerCase()}`}
                     >
                       {supplier.status}
                     </span>
                   </td>
-                  <td>
+                  <td data-label="Date Joined">
                     {new Date(supplier.dateJoined).toLocaleDateString("en-US", {
                       year: "numeric",
                       month: "long",
@@ -173,7 +211,7 @@ const MarketSuppliers = () => {
                     })}
                   </td>
                 </tr>
-              ))
+              )})
             ) : (
               <tr>
                 <td colSpan="8" className="no-results">
