@@ -294,14 +294,13 @@
   font-size: 1.2rem;
   font-weight: 700;
   color: var(--philgeps-primary);
-  margin: 0 0 12px 0;
-  line-height: 1.4;
+  margin: 0;
+  line-height: 1.25;
   display: -webkit-box;
   line-clamp: 2;
   -webkit-line-clamp: 2; /* Limit to 2 lines */
   -webkit-box-orient: vertical; /* Required for line-clamp */
   overflow: hidden; /* Hide the overflow */
-  min-height: 40px; /* Reserve space for 2 lines to prevent layout shifts */
 }
 
 .market-card-header {
@@ -346,17 +345,20 @@
 .market-card-title {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 0px;
 }
 
 .market-card-title h4 {
   margin: 0;
+  line-height: 1.1;
+  min-height: auto;
 }
 
 .market-supplier-name {
   margin: 0;
   color: #4b5563;
   font-weight: 600;
+  line-height: 1.1;
 }
 
 .market-card p {
