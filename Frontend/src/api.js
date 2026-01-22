@@ -6,7 +6,7 @@ const api = axios.create({ baseURL });
 
 api.interceptors.request.use((config) => {
   try {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
     if (token) config.headers = { ...(config.headers || {}), Authorization: `Bearer ${token}` };
     // If sending FormData, let the browser set the Content-Type including the boundary.
     if (config.data && typeof FormData !== 'undefined' && config.data instanceof FormData) {
