@@ -3,6 +3,7 @@ import api from "../../api";
 import { useAuth } from "../../components/AuthContext";
 import Toast from "../../components/Toast";
 import Modal from "../../components/Modal";
+import Pagination from "../../components/Pagination";
 import "./ManageAccounts.css";
 
 // Use Vite env or centralized api for backend requests
@@ -59,11 +60,17 @@ const ManageAccounts = () => {
   });
   const [savingApproval, setSavingApproval] = useState(false);
   const [actionModal, setActionModal] = useState(null); // { type: 'reject'|'blacklist'|'reinstate', target, notes }
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   useEffect(() => {
     fetchUsers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter, activeTab]);
 
   const fetchUsers = async () => {
     if (!token) return setToast({ visible: true, message: "Not authenticated", type: "error" });
@@ -152,6 +159,22 @@ const ManageAccounts = () => {
       .filter((acc) => (statusFilter === "all" ? true : acc.status === statusFilter));
   }, [searchQuery, statusFilter, activeTab, users]);
 
+  const totalAccounts = displayedAccounts.length;
+  const totalPages = Math.max(1, Math.ceil(totalAccounts / PAGE_SIZE));
+  const startIndex = totalAccounts === 0 ? 0 : (currentPage - 1) * PAGE_SIZE;
+  const paginatedAccounts = displayedAccounts.slice(startIndex, startIndex + PAGE_SIZE);
+  const endIndex = totalAccounts === 0 ? 0 : Math.min(totalAccounts, startIndex + PAGE_SIZE);
+  const pageSummary = totalAccounts === 0
+    ? "No accounts to display"
+    : `Showing ${startIndex + 1}-${endIndex} of ${totalAccounts}`;
+  const showPagination = totalAccounts > 0;
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
   return (
     <div className="manage-accounts-container">
       <div className="manage-accounts-header">
@@ -202,6 +225,19 @@ const ManageAccounts = () => {
         </select>
       </div>
 
+      {showPagination && (
+        <div className="pagination-wrapper top">
+          <div className="pagination-summary">{pageSummary}</div>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            showPreview
+            previewCount={7}
+          />
+        </div>
+      )}
+
       <table className="supplier-table">
         <thead>
           <tr>
@@ -227,7 +263,7 @@ const ManageAccounts = () => {
               <td colSpan="5" className="no-results">No accounts found.</td>
             </tr>
           ) : (
-            displayedAccounts.map((acc) => (
+            paginatedAccounts.map((acc) => (
               <tr key={acc.id}>
                 <td data-label="Name">{acc.name}</td>
                 <td data-label="Role">{acc.role}</td>
@@ -273,6 +309,19 @@ const ManageAccounts = () => {
           )}
         </tbody>
       </table>
+
+      {showPagination && (
+        <div className="pagination-wrapper">
+          <div className="pagination-summary">{pageSummary}</div>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            showPreview
+            previewCount={7}
+          />
+        </div>
+      )}
 
       <Toast visible={toast.visible} type={toast.type} message={toast.message} onClose={() => setToast({ ...toast, visible: false })} />
 

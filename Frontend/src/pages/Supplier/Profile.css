@@ -25,6 +25,7 @@
   gap: 16px;
   align-items: center;
   margin-bottom: 20px;
+  flex-wrap: wrap;
 }
 
 .avatar-wrap {
@@ -55,11 +56,20 @@
 
 .profile-main h2 {
   margin: 0;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .profile-main .muted {
   color: #64748b;
   margin: 4px 0;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+.profile-main {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .profile-grid {

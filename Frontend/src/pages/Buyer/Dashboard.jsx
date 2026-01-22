@@ -14,6 +14,7 @@ import {
 } from "react-icons/fa";
 import "./Dashboard.css";
 import api from "../../api";
+import Pagination from "../../components/Pagination";
 
 const Dashboard = () => {
   const [showModal, setShowModal] = useState(false);
@@ -38,6 +39,8 @@ const Dashboard = () => {
   const [historyError, setHistoryError] = useState("");
   const [historyOpen, setHistoryOpen] = useState(false);
   const [userNames, setUserNames] = useState({}); // cache of userId -> FullName
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
   // Helper: Status Colors
   const getStatusConfig = (status) => {
@@ -243,6 +246,11 @@ const Dashboard = () => {
     fetchRequests();
   }, [refreshKey]);
 
+  useEffect(() => {
+    // Reset to first page when data set changes
+    setCurrentPage(1);
+  }, [requests]);
+
   const handleViewDetails = (request) => {
     setSelectedRequest(request);
     setDetailsModalOpen(true);
@@ -414,6 +422,14 @@ const Dashboard = () => {
     }
   };
 
+  const totalPages = Math.max(1, Math.ceil(requests.length / itemsPerPage));
+  const paginatedRequests = requests.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+  const showingStart = requests.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+  const showingEnd = Math.min(currentPage * itemsPerPage, requests.length);
+
   return (
     <div className="dashboard-container">
       {/* Header Section */}
@@ -461,7 +477,21 @@ const Dashboard = () => {
             </div>
           ) : (
             <div className="announcements-container">
-                {requests.map((req) => {
+                {requests.length > 0 && (
+                  <div className="pagination-wrapper top">
+                    <div className="pagination-summary">
+                      Showing {showingStart}-{showingEnd} of {requests.length}
+                    </div>
+                    <Pagination
+                      currentPage={currentPage}
+                      totalPages={totalPages}
+                      onPageChange={setCurrentPage}
+                      previewCount={7}
+                    />
+                  </div>
+                )}
+
+                {paginatedRequests.map((req) => {
                 const statusConfig = getStatusConfig(req.status);
                 // The backend now returns full file URLs (e.g., Azure blob URL) in `filePath`/`fileUrl`.
                 const fullFileUrl = req.filePath || req.fileUrl || '#';
@@ -552,6 +582,19 @@ const Dashboard = () => {
                   </div>
                 );
               })}
+              {requests.length > 0 && (
+                <div className="pagination-wrapper">
+                  <div className="pagination-summary">
+                    Showing {showingStart}-{showingEnd} of {requests.length}
+                  </div>
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setCurrentPage}
+                    previewCount={7}
+                  />
+                </div>
+              )}
             </div>
           )}
         </div>

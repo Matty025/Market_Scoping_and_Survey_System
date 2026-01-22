@@ -12,6 +12,7 @@
   import Toast from "../../components/Toast";
   import { FaUsers, FaBoxOpen, FaCheckCircle, FaClock, FaClipboardList, FaTag, FaUserCheck } from "react-icons/fa";
   import BuyerRequestsSection from "../../components/BuyerRequestsSection";
+  import Pagination from "../../components/Pagination";
   import "./Dashboard.css";
 
   const PAGE_SIZE = 50;
@@ -1874,22 +1875,12 @@
     };
 
     const totalPages = Math.max(1, Math.ceil((totalAnnouncements || 0) / PAGE_SIZE));
-    const canGoPrev = currentPage > 1;
-    const canGoNext = currentPage < totalPages;
     const startItemIndex = totalAnnouncements === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
     const endItemIndex = totalAnnouncements === 0 ? 0 : Math.min(totalAnnouncements, currentPage * PAGE_SIZE);
-
-    const handlePrevPage = () => {
-      if (canGoPrev) {
-        setCurrentPage((prev) => prev - 1);
-      }
-    };
-
-    const handleNextPage = () => {
-      if (canGoNext) {
-        setCurrentPage((prev) => prev + 1);
-      }
-    };
+    const pageSummary = totalAnnouncements === 0
+      ? "No announcements to display"
+      : `Showing ${startItemIndex}-${endItemIndex} of ${totalAnnouncements}`;
+    const showPagination = announcements.length > 0;
 
     const statusDialogRequiresNotes = false;
     const statusDialogRequiresStatusChoice = Array.isArray(statusDialog.statusOptions) && statusDialog.statusOptions.length > 0;
@@ -2021,6 +2012,19 @@
                 <p>No announcements found.</p>
               ) : (
                 <>
+                  {showPagination && (
+                    <div className="pagination-wrapper top">
+                      <div className="pagination-summary">{pageSummary}</div>
+                      <Pagination
+                        currentPage={currentPage}
+                        totalPages={totalPages}
+                        onPageChange={setCurrentPage}
+                        showPreview
+                        previewCount={7}
+                      />
+                    </div>
+                  )}
+
                   <div className="announcements-container">
                     {announcements.map((ann) => (
                       <AnnouncementCard
@@ -2040,32 +2044,18 @@
                     ))}
                   </div>
 
-                  <div className="pagination-controls">
-                    <div className="pagination-info">
-                      {totalAnnouncements === 0
-                        ? "No announcements to display"
-                        : `Showing ${startItemIndex}-${endItemIndex} of ${totalAnnouncements}`}
+                  {showPagination && (
+                    <div className="pagination-wrapper">
+                      <div className="pagination-summary">{pageSummary}</div>
+                      <Pagination
+                        currentPage={currentPage}
+                        totalPages={totalPages}
+                        onPageChange={setCurrentPage}
+                        showPreview
+                        previewCount={7}
+                      />
                     </div>
-                    <div className="pagination-buttons">
-                      <button
-                        type="button"
-                        className="pagination-button"
-                        onClick={handlePrevPage}
-                        disabled={!canGoPrev}
-                      >
-                        Previous
-                      </button>
-                      <span className="pagination-page">Page {currentPage} of {totalPages}</span>
-                      <button
-                        type="button"
-                        className="pagination-button"
-                        onClick={handleNextPage}
-                        disabled={!canGoNext}
-                      >
-                        Next
-                      </button>
-                    </div>
-                  </div>
+                  )}
                 </>
               )
             ) : (

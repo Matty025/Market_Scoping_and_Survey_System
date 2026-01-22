@@ -3,6 +3,7 @@ import dayjs from "dayjs";
 import "./Market.css";
 import api from "../../api";
 import { useAuth } from "../../components/AuthContext";
+import Pagination from "../../components/Pagination";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabasePublicBucket = import.meta.env.VITE_SUPABASE_PUBLIC_BUCKET || "public";
@@ -28,7 +29,7 @@ const computeEffectiveStatus = (rawValue) => {
       badgeClass: "badge-none",
       formattedDate: null,
       isExpired: false,
-    };rr
+    };
   }
 
   const effectiveDate = dayjs(rawValue);
@@ -92,10 +93,13 @@ const Market = () => {
   const [sortOption, setSortOption] = useState("");
   const [modalItem, setModalItem] = useState(null);
   const [categoryModalItem, setCategoryModalItem] = useState(null);
+  const [logoPreview, setLogoPreview] = useState(null);
   const [bookmarks, setBookmarks] = useState([]);
   const [showBookmarks, setShowBookmarks] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 12;
 
   // Category filters
   const [mainCategories, setMainCategories] = useState([]);
@@ -319,6 +323,29 @@ const Market = () => {
   };
 
   const displayedItems = getFilteredAndSortedItems(showBookmarks ? bookmarks : marketItems);
+  const totalItems = displayedItems.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+  const startIndex = totalItems === 0 ? 0 : (currentPage - 1) * PAGE_SIZE;
+  const paginatedItems = displayedItems.slice(startIndex, startIndex + PAGE_SIZE);
+  const endIndex = totalItems === 0 ? 0 : Math.min(totalItems, startIndex + PAGE_SIZE);
+  const pageSummary = totalItems === 0
+    ? "No items to display"
+    : `Showing ${startIndex + 1}-${endIndex} of ${totalItems} ${showBookmarks ? "bookmarks" : "items"}`;
+  const showPagination = totalItems > 0;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters.search, filters.category, filters.supplier, filters.date, filters.minPrice, filters.maxPrice, sortOption, showBookmarks]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [marketItems.length, bookmarks.length]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   const modalEffectiveStatus = modalItem ? computeEffectiveStatus(modalItem.effectiveUntil) : null;
   const modalCategories =
@@ -528,6 +555,19 @@ const Market = () => {
         )}
       </div>
 
+      {showPagination && !isLoading && (
+        <div className="pagination-wrapper top">
+          <div className="pagination-summary">{pageSummary}</div>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            showPreview
+            previewCount={7}
+          />
+        </div>
+      )}
+
       {/* PRODUCT GRID */}
       <div className="market-grid">
         {isLoading ? (
@@ -549,7 +589,7 @@ const Market = () => {
             )}
           </div>
         ) : (
-          displayedItems.map((item) => {
+          paginatedItems.map((item) => {
             const effectiveStatus = computeEffectiveStatus(item.effectiveUntil);
             const priceValue = Number(item.price ?? 0);
             const categories = (item.categories || "")
@@ -574,6 +614,8 @@ const Market = () => {
                         <img
                           src={logoSrc}
                           alt=""
+                          role="button"
+                          onClick={(e) => { e.stopPropagation(); setLogoPreview(logoSrc); }}
                           onError={(e) => {
                             const el = e.currentTarget.closest('.market-logo');
                             if (el) el.classList.add('fallback');
@@ -651,6 +693,19 @@ const Market = () => {
           })
         )}
       </div>
+
+      {showPagination && !isLoading && (
+        <div className="pagination-wrapper">
+          <div className="pagination-summary">{pageSummary}</div>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            showPreview
+            previewCount={7}
+          />
+        </div>
+      )}
 
       {/* ITEM MODAL */}
       {modalItem && (
@@ -744,6 +799,15 @@ const Market = () => {
             ) : (
               <p className="modal-categories-text">No categories listed.</p>
             )}
+          </div>
+        </div>
+      )}
+
+      {logoPreview && (
+        <div className="logo-preview-overlay" onClick={() => setLogoPreview(null)}>
+          <div className="logo-preview" onClick={(e) => e.stopPropagation()}>
+            <button className="logo-preview-close" onClick={() => setLogoPreview(null)} aria-label="Close image">✖</button>
+            <img src={logoPreview} alt="Supplier logo" />
           </div>
         </div>
       )}

@@ -95,6 +95,25 @@
   color: #92400e;
 }
 
+.pagination-wrapper {
+  margin-top: 0.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pagination-wrapper.top {
+  margin-bottom: 0.25rem;
+}
+
+.pagination-summary {
+  color: #475569;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
 .supplier-cards-wrapper {
   display: flex;
   gap: 1.25rem;

@@ -194,6 +194,26 @@
   box-shadow: 0 0 0 3px rgba(28, 63, 124, 0.15);
 }
 
+.pagination-wrapper {
+  margin-top: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pagination-wrapper.top {
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.pagination-summary {
+  color: var(--philgeps-muted);
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
 .approve-modal {
   display: flex;
   flex-direction: column;

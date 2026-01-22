@@ -4,11 +4,14 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from "recharts";
 import "./Reports.css";
+import Pagination from "../../components/Pagination";
 
 const Reports = () => {
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 6;
 
   useEffect(() => {
     const fetchReports = async () => {
@@ -47,6 +50,17 @@ const Reports = () => {
     fetchReports();
   }, []);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [suppliers.length]);
+
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil((suppliers.length || 0) / PAGE_SIZE));
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, suppliers.length, PAGE_SIZE]);
+
   const prepareChartData = (priceAnalytics) => {
     if (!priceAnalytics || priceAnalytics.length === 0) return [];
     return priceAnalytics.map((p) => ({
@@ -77,6 +91,14 @@ const Reports = () => {
     },
     { items: 0 }
   );
+  const totalPages = Math.max(1, Math.ceil(totalSuppliers / PAGE_SIZE));
+  const startIndex = totalSuppliers === 0 ? 0 : (currentPage - 1) * PAGE_SIZE;
+  const paginatedSuppliers = suppliers.slice(startIndex, startIndex + PAGE_SIZE);
+  const endIndex = totalSuppliers === 0 ? 0 : Math.min(totalSuppliers, startIndex + PAGE_SIZE);
+  const pageSummary = totalSuppliers === 0
+    ? "No suppliers to display"
+    : `Showing ${startIndex + 1}-${endIndex} of ${totalSuppliers}`;
+  const showPagination = totalSuppliers > 0;
 
   return (
     <div className="reports-container">
@@ -99,8 +121,21 @@ const Reports = () => {
         </div>
       </div>
 
+      {showPagination && (
+        <div className="pagination-wrapper top">
+          <div className="pagination-summary">{pageSummary}</div>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            showPreview
+            previewCount={7}
+          />
+        </div>
+      )}
+
       <div className="supplier-cards-wrapper scrollable">
-        {suppliers.map((supplier) => {
+        {paginatedSuppliers.map((supplier) => {
           const chartData = prepareChartData(supplier.priceAnalytics);
 
           return (
@@ -138,6 +173,19 @@ const Reports = () => {
           );
         })}
       </div>
+
+      {showPagination && (
+        <div className="pagination-wrapper">
+          <div className="pagination-summary">{pageSummary}</div>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            showPreview
+            previewCount={7}
+          />
+        </div>
+      )}
     </div>
   );
 };

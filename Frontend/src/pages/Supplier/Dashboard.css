@@ -790,6 +790,26 @@
     }
   }
 
+  /* Pagination wrappers (shared component) */
+  .pagination-wrapper {
+    margin-top: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .pagination-wrapper.top {
+    margin-top: 0;
+    margin-bottom: 12px;
+  }
+
+  .pagination-summary {
+    color: #475569;
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
   @media (max-width: 768px) {
     .supplier-dashboard {
       padding: 1.5rem;

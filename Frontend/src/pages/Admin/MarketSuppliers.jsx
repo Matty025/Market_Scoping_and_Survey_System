@@ -4,6 +4,7 @@ import { useAuth } from "../../components/AuthContext";
 import "./MarketSuppliers.css";
 import SupplierActionHistory from "./SupplierActionHistory";
 import Modal from "../../components/Modal"; // Correctly import a real Modal component
+import Pagination from "../../components/Pagination";
 
 const backendBase = import.meta.env.VITE_API_URL || "http://localhost:3001";
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -27,6 +28,7 @@ const MarketSuppliers = () => {
   const [error, setError] = useState(null);
   const [selectedSupplier, setSelectedSupplier] = useState(null); // To track the selected supplier for the modal
   const [expandedCategories, setExpandedCategories] = useState({}); // row-level expand/collapse
+  const [logoPreview, setLogoPreview] = useState(null);
   // const navigate = useNavigate(); // No longer needed if we use a modal
 
   useEffect(() => {
@@ -59,6 +61,8 @@ const MarketSuppliers = () => {
   };
 
   const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   const filteredSuppliers = useMemo(() => suppliers.filter((s) => {
     const searchTerm = search.toLowerCase();
@@ -79,6 +83,26 @@ const MarketSuppliers = () => {
     }
     return nameMatch || locationMatch || categoryMatch;
   }), [suppliers, search]);
+
+  const totalSuppliers = filteredSuppliers.length;
+  const totalPages = Math.max(1, Math.ceil(totalSuppliers / PAGE_SIZE));
+  const startIndex = totalSuppliers === 0 ? 0 : (currentPage - 1) * PAGE_SIZE;
+  const paginatedSuppliers = filteredSuppliers.slice(startIndex, startIndex + PAGE_SIZE);
+  const endIndex = totalSuppliers === 0 ? 0 : Math.min(totalSuppliers, startIndex + PAGE_SIZE);
+  const pageSummary = totalSuppliers === 0
+    ? "No suppliers to display"
+    : `Showing ${startIndex + 1}-${endIndex} of ${totalSuppliers}`;
+  const showPagination = totalSuppliers > 0;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   return (
     <div className="market-suppliers-container">
@@ -110,6 +134,19 @@ const MarketSuppliers = () => {
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
+
+      {showPagination && !isLoading && (
+        <div className="pagination-wrapper top">
+          <div className="pagination-summary">{pageSummary}</div>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            showPreview
+            previewCount={7}
+          />
+        </div>
+      )}
 
       {/* Supplier Table */}
       <div className="supplier-table-container">
@@ -143,7 +180,7 @@ const MarketSuppliers = () => {
                 </td>
               </tr>
             ) : filteredSuppliers.length > 0 ? (
-               filteredSuppliers.map((supplier) => {
+               paginatedSuppliers.map((supplier) => {
                 const logoSrc = getSupplierLogo(supplier);
                 const logoInitial = (supplier.name || "?").charAt(0).toUpperCase();
                 return (
@@ -155,6 +192,8 @@ const MarketSuppliers = () => {
                           <img
                             src={logoSrc}
                             alt=""
+                            role="button"
+                            onClick={(e) => { e.stopPropagation(); setLogoPreview(logoSrc); }}
                             onError={(e) => {
                               const el = e.currentTarget.closest('.supplier-logo');
                               if (el) el.classList.add('fallback');
@@ -223,6 +262,19 @@ const MarketSuppliers = () => {
         </table>
       </div>
 
+        {showPagination && !isLoading && (
+          <div className="pagination-wrapper">
+            <div className="pagination-summary">{pageSummary}</div>
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              showPreview
+              previewCount={7}
+            />
+          </div>
+        )}
+
       {/* Modal for Supplier Action History */}
       {selectedSupplier && (
         <Modal
@@ -231,6 +283,15 @@ const MarketSuppliers = () => {
           title={`Action History for ${selectedSupplier.name}`}>
           <SupplierActionHistory supplierId={selectedSupplier.id} />
         </Modal>
+      )}
+
+      {logoPreview && (
+        <div className="logo-preview-overlay" onClick={() => setLogoPreview(null)}>
+          <div className="logo-preview" onClick={(e) => e.stopPropagation()}>
+            <button className="logo-preview-close" onClick={() => setLogoPreview(null)} aria-label="Close image">✖</button>
+            <img src={logoPreview} alt="Supplier logo" />
+          </div>
+        </div>
       )}
 
     </div>

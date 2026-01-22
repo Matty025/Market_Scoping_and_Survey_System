@@ -6,6 +6,7 @@ import AddProductForm from "./AddProductForm";
 // 💡 IMPORTANT: Assuming 'react-hot-toast' is installed and used across the app
 import toast from 'react-hot-toast'; 
 import "./Market.css";
+import Pagination from "../../components/Pagination";
 
 // --- CONFIGURATION ---
 const PAGE_SIZE = 50; 
@@ -301,49 +302,6 @@ const SupplierMarket = () => {
         });
     }, [products, sortBy]);
 
-    const renderPaginationButtons = () => {
-        const pages = [];
-        const maxButtons = 7; 
-        
-        let startPage = Math.max(1, currentPage - Math.floor(maxButtons / 2));
-        let endPage = Math.min(totalPages, startPage + maxButtons - 1);
-
-        if (endPage - startPage + 1 < maxButtons) {
-            startPage = Math.max(1, endPage - maxButtons + 1);
-        }
-
-        if (totalPages === 0) return null;
-        
-        if (startPage > 1) {
-            pages.push(<button key={1} onClick={() => handlePageChange(1)}>1</button>);
-            if (startPage > 2) {
-                pages.push(<span key="dots-start" className="pagination-dots">...</span>);
-            }
-        }
-
-        for (let i = startPage; i <= endPage; i++) {
-            pages.push(
-                <button 
-                    key={i} 
-                    onClick={() => handlePageChange(i)}
-                    className={i === currentPage ? 'active' : ''}
-                >
-                    {i}
-                </button>
-            );
-        }
-
-        if (endPage < totalPages) {
-            if (endPage < totalPages - 1) {
-                pages.push(<span key="dots-end" className="pagination-dots">...</span>);
-            }
-            pages.push(<button key={totalPages} onClick={() => handlePageChange(totalPages)}>{totalPages}</button>);
-        }
-
-        return pages;
-    };
-
-
     // --- RENDER START ---
     if (loading && products.length === 0) {
         return (
@@ -382,7 +340,6 @@ const SupplierMarket = () => {
                 <button
                     className="upload-btn"
                     onClick={() => setShowAddModal(true)}
-                    style={{ marginLeft: '10px' }}
                 >
                     Add New Product
                 </button>
@@ -432,23 +389,12 @@ const SupplierMarket = () => {
                     Showing {(currentPage - 1) * PAGE_SIZE + 1} - {Math.min(currentPage * PAGE_SIZE, totalItems)} of {totalItems} items
                 </span>
                 
-                <div className="pagination-buttons">
-                    <button 
-                        onClick={() => handlePageChange(currentPage - 1)} 
-                        disabled={currentPage === 1 || loading}
-                    >
-                        &laquo;
-                    </button>
-                    
-                    {renderPaginationButtons()}
-                    
-                    <button 
-                        onClick={() => handlePageChange(currentPage + 1)} 
-                        disabled={currentPage >= totalPages || loading}
-                    >
-                        &raquo;
-                    </button>
-                </div>
+                <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={handlePageChange}
+                    previewCount={7}
+                />
             </div>
             
             {/* ----------- Product Grid ----------- */}
@@ -593,23 +539,12 @@ const SupplierMarket = () => {
                     Showing {(currentPage - 1) * PAGE_SIZE + 1} - {Math.min(currentPage * PAGE_SIZE, totalItems)} of {totalItems} items
                 </span>
                 
-                <div className="pagination-buttons">
-                    <button 
-                        onClick={() => handlePageChange(currentPage - 1)} 
-                        disabled={currentPage === 1 || loading}
-                    >
-                        &lt; Previous
-                    </button>
-                    
-                    {renderPaginationButtons()}
-                    
-                    <button 
-                        onClick={() => handlePageChange(currentPage + 1)} 
-                        disabled={currentPage >= totalPages || loading}
-                    >
-                        Next &gt;
-                    </button>
-                </div>
+                <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={handlePageChange}
+                    previewCount={7}
+                />
             </div>
 
             {/* ----------- Upload Modal ----------- */}

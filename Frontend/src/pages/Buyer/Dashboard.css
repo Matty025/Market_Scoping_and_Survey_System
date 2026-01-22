@@ -6,6 +6,14 @@
   backdrop-filter: blur(8px);
   transition: all 0.3s ease;
   animation: fadeIn 0.2s ease;
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px;
+  overflow-y: auto;
+  z-index: 1200;
 }
 
 @keyframes fadeIn {
@@ -25,7 +33,9 @@
   animation: slideUp 0.3s ease;
   border: 1px solid rgba(226, 232, 240, 0.8);
   position: relative;
-  overflow: hidden;
+  overflow: auto;
+  max-height: 90vh;
+  width: min(95vw, 720px);
 }
 
 @keyframes slideUp {
@@ -385,6 +395,26 @@
   animation: slideDown 0.3s ease;
 }
 
+.pagination-wrapper {
+  margin-top: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pagination-wrapper.top {
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+
+.pagination-summary {
+  color: #475569;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
 @keyframes slideDown {
   from {
     opacity: 0;
@@ -540,21 +570,23 @@
 /* Responsive Design */
 @media (max-width: 768px) {
   .modal {
-    max-width: 95% !important;
-    margin: 20px;
+    width: 100%;
+    max-width: 100% !important;
+    margin: 0;
+    max-height: 90vh;
   }
 
   .modal-title {
     font-size: 20px;
-    padding: 24px 20px 0 20px;
+    padding: 20px 16px 0 16px;
   }
 
   .purchase-request-form {
-    padding: 0 20px 20px 20px;
+    padding: 0 16px 16px 16px;
   }
 
   .detail-grid {
-    padding: 20px;
+    padding: 16px;
   }
 
   .form-group-row {

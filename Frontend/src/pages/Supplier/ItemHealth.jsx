@@ -4,6 +4,7 @@ import dayjs from "dayjs";
 import { useAuth } from "../../components/AuthContext";
 import Toast from "../../components/Toast";
 import AddProductForm from "./AddProductForm";
+import Pagination from "../../components/Pagination";
 import "./ItemHealth.css";
 
  
@@ -104,6 +105,8 @@ export default function SupplierItemHealth() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
   const [editProduct, setEditProduct] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const closeEditor = useCallback(() => {
     setEditProduct(null);
@@ -148,6 +151,10 @@ export default function SupplierItemHealth() {
     fetchSupplierItems();
   }, [fetchSupplierItems]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, filter, items]);
+
   const handleDelete = useCallback(
     async (item) => {
       const confirmed = window.confirm(
@@ -190,6 +197,14 @@ export default function SupplierItemHealth() {
     }
     return items;
   }, [items, filter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / itemsPerPage));
+  const paginatedItems = filteredItems.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+  const showingStart = filteredItems.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+  const showingEnd = filteredItems.length === 0 ? 0 : Math.min(currentPage * itemsPerPage, filteredItems.length);
 
   const stats = useMemo(() => {
     const total = items.length;
@@ -271,6 +286,20 @@ export default function SupplierItemHealth() {
       </section>
 
       <section className="reports-table-wrapper">
+        {filteredItems.length > 0 && (
+          <div className="pagination-wrapper top">
+            <div className="pagination-summary">
+              Showing {showingStart}-{showingEnd} of {filteredItems.length}
+            </div>
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              previewCount={7}
+            />
+          </div>
+        )}
+
         <table className="reports-table">
           <thead>
             <tr>
@@ -307,7 +336,7 @@ export default function SupplierItemHealth() {
                 </td>
               </tr>
             ) : (
-              filteredItems.map((item) => {
+              paginatedItems.map((item) => {
                 const badge = item.staleInfo.badge;
                 return (
                   <tr key={item.id}>
@@ -365,6 +394,20 @@ export default function SupplierItemHealth() {
             )}
           </tbody>
         </table>
+
+        {filteredItems.length > 0 && (
+          <div className="pagination-wrapper">
+            <div className="pagination-summary">
+              Showing {showingStart}-{showingEnd} of {filteredItems.length}
+            </div>
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              previewCount={7}
+            />
+          </div>
+        )}
       </section>
 
       {editProduct ? (

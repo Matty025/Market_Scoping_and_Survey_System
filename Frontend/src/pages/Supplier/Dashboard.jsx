@@ -4,6 +4,7 @@ import { useAuth } from "../../components/AuthContext";
 import FileCardModal from "../../components/FileCardModal.jsx";
 import Toast from "../../components/Toast";
 import StatusHistoryModal from "../../components/StatusHistoryModal";
+import Pagination from "../../components/Pagination";
 import "./Dashboard.css";
 
 const MS_IN_DAY = 24 * 60 * 60 * 1000;
@@ -635,14 +636,6 @@ const SupplierDashboard = () => {
     }
   }, [currentPage, totalPages]);
 
-  const handlePrevPage = () => {
-    setCurrentPage((prev) => Math.max(1, prev - 1));
-  };
-
-  const handleNextPage = () => {
-    setCurrentPage((prev) => Math.min(totalPages, prev + 1));
-  };
-
   return (
     <div className="supplier-dashboard">
       <Toast
@@ -734,6 +727,18 @@ const SupplierDashboard = () => {
       </div>
 
       <div className="posts-container">
+        {filteredFiles.length > 0 && (
+          <div className="pagination-wrapper top">
+            <div className="pagination-summary">{`Showing ${showingStart}-${showingEnd} of ${filteredFiles.length}`}</div>
+            <Pagination
+              currentPage={normalizedPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              previewCount={7}
+            />
+          </div>
+        )}
+
         {!isLoading && !error && filteredFiles.length === 0 && (
           <p>
             {assignedFiles.length === 0
@@ -990,27 +995,14 @@ const SupplierDashboard = () => {
       </div>
 
       {filteredFiles.length > 0 && (
-        <div className="pagination-controls">
-          <div className="pagination-info">{`Showing ${showingStart}-${showingEnd} of ${filteredFiles.length}`}</div>
-          <div className="pagination-buttons">
-            <button
-              type="button"
-              className="pagination-button"
-              onClick={handlePrevPage}
-              disabled={normalizedPage <= 1}
-            >
-              Previous
-            </button>
-            <span className="pagination-page">Page {normalizedPage} of {totalPages}</span>
-            <button
-              type="button"
-              className="pagination-button"
-              onClick={handleNextPage}
-              disabled={normalizedPage >= totalPages}
-            >
-              Next
-            </button>
-          </div>
+        <div className="pagination-wrapper">
+          <div className="pagination-summary">{`Showing ${showingStart}-${showingEnd} of ${filteredFiles.length}`}</div>
+          <Pagination
+            currentPage={normalizedPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            previewCount={7}
+          />
         </div>
       )}
 

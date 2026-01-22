@@ -21,6 +21,7 @@
 .status-history-table-wrapper {
   max-height: 70vh;
   overflow-y: auto;
+  overflow-x: auto;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
 }
@@ -29,6 +30,7 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 14px;
+  min-width: 640px;
 }
 
 .status-history-table thead {
@@ -78,4 +80,26 @@
   word-break: break-word;
   min-width: 200px;
   color: #1f2937;
+}
+
+@media (max-width: 768px) {
+  .status-history-modal {
+    width: 100%;
+    max-width: 100%;
+    max-height: 85vh;
+    padding: 8px;
+  }
+
+  .status-history-table-wrapper {
+    max-height: 60vh;
+  }
+
+  .status-history-table {
+    font-size: 13px;
+  }
+
+  .status-history-table th,
+  .status-history-table td {
+    padding: 8px 10px;
+  }
 }

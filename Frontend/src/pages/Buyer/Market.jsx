@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import api from "../../api";
 import { useAuth } from "../../components/AuthContext";
+import Pagination from "../../components/Pagination";
 import "./Market.css";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -61,6 +62,7 @@ const Market = () => {
   const [selectedSupplier, setSelectedSupplier] = useState("All");
   const [dateFilter, setDateFilter] = useState("");
   const [modalItem, setModalItem] = useState(null);
+  const [logoPreview, setLogoPreview] = useState(null);
   const [bookmarks, setBookmarks] = useState([]);
   const [cart, setCart] = useState([]);
   const [showBookmarks, setShowBookmarks] = useState(false);
@@ -68,6 +70,8 @@ const Market = () => {
   const [cartFilter, setCartFilter] = useState("All");
   const [selectedCheckout, setSelectedCheckout] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 12;
 
   const buildParams = useCallback(() => {
     const params = {};
@@ -131,6 +135,10 @@ const Market = () => {
     fetchMarketStats();
   }, [fetchMarketItems, fetchMarketStats]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedCategory, selectedSupplier, dateFilter, showBookmarks, showCart]);
+
   const suppliers = useMemo(() => ["All", ...Array.from(new Set(marketItems.map((i) => i.company).filter(Boolean)))], [marketItems]);
 
   const sourceItems = showBookmarks ? bookmarks : showCart ? cart : marketItems;
@@ -147,6 +155,12 @@ const Market = () => {
       return matchesSearch && matchesCategory && matchesSupplier && matchesDate;
     });
   }, [searchQuery, selectedCategory, selectedSupplier, dateFilter, sourceItems]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / itemsPerPage));
+  const currentPageItems = filteredItems.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   const toggleBookmark = (item) => {
     if (bookmarks.find((b) => b.id === item.id)) {
@@ -283,6 +297,18 @@ const Market = () => {
             <button className="see-more-btn" type="button" onClick={clearFilters} title="Clear filters">Clear</button>
           </div>
 
+          {filteredItems.length > 0 && (
+            <div className="pagination-wrapper top">
+              <div className="pagination-summary">Showing {(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filteredItems.length)} of {filteredItems.length}</div>
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                previewCount={7}
+              />
+            </div>
+          )}
+
           <div className="market-grid">
             {isLoading ? (
               <div className="market-loading">
@@ -292,7 +318,7 @@ const Market = () => {
             ) : filteredItems.length === 0 ? (
               <p className="no-items">No items found.</p>
             ) : (
-              filteredItems.map((item) => {
+              currentPageItems.map((item) => {
                 const isBookmarked = bookmarks.some((b) => b.id === item.id);
                 const isInCart = cart.some((c) => c.id === item.id);
                 const logoSrc = buildPublicLogoUrl(item.logo);
@@ -305,6 +331,8 @@ const Market = () => {
                           <img
                             src={logoSrc}
                             alt=""
+                            role="button"
+                            onClick={(e) => { e.stopPropagation(); setLogoPreview(logoSrc); }}
                             onError={(e) => {
                               const el = e.currentTarget.closest('.market-logo');
                               if (el) el.classList.add('fallback');
@@ -335,6 +363,17 @@ const Market = () => {
               })
             )}
           </div>
+          {filteredItems.length > 0 && (
+            <div className="pagination-wrapper">
+              <div className="pagination-summary">Showing {(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filteredItems.length)} of {filteredItems.length}</div>
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                previewCount={7}
+              />
+            </div>
+          )}
         </>
       ) : (
         <div className="cart-container">
@@ -412,6 +451,15 @@ const Market = () => {
                 🛒 {cart.some((c) => c.id === modalItem.id) ? "In Cart" : "Add to Cart"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {logoPreview && (
+        <div className="logo-preview-overlay" onClick={() => setLogoPreview(null)}>
+          <div className="logo-preview" onClick={(e) => e.stopPropagation()}>
+            <button className="logo-preview-close" onClick={() => setLogoPreview(null)} aria-label="Close image">✖</button>
+            <img src={logoPreview} alt="Supplier logo" />
           </div>
         </div>
       )}
