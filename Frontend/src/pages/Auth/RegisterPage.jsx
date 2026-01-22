@@ -1,5 +1,6 @@
 // ===== LIBRARIES =====
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import api from "../../api";
 import { FaSyncAlt, FaEye, FaEyeSlash, FaCheckCircle } from "react-icons/fa"; // Added refresh + password toggle icons
@@ -45,6 +46,10 @@ const useRegistrationForm = () => {
   const [showRefresh, setShowRefresh] = useState(false);
   const [verifyInlineError, setVerifyInlineError] = useState("");
   const [blockedEmails, setBlockedEmails] = useState([]); // emails rejected this session
+  const [isLegalModalOpen, setIsLegalModalOpen] = useState(false);
+  const [hasAgreedLegal, setHasAgreedLegal] = useState(false);
+  const [hasScrolledLegal, setHasScrolledLegal] = useState(false);
+  const legalBodyRef = useRef(null);
 
   // Hydrate form (except passwords) from sessionStorage on mount
   useEffect(() => {
@@ -256,6 +261,17 @@ const useRegistrationForm = () => {
     }
   }, [verifyStatus]);
 
+  useEffect(() => {
+    if (!isLegalModalOpen) return;
+    setHasScrolledLegal(false);
+    const el = legalBodyRef.current;
+    if (!el) return;
+    const fitsWithoutScroll = el.scrollHeight - el.clientHeight <= 4;
+    if (fitsWithoutScroll) {
+      setHasScrolledLegal(true);
+    }
+  }, [isLegalModalOpen]);
+
   const handleCheckVerified = () => checkVerificationStatus({ silent: false, enforceCooldown: true });
 
   const handleFinalSubmit = async e => {
@@ -266,6 +282,10 @@ const useRegistrationForm = () => {
     } else if (e && typeof e === "object" && Array.isArray(e.categories)) {
       // update selected categories from form values if provided
       setFormData(prev => ({ ...prev, selectedCategories: e.categories }));
+    }
+
+    if (!hasAgreedLegal) {
+      return showToast("error", "Please agree to the Terms & Privacy Policy to continue.");
     }
 
     if (role === "supplier" && formData.selectedCategories.length === 0) {
@@ -321,6 +341,11 @@ const useRegistrationForm = () => {
 
   const handleInitialRegister = e => {
     e.preventDefault();
+    if (!hasAgreedLegal) {
+      setVerifyInlineError("You must agree to the Terms & Privacy Policy before registering.");
+      showToast("error", "Please agree to the Terms & Privacy Policy.");
+      return;
+    }
     const error = validate();
     if (error) return showToast("error", error);
 
@@ -358,6 +383,13 @@ const useRegistrationForm = () => {
     setAutoPollCount,
     showRefresh,
     verifyInlineError,
+    isLegalModalOpen,
+    setIsLegalModalOpen,
+    hasAgreedLegal,
+    setHasAgreedLegal,
+    hasScrolledLegal,
+    setHasScrolledLegal,
+    legalBodyRef,
   };
 };
 
@@ -506,6 +538,13 @@ export default function RegisterPage() {
     setAutoPollCount,
     showRefresh,
     verifyInlineError,
+    isLegalModalOpen,
+    setIsLegalModalOpen,
+    hasAgreedLegal,
+    setHasAgreedLegal,
+    hasScrolledLegal,
+    setHasScrolledLegal,
+    legalBodyRef,
   } = useRegistrationForm();
 
   useAutoPollVerification(verifyStatus, preToken, checkVerificationStatus, autoPollCount, setAutoPollCount);
@@ -536,6 +575,20 @@ export default function RegisterPage() {
 
         {role === "supplier" && <DocumentChecks formData={formData} handleChange={handleChange} />}
 
+        <div className="legal-consent">
+          <button
+            type="button"
+            className="legal-link"
+            onClick={() => {
+              setHasScrolledLegal(false);
+              setIsLegalModalOpen(true);
+            }}
+          >
+            {hasAgreedLegal && <FaCheckCircle className="legal-check" aria-hidden />}
+            <span>I agree to the Terms & Conditions and Privacy Policy</span>
+          </button>
+        </div>
+
         <div className="action-buttons">
           <button type="submit" disabled={isSubmitting} className="register-btn">
             {isSubmitting ? "Validating..." : (role === "supplier" ? "Next: Select Categories" : "Register")}
@@ -557,6 +610,48 @@ export default function RegisterPage() {
       <p className="login-link">
         Already have an account? <button onClick={() => navigate("/")}>Login</button>
       </p>
+
+      {isLegalModalOpen && typeof document !== "undefined" && createPortal(
+        <div className="legal-modal-overlay" onClick={() => setIsLegalModalOpen(false)}>
+          <div className="legal-modal" onClick={e => e.stopPropagation()}>
+            <header className="legal-modal-header">
+              <h3>Terms & Conditions / Privacy Policy</h3>
+              <button className="legal-close" onClick={() => setIsLegalModalOpen(false)} aria-label="Close">✖</button>
+            </header>
+            <div
+              className="legal-modal-body"
+              ref={legalBodyRef}
+              onScroll={e => {
+                const el = e.currentTarget;
+                if (!el) return;
+                const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight <= 16;
+                if (atBottom) setHasScrolledLegal(true);
+              }}
+            >
+              <p><strong>Placeholder Terms</strong> — This is where your formal Terms & Conditions content will go. Include user responsibilities, acceptable use, account security, and liability limits.</p>
+              <p><strong>Data Use</strong> — Explain what data is collected, why it is collected, and how it is used. Clarify retention, sharing, and user rights.</p>
+              <p><strong>Privacy Commitments</strong> — Describe storage, encryption, and access controls. Note how users can request deletion or corrections.</p>
+              <p><strong>Communications</strong> — Indicate when emails/notifications may be sent and how users can manage preferences.</p>
+              <p><strong>Changes</strong> — State how updates to these terms will be communicated and when they take effect.</p>
+              <p><strong>Contact</strong> — Provide a contact email/phone for questions about terms or privacy.</p>
+              <p>Scroll to the bottom to enable the Agree button.</p>
+            </div>
+            <div className="legal-modal-actions">
+              <button type="button" className="legal-disagree" onClick={() => { setHasAgreedLegal(false); setIsLegalModalOpen(false); }}>
+                Disagree
+              </button>
+              <button
+                type="button"
+                className="legal-agree"
+                disabled={!hasScrolledLegal}
+                onClick={() => { setHasAgreedLegal(true); setIsLegalModalOpen(false); }}
+              >
+                I Agree
+              </button>
+            </div>
+          </div>
+        </div>, document.body
+      )}
     </div>
   );
 }
