@@ -745,6 +745,11 @@
           <span className="status-pill" style={{ backgroundColor: statusColor }}>
             {statusLabel}
           </span>
+          {attemptCount > 1 && (
+            <span className="status-pill" style={{ backgroundColor: "#8b5cf6" }}>
+              Reposted · Attempt {attemptCount}
+            </span>
+          )}
           {actionButtons.length > 0 && (
             <div className="status-action-group">
               {actionButtons.map((action) => {

@@ -355,7 +355,7 @@ router.get("/announcements", protect, async (req, res) => {
         SELECT
           pf.*,
           (pf."EndDate" IS NOT NULL AND pf."EndDate" < NOW()) AS "IsExpired",
-          1 AS "AttemptNumber",
+          COALESCE(attempts.attempts, 1) AS "AttemptNumber",
           NULL::timestamptz AS "AttemptSentAt",
           NULL::text AS "AttemptStatus",
           COALESCE(response_stats.responder_distinct, 0) AS "DistinctResponderCount",
@@ -377,6 +377,14 @@ router.get("/announcements", protect, async (req, res) => {
           JOIN "SupplierResponses" sr ON sr."SupplierFileID" = sf."SupplierFileID"
           WHERE sf."FileID" = pf."FileID"
         ) AS response_stats ON TRUE
+        LEFT JOIN LATERAL (
+          SELECT COALESCE(1 + COUNT(*) FILTER (
+                      WHERE psh."OldStatus" IN ('FAILED_POSTING', 'COMPLETED')
+                        AND psh."NewStatus" = 'ACTIVE'
+                    ), 1) AS attempts
+            FROM "ProcurementStatusHistory" psh
+           WHERE psh."FileID" = pf."FileID"
+        ) AS attempts ON TRUE
         LEFT JOIN LATERAL (
           SELECT
             COUNT(*) AS total_suppliers,
