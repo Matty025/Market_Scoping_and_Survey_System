@@ -354,6 +354,7 @@ router.get("/announcements", protect, async (req, res) => {
       WITH filtered AS (
         SELECT
           pf.*,
+          (pf."EndDate" IS NOT NULL AND pf."EndDate" < NOW()) AS "IsExpired",
           1 AS "AttemptNumber",
           NULL::timestamptz AS "AttemptSentAt",
           NULL::text AS "AttemptStatus",
