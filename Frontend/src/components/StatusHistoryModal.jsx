@@ -65,18 +65,21 @@ const StatusHistoryModal = ({ visible, onClose, records = [], announcement, load
     });
 
     let currentAttempt = 0;
-    return sorted.map((row) => {
-      const next = { ...row };
-      const newStatusUpper = next.newStatus ? String(next.newStatus).toUpperCase() : "";
-      const oldStatusUpper = next.oldStatus ? String(next.oldStatus).toUpperCase() : "";
-      const isInitialActivation = !oldStatusUpper && newStatusUpper === "ACTIVE";
-      const isRepostActivation = ["FAILED_POSTING", "COMPLETED"].includes(oldStatusUpper) && newStatusUpper === "ACTIVE";
-      if (isInitialActivation || isRepostActivation) {
-        currentAttempt += 1;
-      }
-      next.attemptNumber = currentAttempt > 0 ? currentAttempt : null;
-      return next;
-    }).reverse();
+    return sorted
+      .map((row) => {
+        const next = { ...row };
+        const newStatusUpper = next.newStatus ? String(next.newStatus).toUpperCase() : "";
+
+        // Increment on every transition to ACTIVE; mirrors backend attempt counting.
+        if (newStatusUpper === "ACTIVE") {
+          currentAttempt += 1;
+        }
+
+        // Carry forward the latest attempt number so rows after an ACTIVE still show the attempt grouping.
+        next.attemptNumber = currentAttempt > 0 ? currentAttempt : null;
+        return next;
+      })
+      .reverse();
   }, [records]);
 
   return (
