@@ -108,9 +108,7 @@ const getActiveAttemptCount = async (client, fileId) => {
 
   try {
     const { rows } = await client.query(
-      `SELECT COALESCE(1 + COUNT(*) FILTER (
-                WHERE "OldStatus" IN ('FAILED_POSTING', 'COMPLETED') AND "NewStatus" = 'ACTIVE'
-              ), 1) AS attempts
+      `SELECT COALESCE(NULLIF(COUNT(*) FILTER (WHERE "NewStatus" = 'ACTIVE'), 0), 1) AS attempts
          FROM "ProcurementStatusHistory"
         WHERE "FileID" = $1`,
       [targetId]
@@ -378,10 +376,9 @@ router.get("/announcements", protect, async (req, res) => {
           WHERE sf."FileID" = pf."FileID"
         ) AS response_stats ON TRUE
         LEFT JOIN LATERAL (
-          SELECT COALESCE(1 + COUNT(*) FILTER (
-                      WHERE psh."OldStatus" IN ('FAILED_POSTING', 'COMPLETED')
-                        AND psh."NewStatus" = 'ACTIVE'
-                    ), 1) AS attempts
+          SELECT COALESCE(NULLIF(COUNT(*) FILTER (
+                      WHERE psh."NewStatus" = 'ACTIVE'
+                    ), 0), 1) AS attempts
             FROM "ProcurementStatusHistory" psh
            WHERE psh."FileID" = pf."FileID"
         ) AS attempts ON TRUE
@@ -875,9 +872,7 @@ router.put("/announcements/:id", protect, upload.single("file"), async (req, res
       LEFT JOIN cats ON cats."FileID" = b."FileID"
       LEFT JOIN cat_suppliers_agg ON TRUE
        LEFT JOIN LATERAL (
-         SELECT COALESCE(1 + COUNT(*) FILTER (
-                      WHERE h."OldStatus" IN ('FAILED_POSTING', 'COMPLETED') AND h."NewStatus" = 'ACTIVE'
-                    ), 1) AS attempt_count,
+         SELECT COALESCE(NULLIF(COUNT(*) FILTER (WHERE h."NewStatus" = 'ACTIVE'), 0), 1) AS attempt_count,
                 MAX(CASE WHEN h."NewStatus" = 'ACTIVE' THEN h."ChangedAt" END) AS latest_active_at,
                 (
                   SELECT h2."NewStatus"
