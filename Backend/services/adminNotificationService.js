@@ -100,13 +100,21 @@ async function sendPendingAccountEmail({ fullName, email, role, companyName, toO
 
 module.exports = { sendPendingAccountEmail };
 
+const formatStatusLabel = (status) => {
+  if (!status) return "Unknown";
+  return String(status)
+    .toLowerCase()
+    .replace(/_/g, " ")
+    .replace(/(^|\s)\w/g, (c) => c.toUpperCase());
+};
+
 async function sendAccountStatusEmail({ email, fullName, status, notes }) {
   if (!email || !sendMail) {
     console.warn("[adminNotification] Missing email or sendMail unavailable; skipping account status email.");
     return;
   }
 
-  const statusLabel = (status || "").toString().toUpperCase();
+  const statusLabel = formatStatusLabel(status);
   const bodyNote = (notes && notes.toString().trim().length > 0)
     ? notes.toString().trim()
     : "No additional notes were provided.";
@@ -115,13 +123,13 @@ async function sendAccountStatusEmail({ email, fullName, status, notes }) {
 
   await sendMail({
     to: email,
-    subject: `[MSSS] Account status updated: ${statusLabel || "UNKNOWN"}`,
+    subject: `[MSSS] Account Status Updated: ${statusLabel}`,
     html: `
       <h3>Hello ${safeName},</h3>
-      <p>Your account status has been updated to <strong>${statusLabel || "UNKNOWN"}</strong>.</p>
-      <p><strong>Notes from admin:</strong></p>
+      <p>Your account status was updated to <strong>${statusLabel}</strong>.</p>
+      <p><strong>Notes from the admin team:</strong></p>
       <p>${bodyNote.replace(/\n/g, "<br/>")}</p>
-      <p>If you have questions, please reply to this email.</p>
+      <p>If you have any questions, reply directly to this email.</p>
     `,
   });
 

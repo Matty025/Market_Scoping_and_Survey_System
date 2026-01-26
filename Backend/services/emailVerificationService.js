@@ -48,12 +48,13 @@ async function sendVerificationEmail(userId, email) {
 
   await sendMail({
     to: email,
-    subject: "Verify your email for MSSS notifications",
+    subject: "Verify your email for MSSS",
     html: `
-      <h3>Email Verification</h3>
-      <p>Please click the link below to verify your email:</p>
-      <p><a href="${verifyLink}">Verify Email</a></p>
-      <p>This link expires in 24 hours.</p>
+      <h3>Confirm your email</h3>
+      <p>Hi there,</p>
+      <p>Please verify your email to receive MSSS updates and notifications.</p>
+      <p><a href="${verifyLink}">Verify my email</a></p>
+      <p>This link expires in 24 hours. If you did not request this, you can ignore this message.</p>
     `,
   });
 }
@@ -64,12 +65,13 @@ async function sendPreRegistrationEmail(email, token) {
 
   await sendMail({
     to: email,
-    subject: "Verify your email to finish MSSS registration",
+    subject: "Confirm your email to finish MSSS registration",
     html: `
-      <h3>Email Verification</h3>
-      <p>Please confirm this email to continue your registration.</p>
-      <p><a href="${verifyLink}">Verify Email</a></p>
-      <p>This link expires in 24 hours.</p>
+      <h3>Finish setting up your account</h3>
+      <p>Hi there,</p>
+      <p>Please confirm this email to continue your MSSS registration.</p>
+      <p><a href="${verifyLink}">Confirm my email</a></p>
+      <p>This link expires in 24 hours. If you did not start this registration, you can ignore this message.</p>
     `,
   });
 }

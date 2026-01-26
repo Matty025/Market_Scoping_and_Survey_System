@@ -3,6 +3,14 @@ const mailer = require("../utils/mailer");
 // For admin-facing notifications about announcement lifecycle changes
 const db = require("../db");
 
+const formatStatusLabel = (status) => {
+  if (!status) return "Unknown";
+  return String(status)
+    .toLowerCase()
+    .replace(/_/g, " ")
+    .replace(/(^|\s)\w/g, (c) => c.toUpperCase());
+};
+
 // Resolve sendMail similar to other services
 let sendMail =
   (mailer && typeof mailer.sendMail === "function" && mailer.sendMail)
@@ -75,8 +83,8 @@ async function notifySuppliersPosted({ fileId, title, supplierIds }) {
   const subject = `[MSSS] New Announcement: ${title || fileId}`;
   const html = `
     <h3>New procurement announcement posted</h3>
-    <p><strong>Title:</strong> ${title || '(untitled announcement)'}</p>
-    <p>Please sign in to view details and respond.</p>
+    <p><strong>Title:</strong> ${title || '(Untitled announcement)'}</p>
+    <p>You have been invited to participate. Sign in to view the details and respond.</p>
   `;
   await sendMail({
     to: recipients.map((r) => r.email),
@@ -94,13 +102,16 @@ async function notifySuppliersStatusChange({ fileId, title, status, previousStat
     return;
   }
 
-  const subject = `[MSSS] Announcement update: ${title || fileId} -> ${status}`;
+  const statusLabel = formatStatusLabel(status);
+  const previousStatusLabel = previousStatus ? formatStatusLabel(previousStatus) : null;
+
+  const subject = `[MSSS] Announcement Update: ${title || fileId} → ${statusLabel}`;
   const lines = [
     `<strong>Announcement:</strong> ${title || `(ID ${fileId})`}`,
-    `<strong>New Status:</strong> ${status || 'N/A'}`,
+    `<strong>New Status:</strong> ${statusLabel}`,
   ];
 
-  if (previousStatus) lines.push(`<strong>Previous Status:</strong> ${previousStatus}`);
+  if (previousStatusLabel) lines.push(`<strong>Previous Status:</strong> ${previousStatusLabel}`);
   if (notes) {
     lines.push(`<strong>Notes:</strong> ${notes.toString().replace(/\n/g, '<br/>')}`);
   }
@@ -133,13 +144,16 @@ async function notifyAdminsStatusChange({ fileId, title, status, previousStatus,
     return;
   }
 
-  const subject = `[MSSS] Announcement status: ${title || fileId} -> ${status}`;
+  const statusLabel = formatStatusLabel(status);
+  const previousStatusLabel = previousStatus ? formatStatusLabel(previousStatus) : null;
+
+  const subject = `[MSSS] Announcement Status: ${title || fileId} → ${statusLabel}`;
   const lines = [
     `<strong>Announcement:</strong> ${title || `(ID ${fileId})`}`,
-    `<strong>New Status:</strong> ${status || 'N/A'}`,
+    `<strong>New Status:</strong> ${statusLabel}`,
   ];
 
-  if (previousStatus) lines.push(`<strong>Previous Status:</strong> ${previousStatus}`);
+  if (previousStatusLabel) lines.push(`<strong>Previous Status:</strong> ${previousStatusLabel}`);
   if (notes) {
     lines.push(`<strong>Notes:</strong> ${notes.toString().replace(/\n/g, '<br/>')}`);
   }
