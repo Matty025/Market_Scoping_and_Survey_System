@@ -342,6 +342,10 @@ const fileRoutes = require("./routes/fileRoutes");
 console.log("[Server.js] fileRoutes loaded.");
 app.use("/api/files", fileRoutes);
 
+const notificationRoutes = require("./routes/notificationRoutes");
+console.log("[Server.js] notificationRoutes loaded.");
+app.use("/api/notifications", notificationRoutes);
+
 // --- Auto-fail postings that lapse after their end date (Asia/Singapore) ---
 const EXPIRY_SWEEP_INTERVAL_MS = 5 * 60 * 1000; // every 5 minutes
 const AUTO_FAIL_NOTES = "Auto-failed: End date passed in Asia/Singapore at 12:00 AM.";

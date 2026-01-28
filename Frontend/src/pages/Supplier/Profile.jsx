@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import api from "../../api";
 import { useAuth } from "../../components/AuthContext";
+import ChangePasswordCard from "../../components/ChangePasswordCard";
 import "./Profile.css";
 
 export default function Profile() {
@@ -260,6 +261,8 @@ export default function Profile() {
           </div>
         </div>
       )}
+
+      <ChangePasswordCard />
     </div>
   );
 }

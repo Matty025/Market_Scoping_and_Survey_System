@@ -32,10 +32,11 @@
   box-sizing: border-box;
   padding: 12px 14px;
   background-color: #f5f6fa;
-  overflow-y: auto;
-  overscroll-behavior-y: contain;
-  -webkit-overflow-scrolling: touch;
-  height: calc(100dvh - var(--navbar-height));
+  overflow-y: visible;
+  overscroll-behavior: auto;
+  -webkit-overflow-scrolling: auto;
+  min-height: calc(100dvh - var(--navbar-height));
+  height: auto;
   max-width: 100%;
 }
 

@@ -245,3 +245,51 @@
   object-fit: contain;
   border-radius: 12px;
 }
+
+.password-card {
+  margin-top: 24px;
+  padding: 20px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.password-card h3 {
+  margin: 0 0 6px;
+}
+
+.password-helper {
+  margin: 0 0 14px;
+  color: #475569;
+  font-size: 14px;
+}
+
+.password-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.password-form .field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.password-form input {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  font-size: 14px;
+}
+
+.password-error {
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+.password-success {
+  color: #166534;
+  font-weight: 600;
+}

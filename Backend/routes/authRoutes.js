@@ -18,6 +18,11 @@ const forgotLimit = new Map();
 const FORGOT_WINDOW_MS = 60 * 1000; // 1 minute window
 const FORGOT_MAX_ATTEMPTS = 3; // max attempts per window per (ip+email)
 
+// In-memory change-password throttle (per process). Keeps quick successive submits down.
+const passwordChangeLimit = new Map();
+const PASSWORD_WINDOW_MS = 30 * 1000; // 30s window
+const PASSWORD_MAX_ATTEMPTS = 3;
+
 const router = express.Router();
 
 // REGISTER (Buyer or Supplier)
@@ -349,6 +354,60 @@ router.patch("/email", protect, async (req, res) => {
     });
   } catch (error) {
     console.error("[email/update] error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Change password with current password (auth required)
+router.post("/password", protect, async (req, res) => {
+  const userId = req.user?.userID || req.user?.id;
+  const { currentPassword, newPassword, confirmPassword } = req.body || {};
+
+  if (!userId) return res.status(401).json({ message: "Not authorized" });
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ message: "Current and new passwords are required." });
+  }
+  if (newPassword.length < 8) {
+    return res.status(400).json({ message: "Password must be at least 8 characters." });
+  }
+  if (confirmPassword && confirmPassword !== newPassword) {
+    return res.status(400).json({ message: "Passwords do not match." });
+  }
+
+  const key = userId;
+  const now = Date.now();
+  const entry = passwordChangeLimit.get(key);
+  if (entry && entry.resetAt > now) {
+    if (entry.count >= PASSWORD_MAX_ATTEMPTS) {
+      const retryIn = Math.ceil((entry.resetAt - now) / 1000);
+      return res.status(429).json({ message: "Too many attempts. Try again soon.", retryInSeconds: retryIn });
+    }
+    entry.count += 1;
+    passwordChangeLimit.set(key, entry);
+  } else {
+    passwordChangeLimit.set(key, { count: 1, resetAt: now + PASSWORD_WINDOW_MS });
+  }
+
+  try {
+    const user = await pool.query(`SELECT "PasswordHash" FROM "Users" WHERE "UserID" = $1`, [userId]);
+    if (user.rowCount === 0) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    const matches = await bcrypt.compare(currentPassword, user.rows[0].PasswordHash);
+    if (!matches) {
+      return res.status(400).json({ message: "Current password is incorrect." });
+    }
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await pool.query(
+      `UPDATE "Users" SET "PasswordHash" = $1 WHERE "UserID" = $2`,
+      [hashed, userId]
+    );
+
+    return res.json({ message: "Password updated successfully." });
+  } catch (error) {
+    console.error("[auth/password] error:", error);
     return res.status(500).json({ message: "Server error" });
   }
 });

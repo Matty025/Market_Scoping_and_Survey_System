@@ -398,10 +398,10 @@
 .pagination-wrapper {
   margin-top: 16px;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  width: 100%;
 }
 
 .pagination-wrapper.top {

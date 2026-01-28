@@ -3,6 +3,7 @@ import api from "../../api";
 import { useAuth } from "../../components/AuthContext";
 import "./Profile.css";
 import "../Supplier/Profile.css"; // reuse status-dot styles
+import ChangePasswordCard from "../../components/ChangePasswordCard";
 
 export default function BuyerProfile() {
   const [profile, setProfile] = useState(null);
@@ -203,6 +204,8 @@ export default function BuyerProfile() {
           <span>{joinedAt ? new Date(joinedAt).toLocaleDateString() : "—"}</span>
         </div>
       </div>
+
+      <ChangePasswordCard />
 
         {showAvatarModal && (
           <div className="verify-modal-backdrop" onClick={() => setShowAvatarModal(false)}>

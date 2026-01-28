@@ -30,11 +30,12 @@
   flex: 1;
   padding: 12px 14px;
   background-color: #f5f6fa;
-  overflow-y: auto;
-  overscroll-behavior-y: contain;
-  -webkit-overflow-scrolling: touch;
+  overflow-y: visible;
+  overscroll-behavior: auto;
+  -webkit-overflow-scrolling: auto;
   box-sizing: border-box;
-  height: calc(100dvh - var(--navbar-height));
+  min-height: calc(100dvh - var(--navbar-height));
+  height: auto;
   width: 100%;
   max-width: 100%;
 }

@@ -9,6 +9,7 @@ const fs = require("fs");
 const { sendPendingAccountEmail, sendAccountStatusEmail } = require("../services/adminNotificationService");
 const { notifyBuyerPurchaseStatus } = require("../services/prNotificationService");
 const { notifySuppliersPosted, notifyAdminsStatusChange, notifySuppliersStatusChange } = require("../services/announcementNotificationService");
+const notificationService = require("../services/notificationService");
 // Require buyer routes to reuse history helper
 const buyerRoutes = require('./BuyerRoutes');
 
@@ -2500,17 +2501,18 @@ router.patch("/buyer-requests/:id/status", protect, async (req, res) => {
 
   try {
     const updateQuery = `
-      UPDATE "BuyerUploads"
-      SET "Status" = $1, 
-          "AdminFeedback" = $2
-      WHERE "UploadID" = $3
-      RETURNING 
-        "UploadID" as id,
-        "Title" as title,
-        "Status" as status,
-        "AdminFeedback" as "adminFeedback",
-        "DateUploaded" as "dateUploaded"
-    `;
+        UPDATE "BuyerUploads"
+        SET "Status" = $1, 
+            "AdminFeedback" = $2
+        WHERE "UploadID" = $3
+        RETURNING 
+          "UploadID" as id,
+          "UserID" as "userId",
+          "Title" as title,
+          "Status" as status,
+          "AdminFeedback" as "adminFeedback",
+          "DateUploaded" as "dateUploaded"
+      `;
     
     const { rows } = await pool.query(updateQuery, [
       status.toUpperCase(), 
@@ -2548,6 +2550,20 @@ router.patch("/buyer-requests/:id/status", protect, async (req, res) => {
     notifyBuyerPurchaseStatus(uploadId, status, feedback).catch((err) => {
       console.warn('[adminRoutes] Failed to send buyer PR status email:', err && err.message ? err.message : err);
     });
+
+    // Create in-app notification for the buyer (fire-and-forget)
+    const buyerUserId = rows[0]?.userId;
+    if (buyerUserId) {
+      notificationService.createNotification({
+        userId: buyerUserId,
+        type: "buyer_request_status",
+        title: "Purchase request update",
+        body: `${rows[0].title || 'Your request'} is now ${status.toUpperCase()}.`,
+        metadata: { uploadId, status: status.toUpperCase(), feedback: feedback || null },
+      }).catch((err) => {
+        console.warn('[adminRoutes] Failed to create buyer notification:', err && err.message ? err.message : err);
+      });
+    }
 
     res.json({ 
       message: 'Status updated successfully', 
