@@ -46,15 +46,13 @@ const AdminLayout = () => {
     }
   }, [location.pathname]);
 
-  // Prevent background scroll only when sidebar overlays on small screens
+  // Avoid locking body scroll; ensure any prior locks are cleared
   useEffect(() => {
     if (typeof document === "undefined") return;
     const html = document.documentElement;
     const body = document.body;
-    const isOverlay = typeof window !== "undefined" && window.innerWidth <= 768;
-    const nextOverflow = isOverlay && isSidebarOpen ? "hidden" : "";
-    html.style.overflow = nextOverflow;
-    body.style.overflow = nextOverflow;
+    html.style.overflow = "";
+    body.style.overflow = "";
     return () => {
       html.style.overflow = "";
       body.style.overflow = "";

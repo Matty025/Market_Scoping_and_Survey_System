@@ -13,6 +13,10 @@ const passwordResetService = require("../services/passwordResetService");
 // In-memory edit throttle (per process). For production, move to Redis/DB.
 const editLimit = new Map();
 const EDIT_WINDOW_MS = 60 * 1000; // 1 minute for debugging (was 24h)
+// In-memory forgot-password throttle. For production, prefer Redis/DB + IP reputation.
+const forgotLimit = new Map();
+const FORGOT_WINDOW_MS = 60 * 1000; // 1 minute window
+const FORGOT_MAX_ATTEMPTS = 3; // max attempts per window per (ip+email)
 
 const router = express.Router();
 
@@ -225,6 +229,21 @@ router.post("/login", async (req, res) => {
 router.post("/forgot", async (req, res) => {
   const { email } = req.body || {};
   if (!email) return res.status(400).json({ message: "Email is required" });
+
+  const ip = (req.headers["x-forwarded-for"] || "").toString().split(",")[0].trim() || req.ip || "unknown";
+  const key = `${ip}|${email.toLowerCase()}`;
+  const now = Date.now();
+  const entry = forgotLimit.get(key);
+  if (entry && entry.resetAt > now) {
+    if (entry.count >= FORGOT_MAX_ATTEMPTS) {
+      const retryIn = Math.ceil((entry.resetAt - now) / 1000);
+      return res.status(429).json({ message: "Too many reset attempts. Try again soon.", retryInSeconds: retryIn });
+    }
+    entry.count += 1;
+    forgotLimit.set(key, entry);
+  } else {
+    forgotLimit.set(key, { count: 1, resetAt: now + FORGOT_WINDOW_MS });
+  }
 
   const baseUrl = process.env.FRONTEND_URL
     || req.headers.origin

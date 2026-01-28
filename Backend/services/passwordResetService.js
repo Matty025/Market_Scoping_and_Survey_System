@@ -57,22 +57,31 @@ async function requestPasswordReset(email, { baseUrl, expiresMinutes = 60 } = {}
 
   const resetLink = buildResetLink(baseUrl, rawToken);
 
-  if (sendMail && resetLink) {
-    try {
-      await sendMail({
-        to: user.Email,
-        subject: '[MSSS] Reset your password',
-        html: `
-          <h3>Password reset requested</h3>
-          <p>Hello ${user.FullName || 'there'},</p>
-          <p>We received a request to reset your password. Click the button below to choose a new one.</p>
-          <p><a href="${resetLink}" style="padding:10px 16px; background:#1f7ae0; color:#fff; text-decoration:none; border-radius:6px;">Reset Password</a></p>
-          <p>If you did not request this, you can ignore this email. This link expires in ${expiresMinutes} minutes.</p>
-        `,
-      });
-    } catch (err) {
-      console.warn('[passwordReset] Failed to send reset email:', err && err.message ? err.message : err);
-    }
+  if (!sendMail) {
+    console.warn('[passwordReset] sendMail unavailable. Check SYSTEM_EMAIL / SYSTEM_EMAIL_APP_PASSWORD or mailer exports.');
+    return { ok: true, sent: false, reason: 'mailer_unavailable' };
+  }
+
+  if (!resetLink) {
+    console.warn('[passwordReset] resetLink missing. Provide FRONTEND_URL or Origin header.');
+    return { ok: true, sent: false, reason: 'link_missing' };
+  }
+
+  try {
+    await sendMail({
+      to: user.Email,
+      subject: '[MSSS] Reset your password',
+      html: `
+        <h3>Password reset requested</h3>
+        <p>Hello ${user.FullName || 'there'},</p>
+        <p>We received a request to reset your password. Click the button below to choose a new one.</p>
+        <p><a href="${resetLink}" style="padding:10px 16px; background:#1f7ae0; color:#fff; text-decoration:none; border-radius:6px;">Reset Password</a></p>
+        <p>If you did not request this, you can ignore this email. This link expires in ${expiresMinutes} minutes.</p>
+      `,
+    });
+  } catch (err) {
+    console.warn('[passwordReset] Failed to send reset email:', err && err.message ? err.message : err);
+    return { ok: true, sent: false, reason: 'send_failed' };
   }
 
   return { ok: true, sent: true };

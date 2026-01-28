@@ -33,8 +33,9 @@
   padding: 12px 14px;
   background-color: #f5f6fa;
   overflow-y: auto;
-  overscroll-behavior: contain; /* prevent bounce/over-scroll gray gap */
-  min-height: calc(100dvh - var(--navbar-height));
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  height: calc(100dvh - var(--navbar-height));
   max-width: 100%;
 }
 
