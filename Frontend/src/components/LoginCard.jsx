@@ -137,6 +137,13 @@ export default function LoginCard() {
             />
             Remember Me
           </label>
+          <button
+            type="button"
+            className="forgot-password"
+            onClick={() => navigate("/forgot-password")}
+          >
+            Forgot Password?
+          </button>
         </div>
 
         <button type="submit" className="login-btn" disabled={isLoggingIn}>

@@ -8,6 +8,7 @@ const { protect } = require("./authMiddleware");
 const { sendVerificationEmail } = require("../services/emailVerificationService");
 const { sendPendingAccountEmail } = require("../services/adminNotificationService");
 const preverifyStore = require("../services/preverifyStore");
+const passwordResetService = require("../services/passwordResetService");
 
 // In-memory edit throttle (per process). For production, move to Redis/DB.
 const editLimit = new Map();
@@ -106,7 +107,6 @@ router.post("/register", async (req, res) => {
 
     try {
       await client.query("BEGIN");
-
       // 1. Create supplier
       const supplier = await SupplierModel.createSupplier(
         companyName, address, contactNumber,
@@ -218,6 +218,46 @@ router.post("/login", async (req, res) => {
   } catch (error) {
     console.error("Login error:", error);
     res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Forgot password - send reset link (non-enumerating response)
+router.post("/forgot", async (req, res) => {
+  const { email } = req.body || {};
+  if (!email) return res.status(400).json({ message: "Email is required" });
+
+  const baseUrl = process.env.FRONTEND_URL
+    || req.headers.origin
+    || req.headers.referer
+    || "http://localhost:5173";
+
+  try {
+    await passwordResetService.requestPasswordReset(email, { baseUrl, expiresMinutes: 60 });
+  } catch (err) {
+    console.error("[auth/forgot] error:", err && err.message ? err.message : err);
+    // Still return 200 to avoid email enumeration
+  }
+
+  return res.json({ message: "If the email exists, we sent a reset link." });
+});
+
+// Reset password using token
+router.post("/reset", async (req, res) => {
+  const { token, password, confirmPassword } = req.body || {};
+
+  if (!token || !password) return res.status(400).json({ message: "Token and new password are required." });
+  if (password.length < 8) return res.status(400).json({ message: "Password must be at least 8 characters." });
+  if (confirmPassword && confirmPassword !== password) return res.status(400).json({ message: "Passwords do not match." });
+
+  try {
+    const result = await passwordResetService.resetPasswordWithToken(token, password);
+    if (!result.ok) {
+      return res.status(400).json({ message: "Invalid or expired reset link." });
+    }
+    return res.json({ message: "Password has been reset. You can now log in." });
+  } catch (err) {
+    console.error("[auth/reset] error:", err && err.message ? err.message : err);
+    return res.status(500).json({ message: "Server error" });
   }
 });
 

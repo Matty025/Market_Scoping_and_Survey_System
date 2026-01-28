@@ -7,6 +7,8 @@ import { Toaster } from 'react-hot-toast'; // 💡 IMPORTED THE TOASTER
 import RegisterPage from "./pages/Auth/RegisterPage";
 import LoginPage from "./pages/Auth/LoginPage";
 import VerifyEmailPage from "./pages/Auth/VerifyEmail";
+import ForgotPasswordPage from "./pages/Auth/ForgotPassword";
+import ResetPasswordPage from "./pages/Auth/ResetPassword";
 
 // Admin layout and pages
 import AdminLayout from "./layout/AdminLayout";
@@ -50,6 +52,8 @@ function AppContent() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/verify-email" element={<VerifyEmailPage />} />
         <Route path="/verify-email/:token" element={<VerifyEmailPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
 
         {/* Admin Routes */}
         <Route
