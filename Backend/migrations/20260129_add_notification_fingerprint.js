@@ -26,9 +26,33 @@ const pool = require('../db');
       WHERE "Fingerprint" IS NULL;
     `);
 
+    // Resolve duplicates before creating a global unique index
+    await client.query(`
+      WITH dupes AS (
+        SELECT "NotificationID", "Fingerprint",
+               ROW_NUMBER() OVER (PARTITION BY "Fingerprint" ORDER BY "NotificationID") AS rn
+        FROM "Notifications"
+        WHERE "Fingerprint" IS NOT NULL
+      )
+      UPDATE "Notifications" n
+         SET "Fingerprint" = n."Fingerprint" || ':' || gen_random_uuid()
+      FROM dupes d
+      WHERE n."NotificationID" = d."NotificationID"
+        AND d.rn > 1;
+    `);
+
+    // Drop partial index if it exists, then create a full unique index usable by ON CONFLICT
     await client.query(`
       DO $$
       BEGIN
+        IF EXISTS (
+          SELECT 1 FROM pg_class c
+          JOIN pg_namespace n ON n.oid = c.relnamespace
+          WHERE c.relname = 'uq_notifications_fingerprint'
+            AND n.nspname = 'public'
+        ) THEN
+          DROP INDEX IF EXISTS uq_notifications_fingerprint;
+        END IF;
         IF NOT EXISTS (
           SELECT 1 FROM pg_class c
           JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -36,8 +60,7 @@ const pool = require('../db');
             AND n.nspname = 'public'
         ) THEN
           CREATE UNIQUE INDEX uq_notifications_fingerprint
-            ON "Notifications" ("Fingerprint")
-            WHERE "Fingerprint" IS NOT NULL;
+            ON "Notifications" ("Fingerprint");
         END IF;
       END$$;
     `);
