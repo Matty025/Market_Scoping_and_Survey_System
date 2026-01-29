@@ -1,13 +1,23 @@
 const pool = require("../db");
 
-async function createNotification({ userId, type, title, body = null, metadata = null }) {
+function buildFingerprint({ userId, type, title, metadata }) {
+  // Prefer stable identifiers to avoid duplicates; fall back to title when missing
+  const source = metadata?.sourceId || metadata?.fileId || metadata?.uploadId || metadata?.announcementId || metadata?.id || '';
+  const status = metadata?.status || '';
+  return `${userId || ''}:${type || ''}:${source}:${status || ''}:${title || ''}`;
+}
+
+async function createNotification({ userId, type, title, body = null, metadata = null, fingerprint = null }) {
   if (!userId || !type || !title) {
     throw new Error("userId, type, and title are required to create a notification");
   }
 
+  const fp = fingerprint || buildFingerprint({ userId, type, title, metadata });
+
   const query = `
-    INSERT INTO "Notifications" ("UserID", "Type", "Title", "Body", "Metadata")
-    VALUES ($1, $2, $3, $4, $5)
+    INSERT INTO "Notifications" ("UserID", "Type", "Title", "Body", "Metadata", "Fingerprint")
+    VALUES ($1, $2, $3, $4, $5, $6)
+    ON CONFLICT ("Fingerprint") DO NOTHING
     RETURNING "NotificationID" AS id,
               "UserID" AS "userId",
               "Type" AS type,
@@ -15,11 +25,12 @@ async function createNotification({ userId, type, title, body = null, metadata =
               "Body" AS body,
               "Metadata" AS metadata,
               "IsRead" AS "isRead",
-              "CreatedAt" AS "createdAt"
+              "CreatedAt" AS "createdAt",
+              "Fingerprint" AS "fingerprint"
   `;
-  const values = [userId, type, title, body, metadata];
+  const values = [userId, type, title, body, metadata, fp];
   const { rows } = await pool.query(query, values);
-  return rows[0];
+  return rows[0] || null; // null when conflict (duplicate)
 }
 
 async function listNotifications(userId, { limit = 20, offset = 0, unreadOnly = false } = {}) {
@@ -89,4 +100,5 @@ module.exports = {
   markRead,
   markAllRead,
   countUnread,
+  buildFingerprint,
 };

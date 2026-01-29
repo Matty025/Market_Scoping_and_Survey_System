@@ -565,7 +565,7 @@ router.post("/announcements", protect, upload.single("file"), async (req, res) =
         title: trimmedTitle,
         supplierIds: supplierIdsToNotify,
       }).catch((err) => {
-        console.warn('[adminRoutes] Failed to send posted announcement emails:', err && err.message ? err.message : err);
+        console.warn('[adminRoutes] Failed to notify suppliers on post:', err && err.message ? err.message : err);
       });
     }
 
@@ -775,7 +775,7 @@ router.put("/announcements/:id", protect, upload.single("file"), async (req, res
         title: titleToSet,
         supplierIds: supplierIdsToNotify,
       }).catch((err) => {
-        console.warn('[adminRoutes] Failed to send repost announcement emails:', err && err.message ? err.message : err);
+        console.warn('[adminRoutes] Failed to notify suppliers on repost:', err && err.message ? err.message : err);
       });
     }
 
@@ -1002,7 +1002,7 @@ router.patch("/announcements/:id/status", protect, async (req, res) => {
         notes,
         supplierIds: assignedSupplierIds,
       }).catch((err) => {
-        console.warn('[adminRoutes] Failed to send supplier status email:', err && err.message ? err.message : err);
+        console.warn('[adminRoutes] Failed to notify suppliers on status change:', err && err.message ? err.message : err);
       });
     }
 

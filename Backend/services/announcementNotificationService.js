@@ -2,6 +2,7 @@ const nodemailer = require("nodemailer");
 const mailer = require("../utils/mailer");
 // For admin-facing notifications about announcement lifecycle changes
 const db = require("../db");
+const notificationService = require("./notificationService");
 
 const formatStatusLabel = (status) => {
   if (!status) return "Unknown";
@@ -74,55 +75,105 @@ async function getSupplierEmailsByIds(supplierIds = []) {
 }
 
 async function notifySuppliersPosted({ fileId, title, supplierIds }) {
-  if (!sendMail) return;
-  const recipients = await getSupplierEmailsByIds(supplierIds);
-  if (!recipients.length) {
-    console.warn("[announcementNotification] No supplier recipients for posted announcement", { fileId });
-    return;
+  if (sendMail) {
+    const recipients = await getSupplierEmailsByIds(supplierIds);
+    if (!recipients.length) {
+      console.warn("[announcementNotification] No supplier recipients for posted announcement", { fileId });
+    } else {
+      const subject = `[MSSS] New Announcement: ${title || fileId}`;
+      const html = `
+        <h3>New procurement announcement posted</h3>
+        <p><strong>Title:</strong> ${title || '(Untitled announcement)'}</p>
+        <p>You have been invited to participate. Sign in to view the details and respond.</p>
+      `;
+      await sendMail({
+        to: recipients.map((r) => r.email),
+        subject,
+        html,
+      });
+      console.log(`[announcementNotification] Posted email sent for file ${fileId} to ${recipients.length} suppliers.`);
+    }
   }
-  const subject = `[MSSS] New Announcement: ${title || fileId}`;
-  const html = `
-    <h3>New procurement announcement posted</h3>
-    <p><strong>Title:</strong> ${title || '(Untitled announcement)'}</p>
-    <p>You have been invited to participate. Sign in to view the details and respond.</p>
-  `;
-  await sendMail({
-    to: recipients.map((r) => r.email),
-    subject,
-    html,
+
+  // In-app notifications (best-effort, deduped by fingerprint)
+  await createSupplierNotifications({
+    supplierIds,
+    type: "announcement_posted",
+    title: title || `Announcement ${fileId}`,
+    body: "A new announcement has been posted to your categories.",
+    metadata: { sourceId: fileId, status: "POSTED" },
   });
-  console.log(`[announcementNotification] Posted email sent for file ${fileId} to ${recipients.length} suppliers.`);
 }
 
 async function notifySuppliersStatusChange({ fileId, title, status, previousStatus, notes, supplierIds }) {
-  if (!sendMail) return;
-  const recipients = await getSupplierEmailsByIds(supplierIds);
-  if (!recipients.length) {
-    console.warn('[announcementNotification] No supplier recipients for status change', { fileId });
-    return;
-  }
-
-  const statusLabel = formatStatusLabel(status);
+  let statusLabel = formatStatusLabel(status);
   const previousStatusLabel = previousStatus ? formatStatusLabel(previousStatus) : null;
 
-  const subject = `[MSSS] Announcement Update: ${title || fileId} → ${statusLabel}`;
-  const lines = [
-    `<strong>Announcement:</strong> ${title || `(ID ${fileId})`}`,
-    `<strong>New Status:</strong> ${statusLabel}`,
-  ];
+  if (sendMail) {
+    const recipients = await getSupplierEmailsByIds(supplierIds);
+    if (!recipients.length) {
+      console.warn('[announcementNotification] No supplier recipients for status change', { fileId });
+    } else {
+      const subject = `[MSSS] Announcement Update: ${title || fileId} → ${statusLabel}`;
+      const lines = [
+        `<strong>Announcement:</strong> ${title || `(ID ${fileId})`} `,
+        `<strong>New Status:</strong> ${statusLabel}`,
+      ];
 
-  if (previousStatusLabel) lines.push(`<strong>Previous Status:</strong> ${previousStatusLabel}`);
-  if (notes) {
-    lines.push(`<strong>Notes:</strong> ${notes.toString().replace(/\n/g, '<br/>')}`);
+      if (previousStatusLabel) lines.push(`<strong>Previous Status:</strong> ${previousStatusLabel}`);
+      if (notes) {
+        lines.push(`<strong>Notes:</strong> ${notes.toString().replace(/\n/g, '<br/>')}`);
+      }
+
+      const html = `
+        <h3>Announcement status updated</h3>
+        <p>${lines.join('<br/>')}</p>
+      `;
+
+      await sendMail({ to: recipients.map((r) => r.email), subject, html });
+      console.log(`[announcementNotification] Supplier status email sent for file ${fileId} -> ${status} (${recipients.length} recipients)`);
+    }
   }
 
-  const html = `
-    <h3>Announcement status updated</h3>
-    <p>${lines.join('<br/>')}</p>
-  `;
+  // In-app notifications (best-effort, deduped by fingerprint)
+  await createSupplierNotifications({
+    supplierIds,
+    type: "announcement_status",
+    title: `${title || `Announcement ${fileId}`} update`,
+    body: `Status changed to ${statusLabel}.`,
+    metadata: { sourceId: fileId, status: status || null, previousStatus: previousStatus || null, notes: notes || null },
+  });
+}
 
-  await sendMail({ to: recipients.map((r) => r.email), subject, html });
-  console.log(`[announcementNotification] Supplier status email sent for file ${fileId} -> ${status} (${recipients.length} recipients)`);
+async function createSupplierNotifications({ supplierIds = [], type, title, body, metadata = {} }) {
+  if (!Array.isArray(supplierIds) || supplierIds.length === 0) return;
+  const supplierIdsInt = supplierIds.map((id) => Number(id)).filter((n) => Number.isInteger(n));
+  if (supplierIdsInt.length === 0) return;
+
+  // Fetch user IDs for suppliers
+  const { rows } = await db.query(
+    `SELECT DISTINCT u."UserID" AS "userId"
+       FROM "Users" u
+      WHERE u."SupplierID" = ANY($1::int[]) AND u."UserID" IS NOT NULL`,
+    [supplierIdsInt]
+  );
+
+  const userIds = rows.map((r) => Number(r.userId)).filter((n) => Number.isInteger(n));
+  if (userIds.length === 0) return;
+
+  const tasks = userIds.map((userId) =>
+    notificationService.createNotification({
+      userId,
+      type,
+      title,
+      body,
+      metadata,
+    }).catch((err) => {
+      console.warn('[announcementNotification] Failed to create supplier notification:', err && err.message ? err.message : err);
+      return null;
+    })
+  );
+  await Promise.all(tasks);
 }
 
 async function getAdminEmails() {
@@ -171,4 +222,5 @@ module.exports = {
   notifySuppliersPosted,
   notifyAdminsStatusChange,
   notifySuppliersStatusChange,
+  createSupplierNotifications,
 };

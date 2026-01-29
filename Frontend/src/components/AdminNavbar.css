@@ -13,7 +13,7 @@
 border-bottom: 2px solid #000; /* clean black bottom border */
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .admin-navbar.navbar-hidden {
@@ -120,6 +120,10 @@ border-bottom: 2px solid #000; /* clean black bottom border */
   flex-shrink: 0;
 }
 
+.notification-wrap {
+  position: relative;
+}
+
 .icon-btn {
   background: #fff;
   border: 1px solid #000; /* black border for consistency */
@@ -130,6 +134,113 @@ border-bottom: 2px solid #000; /* clean black bottom border */
   border-radius: 12px;
   transition: all 0.25s ease;
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.notification-btn {
+  position: relative;
+}
+
+.notif-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 10px;
+  height: 10px;
+  background: #ef4444;
+  border-radius: 999px;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.05);
+}
+
+.notif-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 10px);
+  width: min(360px, 86vw);
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.18);
+  padding: 10px;
+  z-index: 1200;
+}
+
+.notif-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px 10px;
+  border-bottom: 1px solid #e2e8f0;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.notif-count {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.notif-list {
+  max-height: 320px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.notif-item {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: #fff;
+  padding: 10px 8px;
+  border-bottom: 1px solid #edf2f7;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.notif-item:last-child {
+  border-bottom: none;
+}
+
+.notif-item.unread {
+  background: #f8fafc;
+}
+
+.notif-item:hover {
+  background: #f1f5f9;
+}
+
+.notif-item__title {
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+
+.notif-item__body {
+  color: #475569;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.notif-item__meta {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.notif-empty {
+  padding: 12px 10px;
+  text-align: center;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.notif-empty.error {
+  color: #b91c1c;
 }
 
 .icon-btn:hover {
