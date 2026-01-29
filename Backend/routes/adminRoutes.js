@@ -380,11 +380,15 @@ router.get("/announcements", protect, async (req, res) => {
         ) AS response_stats ON TRUE
         LEFT JOIN LATERAL (
           SELECT
-            COALESCE(NULLIF(COUNT(*) FILTER (
-                        WHERE psh."NewStatus" = 'ACTIVE'
-                      ), 0), 1) AS attempts,
+            attempt_count.attempts,
             last_row."ChangedAt" AS latest_changed_at
-          FROM "ProcurementStatusHistory" psh
+          FROM (
+            SELECT COALESCE(NULLIF(COUNT(*) FILTER (
+                        WHERE psh."NewStatus" = 'ACTIVE'
+                      ), 0), 1) AS attempts
+            FROM "ProcurementStatusHistory" psh
+            WHERE psh."FileID" = pf."FileID"
+          ) AS attempt_count
           LEFT JOIN LATERAL (
             SELECT h."ChangedAt"
             FROM "ProcurementStatusHistory" h
@@ -392,7 +396,6 @@ router.get("/announcements", protect, async (req, res) => {
             ORDER BY h."ChangedAt" DESC
             LIMIT 1
           ) AS last_row ON TRUE
-          WHERE psh."FileID" = pf."FileID"
         ) AS attempts ON TRUE
         LEFT JOIN LATERAL (
           SELECT
