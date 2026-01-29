@@ -129,7 +129,7 @@ const avatarUpload = multer({ storage: avatarStorage });
 // Helper: add a history entry for a purchase request
 async function addPurchaseRequestHistory(uploadId, action, details) {
   try {
-    const q = `INSERT INTO "PurchaseRequestHistory" ("UploadID", "Action", "Details") VALUES ($1, $2, $3) RETURNING *`;
+    const q = `INSERT INTO "PurchaseRequestHistory" ("UploadID", action, "Details") VALUES ($1, $2, $3) RETURNING *`;
     const vals = [uploadId, action, details || null];
     const res = await db.query(q, vals);
     return res.rows[0];
@@ -549,7 +549,7 @@ router.get('/requests/:id/history', protect, async (req, res) => {
       return res.status(400).json({ error: 'Invalid request ID' });
     }
 
-    const q = `SELECT "HistoryID" as historyID, "UploadID" as uploadID, "Action" as action, "Details" as details, "ChangedAt" as changedAt FROM "PurchaseRequestHistory" WHERE "UploadID" = $1 ORDER BY "ChangedAt" DESC`;
+    const q = `SELECT "HistoryID" as historyID, "UploadID" as uploadID, action as action, "Details" as details, "ChangedAt" as changedAt FROM "PurchaseRequestHistory" WHERE "UploadID" = $1 ORDER BY "ChangedAt" DESC`;
     const result = await db.query(q, [uploadId]);
     const rows = result.rows || [];
 
