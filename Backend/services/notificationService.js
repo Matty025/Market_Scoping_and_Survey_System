@@ -99,6 +99,36 @@ async function countUnread(userId) {
   return Number(rows[0]?.count || 0);
 }
 
+async function getAdminUserIds() {
+  const { rows } = await pool.query(
+    `SELECT u."UserID" AS "userId"
+       FROM "Users" u
+       JOIN "Roles" r ON r."RoleID" = u."RoleID"
+      WHERE LOWER(r."RoleName") = 'admin'
+        AND u."UserID" IS NOT NULL`
+  );
+  return rows.map((r) => Number(r.userId)).filter((id) => Number.isInteger(id));
+}
+
+async function notifyAdmins({ type, title, body = null, metadata = null }) {
+  if (!type || !title) {
+    throw new Error("type and title are required for admin notifications");
+  }
+
+  const adminIds = await getAdminUserIds();
+  if (!adminIds.length) return [];
+
+  const tasks = adminIds.map((userId) =>
+    createNotification({ userId, type, title, body, metadata }).catch((err) => {
+      console.warn('[notificationService] Failed to notify admin', { userId, type, err: err && err.message ? err.message : err });
+      return null;
+    })
+  );
+
+  const results = await Promise.all(tasks);
+  return results.filter(Boolean);
+}
+
 module.exports = {
   createNotification,
   listNotifications,
@@ -106,4 +136,6 @@ module.exports = {
   markAllRead,
   countUnread,
   buildFingerprint,
+  notifyAdmins,
+  getAdminUserIds,
 };

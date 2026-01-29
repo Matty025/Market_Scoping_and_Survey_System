@@ -5,6 +5,7 @@ const path = require("path");
 const { uploadBuffer } = require("../utils/supabaseStorage");
 const { protect } = require("./authMiddleware");
 const pool = require("../db.js");
+const notificationService = require("../services/notificationService");
 
 // Configure multer: use memory storage when Supabase is configured, otherwise disk storage
 const useSupabase = Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
@@ -103,7 +104,34 @@ router.post("/", protect, upload.single("responseFile"), async (req, res) => {
     `;
     await client.query(updateStatusQuery, [supplierFileId]);
 
+    const { rows: fileRows } = await client.query(
+      `SELECT pf."FileID" AS "fileId",
+              pf."Title" AS "title",
+              s."CompanyName" AS "companyName"
+         FROM "SupplierFiles" sf
+         JOIN "ProcurementFiles" pf ON pf."FileID" = sf."FileID"
+         LEFT JOIN "Suppliers" s ON s."SupplierID" = sf."SupplierID"
+        WHERE sf."SupplierFileID" = $1
+        LIMIT 1`,
+      [supplierFileId]
+    );
+    const fileInfo = fileRows[0] || {};
+
     await client.query("COMMIT");
+    notificationService.notifyAdmins({
+      type: "supplier_response_received",
+      title: "Supplier submitted a response",
+      body: `${fileInfo.companyName || `Supplier ${supplierId}`} responded to ${fileInfo.title || `announcement ${fileInfo.fileId || ''}`}`.trim(),
+      metadata: {
+        supplierFileId,
+        supplierId,
+        fileId: fileInfo.fileId || null,
+        title: fileInfo.title || null,
+      },
+    }).catch((err) => {
+      console.warn('[responseRoutes] Failed to notify admins of supplier response:', err && err.message ? err.message : err);
+    });
+
     res.status(201).json({ message: "Response submitted successfully." });
   } catch (err) {
     await client.query("ROLLBACK");

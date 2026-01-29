@@ -185,6 +185,7 @@ const mapProcurementViewRow = (row) => {
     createdByName: row.CreatedByName,
     createdByEmail: row.CreatedByEmail,
     isExpired: Boolean(row.IsExpired),
+    latestChangedAt: row.LatestChangedAt || row.latestChangedAt || row.DatePosted || null,
     totalSuppliersAssigned: Number(row.TotalSuppliersAssigned || 0),
     pendingSupplierCount: Number(row.PendingCount || 0),
     answeredSupplierCount: Number(row.AnsweredCount || 0),
@@ -355,6 +356,7 @@ router.get("/announcements", protect, async (req, res) => {
           pf.*,
           (pf."EndDate" IS NOT NULL AND pf."EndDate" < NOW()) AS "IsExpired",
           COALESCE(attempts.attempts, 1) AS "AttemptNumber",
+          COALESCE(attempts.latest_changed_at, pf."DatePosted") AS "LatestChangedAt",
           NULL::timestamptz AS "AttemptSentAt",
           NULL::text AS "AttemptStatus",
           COALESCE(response_stats.responder_distinct, 0) AS "DistinctResponderCount",
@@ -377,11 +379,20 @@ router.get("/announcements", protect, async (req, res) => {
           WHERE sf."FileID" = pf."FileID"
         ) AS response_stats ON TRUE
         LEFT JOIN LATERAL (
-          SELECT COALESCE(NULLIF(COUNT(*) FILTER (
-                      WHERE psh."NewStatus" = 'ACTIVE'
-                    ), 0), 1) AS attempts
-            FROM "ProcurementStatusHistory" psh
-           WHERE psh."FileID" = pf."FileID"
+          SELECT
+            COALESCE(NULLIF(COUNT(*) FILTER (
+                        WHERE psh."NewStatus" = 'ACTIVE'
+                      ), 0), 1) AS attempts,
+            last_row."ChangedAt" AS latest_changed_at
+          FROM "ProcurementStatusHistory" psh
+          LEFT JOIN LATERAL (
+            SELECT h."ChangedAt"
+            FROM "ProcurementStatusHistory" h
+            WHERE h."FileID" = pf."FileID"
+            ORDER BY h."ChangedAt" DESC
+            LIMIT 1
+          ) AS last_row ON TRUE
+          WHERE psh."FileID" = pf."FileID"
         ) AS attempts ON TRUE
         LEFT JOIN LATERAL (
           SELECT
@@ -397,7 +408,7 @@ router.get("/announcements", protect, async (req, res) => {
           WHERE sf."FileID" = pf."FileID"
         ) AS sf_agg ON TRUE
         ${where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''}
-        ORDER BY pf."DatePosted" DESC, pf."FileID" DESC
+        ORDER BY COALESCE(attempts.latest_changed_at, pf."DatePosted") DESC, pf."FileID" DESC
         LIMIT $${limitParamIndex}
         OFFSET $${offsetParamIndex}
       )
@@ -564,6 +575,7 @@ router.post("/announcements", protect, upload.single("file"), async (req, res) =
         fileId: newFileId,
         title: trimmedTitle,
         supplierIds: supplierIdsToNotify,
+        status: 'POSTED',
       }).catch((err) => {
         console.warn('[adminRoutes] Failed to notify suppliers on post:', err && err.message ? err.message : err);
       });
@@ -774,6 +786,7 @@ router.put("/announcements/:id", protect, upload.single("file"), async (req, res
         fileId,
         title: titleToSet,
         supplierIds: supplierIdsToNotify,
+        status: 'REPOSTED',
       }).catch((err) => {
         console.warn('[adminRoutes] Failed to notify suppliers on repost:', err && err.message ? err.message : err);
       });

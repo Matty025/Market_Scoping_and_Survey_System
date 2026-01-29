@@ -7,6 +7,7 @@ const pool = require("../db");
 const { protect } = require("./authMiddleware");
 const { sendVerificationEmail } = require("../services/emailVerificationService");
 const { sendPendingAccountEmail } = require("../services/adminNotificationService");
+const notificationService = require("../services/notificationService");
 const preverifyStore = require("../services/preverifyStore");
 const passwordResetService = require("../services/passwordResetService");
 
@@ -95,6 +96,12 @@ router.post("/register", async (req, res) => {
 
         // Notify admins of new pending account (fire-and-forget)
         sendPendingAccountEmail({ fullName, email, role: "buyer" }).catch(() => {});
+        notificationService.notifyAdmins({
+          type: "account_pending",
+          title: "New registration pending approval",
+          body: `${fullName || email} registered as buyer and awaits review`,
+          metadata: { role: "buyer", email, fullName: fullName || null, companyName: null },
+        }).catch(() => {});
 
         return res.status(201).json({
           message: "Buyer registered successfully",
@@ -151,6 +158,12 @@ router.post("/register", async (req, res) => {
 
       // Notify admins of new pending account (fire-and-forget)
       sendPendingAccountEmail({ fullName, email, role: "supplier", companyName }).catch(() => {});
+      notificationService.notifyAdmins({
+        type: "account_pending",
+        title: "New registration pending approval",
+        body: `${fullName || email} from ${companyName || 'supplier'} registered and awaits review`,
+        metadata: { role: "supplier", email, fullName: fullName || null, companyName: companyName || null },
+      }).catch(() => {});
 
       return res.status(201).json({
         message: "Supplier registered successfully",

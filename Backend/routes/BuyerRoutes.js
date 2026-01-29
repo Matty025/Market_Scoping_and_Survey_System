@@ -6,6 +6,7 @@ const db = require('../db');
 const { protect } = require('./authMiddleware');
 const fs = require('fs');
 const { notifyAdminNewPurchaseRequest } = require('../services/prNotificationService');
+const notificationService = require('../services/notificationService');
 
 // Prefer Supabase Storage; fall back to DigitalOcean S3 (aws-sdk) or local disk.
 const { uploadBuffer, generateSignedUrl, deleteFile } = require('../utils/supabaseStorage');
@@ -303,6 +304,15 @@ router.post('/upload', protect, upload.single('file'), async (req, res) => {
     if (uploadId) {
       notifyAdminNewPurchaseRequest(uploadId).catch((err) => {
         console.warn('[BuyerRoutes.js] Failed to send admin PR notification:', err && err.message ? err.message : err);
+      });
+
+      notificationService.notifyAdmins({
+        type: 'purchase_request_new',
+        title: 'New purchase request submitted',
+        body: `${(req.user && (req.user.FullName || req.user.fullName || req.user.name || req.user.email)) || 'Buyer'} submitted "${title}"`,
+        metadata: { uploadId, title, endDate },
+      }).catch((err) => {
+        console.warn('[BuyerRoutes.js] Failed to create admin in-app notification for new PR:', err && err.message ? err.message : err);
       });
     }
 

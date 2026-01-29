@@ -130,7 +130,7 @@ const supplierFileGroupBy = `
         lastResponse."ResponseFilePath",
         lastResponse."DateUploaded"`;
 
-const buildSupplierFileQuery = (whereClause, orderClause = 'ORDER BY sf."DateSent" DESC') => `
+const buildSupplierFileQuery = (whereClause, orderClause = 'ORDER BY COALESCE(statusInfo.latest_changed_at, pf."DatePosted", sf."DateSent") DESC, sf."SupplierFileID" DESC') => `
     SELECT
 ${supplierFileSelectColumns}
 ${supplierFileJoins}

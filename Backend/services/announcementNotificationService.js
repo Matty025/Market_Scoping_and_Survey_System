@@ -74,15 +74,19 @@ async function getSupplierEmailsByIds(supplierIds = []) {
   return result;
 }
 
-async function notifySuppliersPosted({ fileId, title, supplierIds }) {
+async function notifySuppliersPosted({ fileId, title, supplierIds, status = "POSTED" }) {
+  const statusLabel = String(status || "POSTED").toUpperCase();
+  const isRepost = statusLabel === "REPOSTED";
   if (sendMail) {
     const recipients = await getSupplierEmailsByIds(supplierIds);
     if (!recipients.length) {
       console.warn("[announcementNotification] No supplier recipients for posted announcement", { fileId });
     } else {
-      const subject = `[MSSS] New Announcement: ${title || fileId}`;
+      const subject = isRepost
+        ? `[MSSS] Announcement Updated: ${title || fileId}`
+        : `[MSSS] New Announcement: ${title || fileId}`;
       const html = `
-        <h3>New procurement announcement posted</h3>
+        <h3>${isRepost ? "Announcement updated/reposted" : "New procurement announcement posted"}</h3>
         <p><strong>Title:</strong> ${title || '(Untitled announcement)'}</p>
         <p>You have been invited to participate. Sign in to view the details and respond.</p>
       `;
@@ -91,7 +95,7 @@ async function notifySuppliersPosted({ fileId, title, supplierIds }) {
         subject,
         html,
       });
-      console.log(`[announcementNotification] Posted email sent for file ${fileId} to ${recipients.length} suppliers.`);
+      console.log(`[announcementNotification] ${isRepost ? 'Repost' : 'Post'} email sent for file ${fileId} to ${recipients.length} suppliers.`);
     }
   }
 
@@ -100,8 +104,10 @@ async function notifySuppliersPosted({ fileId, title, supplierIds }) {
     supplierIds,
     type: "announcement_posted",
     title: title || `Announcement ${fileId}`,
-    body: "A new announcement has been posted to your categories.",
-    metadata: { sourceId: fileId, status: "POSTED" },
+    body: isRepost
+      ? "An announcement you follow has been updated/reposted."
+      : "A new announcement has been posted to your categories.",
+    metadata: { sourceId: fileId, status: statusLabel },
   });
 }
 
@@ -188,34 +194,46 @@ async function getAdminEmails() {
 }
 
 async function notifyAdminsStatusChange({ fileId, title, status, previousStatus, notes }) {
-  if (!sendMail) return;
-  const recipients = await getAdminEmails();
-  if (!recipients.length) {
-    console.warn('[announcementNotification] No admin recipients for status change email');
-    return;
-  }
-
   const statusLabel = formatStatusLabel(status);
   const previousStatusLabel = previousStatus ? formatStatusLabel(previousStatus) : null;
 
-  const subject = `[MSSS] Announcement Status: ${title || fileId} → ${statusLabel}`;
-  const lines = [
-    `<strong>Announcement:</strong> ${title || `(ID ${fileId})`}`,
-    `<strong>New Status:</strong> ${statusLabel}`,
-  ];
+  if (sendMail) {
+    const recipients = await getAdminEmails();
+    if (!recipients.length) {
+      console.warn('[announcementNotification] No admin recipients for status change email');
+    } else {
+      const subject = `[MSSS] Announcement Status: ${title || fileId} → ${statusLabel}`;
+      const lines = [
+        `<strong>Announcement:</strong> ${title || `(ID ${fileId})`}`,
+        `<strong>New Status:</strong> ${statusLabel}`,
+      ];
 
-  if (previousStatusLabel) lines.push(`<strong>Previous Status:</strong> ${previousStatusLabel}`);
-  if (notes) {
-    lines.push(`<strong>Notes:</strong> ${notes.toString().replace(/\n/g, '<br/>')}`);
+      if (previousStatusLabel) lines.push(`<strong>Previous Status:</strong> ${previousStatusLabel}`);
+      if (notes) {
+        lines.push(`<strong>Notes:</strong> ${notes.toString().replace(/\n/g, '<br/>')}`);
+      }
+
+      const html = `
+        <h3>Announcement status changed</h3>
+        <p>${lines.join('<br/>')}</p>
+      `;
+
+      await sendMail({ to: recipients, subject, html });
+      console.log(`[announcementNotification] Admin status email sent for file ${fileId} -> ${status}`);
+    }
   }
 
-  const html = `
-    <h3>Announcement status changed</h3>
-    <p>${lines.join('<br/>')}</p>
-  `;
-
-  await sendMail({ to: recipients, subject, html });
-  console.log(`[announcementNotification] Admin status email sent for file ${fileId} -> ${status}`);
+  // In-app notification for all admins
+  await notificationService.notifyAdmins({
+    type: 'announcement_status_admin',
+    title: `Announcement status: ${title || fileId}`,
+    body: previousStatusLabel
+      ? `Changed from ${previousStatusLabel} to ${statusLabel}.`
+      : `Changed to ${statusLabel}.`,
+    metadata: { sourceId: fileId, status, previousStatus: previousStatus || null, notes: notes || null },
+  }).catch((err) => {
+    console.warn('[announcementNotification] Failed to create admin in-app notification:', err && err.message ? err.message : err);
+  });
 }
 
 module.exports = {
