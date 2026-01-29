@@ -30,7 +30,12 @@ async function createNotification({ userId, type, title, body = null, metadata =
   `;
   const values = [userId, type, title, body, metadata, fp];
   const { rows } = await pool.query(query, values);
-  return rows[0] || null; // null when conflict (duplicate)
+  if (!rows[0]) {
+    console.log('[notificationService] Skipped duplicate notification', { userId, type, fp });
+    return null;
+  }
+  console.log('[notificationService] Created notification', { id: rows[0].id, userId, type, fp });
+  return rows[0];
 }
 
 async function listNotifications(userId, { limit = 20, offset = 0, unreadOnly = false } = {}) {
