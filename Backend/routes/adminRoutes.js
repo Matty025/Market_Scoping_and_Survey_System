@@ -1868,6 +1868,16 @@ router.get("/supplier-files/:supplierFileId/response-file", protect, async (req,
       || filePath.startsWith('../');
 
     const isHttp = /^https?:\/\//i.test(filePath);
+    const supaAvailable = Boolean(supabase);
+
+    console.log('[response-file] Fetching response', {
+      supplierFileId,
+      responseId,
+      filePath,
+      isHttp,
+      isLocalPath,
+      supaAvailable,
+    });
 
     // Decide storage backend: Supabase key, HTTP URL, or local/disk path
     if (supabase && filePath && !isHttp && !isLocalPath) {
@@ -1880,18 +1890,23 @@ router.get("/supplier-files/:supplierFileId/response-file", protect, async (req,
     }
 
     if (!stream && isHttp) {
-      const resp = await fetchRemote(filePath);
-      if (!resp.ok) {
-        return res.status(resp.status).json({ message: `Remote fetch failed: ${resp.statusText}` });
+      try {
+        const resp = await fetchRemote(filePath);
+        if (!resp.ok) {
+          return res.status(resp.status).json({ message: `Remote fetch failed: ${resp.statusText}` });
+        }
+        const lenHeader = resp.headers.get('content-length');
+        contentLength = lenHeader ? Number(lenHeader) : null;
+        const ctype = resp.headers.get('content-type') || 'application/pdf';
+        res.setHeader('Content-Type', ctype);
+        if (contentLength) res.setHeader('Content-Length', contentLength);
+        res.setHeader('Content-Disposition', `inline; filename="${title}-response.pdf"`);
+        resp.body.pipe(res);
+        return;
+      } catch (httpErr) {
+        console.error('[response-file] HTTP fetch failed:', httpErr && httpErr.message ? httpErr.message : httpErr);
+        // continue to disk attempt
       }
-      const lenHeader = resp.headers.get('content-length');
-      contentLength = lenHeader ? Number(lenHeader) : null;
-      const ctype = resp.headers.get('content-type') || 'application/pdf';
-      res.setHeader('Content-Type', ctype);
-      if (contentLength) res.setHeader('Content-Length', contentLength);
-      res.setHeader('Content-Disposition', `inline; filename="${title}-response.pdf"`);
-      resp.body.pipe(res);
-      return;
     }
 
     if (!stream) {
@@ -1925,7 +1940,12 @@ router.get("/supplier-files/:supplierFileId/response-file", protect, async (req,
       return res.status(404).json({ message: "File not found in storage" });
     }
 
-    res.status(500).json({ message: "Error downloading file", error: err && err.message ? err.message : undefined });
+    res.status(500).json({
+      message: "Error downloading file",
+      error: err && err.message ? err.message : undefined,
+      supplierFileId,
+      responseId,
+    });
   }
 });
 
