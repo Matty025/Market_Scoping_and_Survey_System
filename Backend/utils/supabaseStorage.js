@@ -1,5 +1,13 @@
 const { createClient } = require('@supabase/supabase-js');
 
+// Node 16 compatibility: polyfill fetch if not available
+let fetchFn = null;
+if (typeof fetch === 'function') {
+  fetchFn = fetch;
+} else {
+  fetchFn = (...args) => import('node-fetch').then(({ default: f }) => f(...args));
+}
+
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const defaultBucket = process.env.SUPABASE_STORAGE_BUCKET || 'pdfs';
@@ -93,7 +101,7 @@ async function downloadFile(blobPath) {
   const bucketName = parsed.bucket || defaultBucket;
   const key = normalizePath(parsed.key || blobPath);
   const url = await generateSignedUrl(`${bucketName}/${key}`, 15);
-  const response = await fetch(url);
+  const response = await fetchFn(url);
   if (!response.ok) {
     throw new Error(`Failed to download file: ${response.status} ${response.statusText}`);
   }
