@@ -14,7 +14,7 @@ const notificationService = require("../services/notificationService");
 const buyerRoutes = require('./BuyerRoutes');
 
 const FALLBACK_CATEGORY_NAME = "Uncategorized";
-const { generateSignedUrl, downloadFile, uploadBuffer } = require('../utils/supabaseStorage');
+const { generateSignedUrl, downloadFile, uploadBuffer, supabase } = require('../utils/supabaseStorage');
 
 const parseBooleanQuery = (value) => {
   if (typeof value !== "string") {
@@ -1852,9 +1852,30 @@ router.get("/supplier-files/:supplierFileId/response-file", protect, async (req,
     const filePath = rows[0].ResponseFilePath;
     const title = rows[0].Title || `response-${supplierFileId}`;
 
-    const stream = await downloadFile(filePath);
+    let stream = null;
+    let contentLength = null;
+
+    // Decide storage backend: Supabase vs local/disk path
+    if (supabase && filePath && !filePath.startsWith('http') && filePath.includes('/')) {
+      stream = await downloadFile(filePath);
+    } else {
+      const absolutePath = path.isAbsolute(filePath)
+        ? filePath
+        : path.join(__dirname, "..", filePath);
+
+      if (!fs.existsSync(absolutePath)) {
+        return res.status(404).json({ message: "File not found on disk" });
+      }
+
+      const stats = fs.statSync(absolutePath);
+      contentLength = stats.size;
+      stream = fs.createReadStream(absolutePath);
+    }
 
     res.setHeader('Content-Type', 'application/pdf');
+    if (contentLength !== null) {
+      res.setHeader('Content-Length', contentLength);
+    }
     res.setHeader('Content-Disposition', `inline; filename="${title}-response.pdf"`);
 
     stream.pipe(res);
