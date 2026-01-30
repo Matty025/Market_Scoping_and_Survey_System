@@ -831,8 +831,8 @@ router.put("/announcements/:id", protect, upload.single("file"), async (req, res
            END,
            "OptInStatus" = 'OPTED_IN',
            "OptedInAt" = NOW(),
-           "DeclinedAt" = NULL`;
-          [supplierIdsToNotify, fileId]
+           "DeclinedAt" = NULL`,
+        [supplierIdsToNotify, fileId]
       );
     }
 
