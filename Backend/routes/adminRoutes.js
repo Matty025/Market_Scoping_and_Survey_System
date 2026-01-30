@@ -16,6 +16,9 @@ const buyerRoutes = require('./BuyerRoutes');
 const FALLBACK_CATEGORY_NAME = "Uncategorized";
 const { generateSignedUrl, downloadFile, uploadBuffer, supabase } = require('../utils/supabaseStorage');
 
+// Fetch fallback for streaming remote URLs (e.g., public Supabase or other HTTP paths)
+const fetchRemote = global.fetch ? global.fetch : (...args) => import('node-fetch').then(({ default: f }) => f(...args));
+
 const parseBooleanQuery = (value) => {
   if (typeof value !== "string") {
     return false;
@@ -1864,14 +1867,31 @@ router.get("/supplier-files/:supplierFileId/response-file", protect, async (req,
       || filePath.startsWith('./')
       || filePath.startsWith('../');
 
-    // Decide storage backend: Supabase vs local/disk path
-    if (supabase && filePath && !filePath.startsWith('http') && !isLocalPath) {
+    const isHttp = /^https?:\/\//i.test(filePath);
+
+    // Decide storage backend: Supabase key, HTTP URL, or local/disk path
+    if (supabase && filePath && !isHttp && !isLocalPath) {
       try {
         stream = await downloadFile(filePath);
       } catch (dlErr) {
         console.error('[response-file] Supabase download failed:', dlErr && dlErr.message ? dlErr.message : dlErr);
-        // Fall through to disk attempt below
+        // Fall through to other attempts
       }
+    }
+
+    if (!stream && isHttp) {
+      const resp = await fetchRemote(filePath);
+      if (!resp.ok) {
+        return res.status(resp.status).json({ message: `Remote fetch failed: ${resp.statusText}` });
+      }
+      const lenHeader = resp.headers.get('content-length');
+      contentLength = lenHeader ? Number(lenHeader) : null;
+      const ctype = resp.headers.get('content-type') || 'application/pdf';
+      res.setHeader('Content-Type', ctype);
+      if (contentLength) res.setHeader('Content-Length', contentLength);
+      res.setHeader('Content-Disposition', `inline; filename="${title}-response.pdf"`);
+      resp.body.pipe(res);
+      return;
     }
 
     if (!stream) {
