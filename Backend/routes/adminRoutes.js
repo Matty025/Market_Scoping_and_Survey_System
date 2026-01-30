@@ -122,6 +122,38 @@ const getActiveAttemptCount = async (client, fileId) => {
   }
 };
 
+const normalizeEndDateToEndOfDaySgt = (value) => {
+  if (!value) return null;
+
+  const DATE_ONLY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+  const MIDNIGHT_UTC_REGEX = /^\d{4}-\d{2}-\d{2}T00:00(:00(\.000)?)?Z$/i;
+
+  const buildEndOfDaySgt = (year, month, day) => new Date(Date.UTC(year, month - 1, day, 15, 59, 0, 0)); // 23:59:00 SGT
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (DATE_ONLY_REGEX.test(trimmed)) {
+      const [y, m, d] = trimmed.split('-').map(Number);
+      return buildEndOfDaySgt(y, m, d);
+    }
+    if (MIDNIGHT_UTC_REGEX.test(trimmed)) {
+      const [datePart] = trimmed.split('T');
+      const [y, m, d] = datePart.split('-').map(Number);
+      return buildEndOfDaySgt(y, m, d);
+    }
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+
+  // If parsed is exactly midnight UTC, treat as all-day and shift to 23:59 SGT
+  if (parsed.getUTCHours() === 0 && parsed.getUTCMinutes() === 0 && parsed.getUTCSeconds() === 0) {
+    return buildEndOfDaySgt(parsed.getUTCFullYear(), parsed.getUTCMonth() + 1, parsed.getUTCDate());
+  }
+
+  return parsed;
+};
+
 const assignSupplierToActiveAnnouncements = async (supplierId) => {
   const supplierIdInt = coerceToInt(supplierId);
   if (!supplierIdInt) {
@@ -395,7 +427,7 @@ router.get("/announcements", protect, async (req, res) => {
       WITH filtered AS (
         SELECT
           pf.*,
-          (pf."EndDate" IS NOT NULL AND pf."EndDate" < NOW()) AS "IsExpired",
+          (pf."EndDate" IS NOT NULL AND (pf."EndDate" AT TIME ZONE 'Asia/Singapore') < (NOW() AT TIME ZONE 'Asia/Singapore')) AS "IsExpired",
           COALESCE(attempts.attempts, 1) AS "AttemptNumber",
           COALESCE(attempts.latest_changed_at, pf."DatePosted") AS "LatestChangedAt",
           NULL::timestamptz AS "AttemptSentAt",
@@ -540,11 +572,13 @@ router.post("/announcements", protect, upload.single("file"), async (req, res) =
       RETURNING "FileID", "Status";
     `;
 
+    const normalizedEndDate = normalizeEndDateToEndOfDaySgt(end);
+
     const fileResult = await client.query(insertFileQuery, [
       trimmedTitle,
       trimmedDescription,
       filePath,
-      end || null,
+      normalizedEndDate || null,
       normalizedSendType,
       'ACTIVE',
       createdByUserId
@@ -700,7 +734,9 @@ router.put("/announcements/:id", protect, upload.single("file"), async (req, res
       return res.status(400).json({ message: "Description is required." });
     }
 
-    const endDateToSet = typeof end === 'string' && end.trim().length > 0 ? end.trim() : existing.EndDate;
+    const endDateToSet = typeof end === 'string' && end.trim().length > 0
+      ? normalizeEndDateToEndOfDaySgt(end)
+      : existing.EndDate;
     let filePathToSet = existing.FilePath;
     if (req.file) {
       if (adminUseSupabase && req.file.buffer) {
@@ -840,7 +876,7 @@ router.put("/announcements/:id", protect, upload.single("file"), async (req, res
       `WITH base AS (
          SELECT pf."FileID", pf."Title", pf."Description", pf."FilePath", pf."DatePosted", pf."EndDate", pf."SendType", pf."Status", pf."CreatedBy",
                 u."FullName" AS "CreatedByName", u."Email" AS "CreatedByEmail",
-                (pf."EndDate" IS NOT NULL AND pf."EndDate" < NOW()) AS "IsExpired",
+                (pf."EndDate" IS NOT NULL AND (pf."EndDate" AT TIME ZONE 'Asia/Singapore') < (NOW() AT TIME ZONE 'Asia/Singapore')) AS "IsExpired",
                 NULL::text AS "FileName"
          FROM "ProcurementFiles" pf
          LEFT JOIN "Users" u ON u."UserID" = pf."CreatedBy"
@@ -2193,7 +2229,7 @@ router.get("/announcements/:id/detail", protect, async (req, res) => {
       WITH base AS (
         SELECT pf."FileID", pf."Title", pf."Description", pf."FilePath", pf."DatePosted", pf."EndDate", pf."SendType", pf."Status", pf."CreatedBy",
                u."FullName" AS "CreatedByName", u."Email" AS "CreatedByEmail",
-               (pf."EndDate" IS NOT NULL AND pf."EndDate" < NOW()) AS "IsExpired",
+               (pf."EndDate" IS NOT NULL AND (pf."EndDate" AT TIME ZONE 'Asia/Singapore') < (NOW() AT TIME ZONE 'Asia/Singapore')) AS "IsExpired",
                NULL::text AS "FileName"
         FROM "ProcurementFiles" pf
         LEFT JOIN "Users" u ON u."UserID" = pf."CreatedBy"

@@ -348,7 +348,7 @@ app.use("/api/notifications", notificationRoutes);
 
 // --- Auto-fail postings that lapse after their end date (Asia/Singapore) ---
 const EXPIRY_SWEEP_INTERVAL_MS = 5 * 60 * 1000; // every 5 minutes
-const AUTO_FAIL_NOTES = "Auto-failed: End date passed in Asia/Singapore at 12:00 AM.";
+const AUTO_FAIL_NOTES = "Auto-failed: End date passed in Asia/Singapore.";
 let autoFailSweepRunning = false;
 
 const getSupplierIdsForFile = async (client, fileId) => {
@@ -375,7 +375,7 @@ const autoFailExpiredAnnouncements = async () => {
         FROM "ProcurementFiles" pf
        WHERE pf."Status" NOT IN ('COMPLETED', 'FAILED_POSTING')
          AND pf."EndDate" IS NOT NULL
-         AND pf."EndDate"::date < ((NOW() AT TIME ZONE 'Asia/Singapore')::date)
+         AND (pf."EndDate" AT TIME ZONE 'Asia/Singapore') < (NOW() AT TIME ZONE 'Asia/Singapore')
        FOR UPDATE
     `);
 
