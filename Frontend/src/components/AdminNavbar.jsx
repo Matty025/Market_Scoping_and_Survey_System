@@ -10,6 +10,7 @@ const AdminNavbar = ({ title = "Admin", onToggle, isCollapsed, className = "" })
   const navigate = useNavigate();
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState([]);
+  const [selectedIds, setSelectedIds] = useState([]);
   const [notifLoading, setNotifLoading] = useState(false);
   const [notifError, setNotifError] = useState("");
   const [unreadCount, setUnreadCount] = useState(0);
@@ -64,6 +65,7 @@ const AdminNavbar = ({ title = "Admin", onToggle, isCollapsed, className = "" })
     try {
       const res = await api.get("/api/notifications", { params: { limit: 10, offset: 0 } });
       setNotifications(res.data?.items || []);
+      setSelectedIds([]);
       setUnreadCount((prev) => Math.max(0, res.data?.items?.filter((n) => !n.isRead).length ?? prev));
     } catch (err) {
       const msg = err?.response?.data?.message || "Failed to load notifications.";
@@ -108,6 +110,34 @@ const AdminNavbar = ({ title = "Admin", onToggle, isCollapsed, className = "" })
     const path = resolveNotificationPath(notif);
     if (path) navigate(path);
   };
+
+  const handleSelect = (id) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+
+  const handleSelectAll = () => {
+    if (selectedIds.length === notifications.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(notifications.map((n) => n.id));
+    }
+  };
+
+  const handleDelete = async (ids) => {
+    const targetIds = Array.isArray(ids) ? ids : [ids];
+    if (targetIds.length === 0) return;
+    try {
+      await api.delete("/api/notifications", { data: { ids: targetIds } });
+      setNotifications((prev) => prev.filter((n) => !targetIds.includes(n.id)));
+      setSelectedIds((prev) => prev.filter((id) => !targetIds.includes(id)));
+      setUnreadCount((prev) => {
+        const removedUnread = notifications.filter((n) => targetIds.includes(n.id) && !n.isRead).length;
+        return Math.max(0, prev - removedUnread);
+      });
+    } catch (err) {
+      // ignore for now; optional toast could go here
+    }
+  };
   
   return (
     <header className={`admin-navbar ${className}`}>
@@ -140,6 +170,27 @@ const AdminNavbar = ({ title = "Admin", onToggle, isCollapsed, className = "" })
               <div className="notif-panel__header">
                 <span>Notifications</span>
                 {unreadCount > 0 && <span className="notif-count">{unreadCount} new</span>}
+                {notifications.length > 0 && (
+                  <div className="notif-actions">
+                    <label className="notif-select-all">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.length === notifications.length && notifications.length > 0}
+                        onChange={handleSelectAll}
+                        aria-label="Select all notifications"
+                      />
+                      <span>Select all</span>
+                    </label>
+                    <button
+                      className="notif-delete-btn"
+                      type="button"
+                      onClick={() => handleDelete(selectedIds)}
+                      disabled={selectedIds.length === 0}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                )}
               </div>
               {notifLoading && <div className="notif-empty">Loading...</div>}
               {notifError && <div className="notif-empty error">{notifError}</div>}
@@ -149,15 +200,29 @@ const AdminNavbar = ({ title = "Admin", onToggle, isCollapsed, className = "" })
               {!notifLoading && !notifError && notifications.length > 0 && (
                 <div className="notif-list">
                   {notifications.map((n) => (
-                    <button
-                      key={n.id}
-                      className={`notif-item ${n.isRead ? "read" : "unread"}`}
-                      onClick={() => handleNotificationClick(n)}
-                    >
-                      <div className="notif-item__title">{n.title}</div>
-                      {n.body && <div className="notif-item__body">{n.body}</div>}
-                      <div className="notif-item__meta">{new Date(n.createdAt).toLocaleString()}</div>
-                    </button>
+                    <div key={n.id} className={`notif-item ${n.isRead ? "read" : "unread"}`}>
+                      <label className="notif-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(n.id)}
+                          onChange={() => handleSelect(n.id)}
+                          aria-label={`Select notification ${n.title}`}
+                        />
+                      </label>
+                      <button className="notif-body" onClick={() => handleNotificationClick(n)}>
+                        <div className="notif-item__title">{n.title}</div>
+                        {n.body && <div className="notif-item__body">{n.body}</div>}
+                        <div className="notif-item__meta">{new Date(n.createdAt).toLocaleString()}</div>
+                      </button>
+                      <button
+                        className="notif-delete-one"
+                        type="button"
+                        title="Delete notification"
+                        onClick={() => handleDelete([n.id])}
+                      >
+                        ×
+                      </button>
+                    </div>
                   ))}
                 </div>
               )}

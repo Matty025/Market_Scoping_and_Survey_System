@@ -59,4 +59,44 @@ router.patch("/read-all", protect, async (req, res) => {
   }
 });
 
+// Delete a single notification
+router.delete("/:id", protect, async (req, res) => {
+  try {
+    const userId = req.user?.userID || req.user?.UserID || req.user?.id;
+    if (!userId) return res.status(401).json({ message: "Not authorized" });
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({ message: "Invalid notification id" });
+    }
+
+    const deleted = await notificationService.deleteNotification(userId, id);
+    if (deleted === 0) {
+      return res.status(404).json({ message: "Notification not found" });
+    }
+    res.json({ message: "Notification deleted", deleted });
+  } catch (err) {
+    console.error("[notificationRoutes] delete error:", err && err.message ? err.message : err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Bulk delete notifications by id list
+router.delete("/", protect, async (req, res) => {
+  try {
+    const userId = req.user?.userID || req.user?.UserID || req.user?.id;
+    if (!userId) return res.status(401).json({ message: "Not authorized" });
+
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
+    if (ids.length === 0) {
+      return res.status(400).json({ message: "No notification ids provided" });
+    }
+
+    const deleted = await notificationService.deleteNotifications(userId, ids);
+    res.json({ message: "Notifications deleted", deleted });
+  } catch (err) {
+    console.error("[notificationRoutes] bulk delete error:", err && err.message ? err.message : err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 module.exports = router;

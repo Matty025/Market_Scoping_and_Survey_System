@@ -99,6 +99,27 @@ async function countUnread(userId) {
   return Number(rows[0]?.count || 0);
 }
 
+async function deleteNotification(userId, notificationId) {
+  if (!userId || !notificationId) {
+    return 0;
+  }
+  const query = `DELETE FROM "Notifications" WHERE "UserID" = $1 AND "NotificationID" = $2`;
+  const { rowCount } = await pool.query(query, [userId, notificationId]);
+  return rowCount;
+}
+
+async function deleteNotifications(userId, notificationIds = []) {
+  if (!userId) return 0;
+  const ids = Array.isArray(notificationIds)
+    ? notificationIds.map((n) => Number(n)).filter((n) => Number.isInteger(n) && n > 0)
+    : [];
+  if (ids.length === 0) return 0;
+
+  const query = `DELETE FROM "Notifications" WHERE "UserID" = $1 AND "NotificationID" = ANY($2::int[])`;
+  const { rowCount } = await pool.query(query, [userId, ids]);
+  return rowCount;
+}
+
 async function getAdminUserIds() {
   const { rows } = await pool.query(
     `SELECT u."UserID" AS "userId"
@@ -138,4 +159,6 @@ module.exports = {
   buildFingerprint,
   notifyAdmins,
   getAdminUserIds,
+  deleteNotification,
+  deleteNotifications,
 };

@@ -175,6 +175,39 @@ border-bottom: 2px solid #000; /* clean black bottom border */
   color: #0f172a;
 }
 
+.notif-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.notif-select-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.notif-delete-btn {
+  border: 1px solid #ddd;
+  background: #f8f8f8;
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.notif-delete-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.notif-delete-btn:not(:disabled):hover {
+  background: #f0f0f0;
+}
+
 .notif-count {
   background: #fef3c7;
   color: #92400e;
@@ -185,6 +218,7 @@ border-bottom: 2px solid #000; /* clean black bottom border */
   font-weight: 700;
 }
 
+
 .notif-list {
   max-height: 320px;
   overflow-y: auto;
@@ -193,14 +227,16 @@ border-bottom: 2px solid #000; /* clean black bottom border */
 }
 
 .notif-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
   width: 100%;
   text-align: left;
   border: none;
   background: #fff;
-  padding: 10px 8px;
+  padding: 8px 8px 8px 6px;
   border-bottom: 1px solid #edf2f7;
-  cursor: pointer;
-  transition: background 0.15s ease;
+  gap: 6px;
 }
 
 .notif-item:last-child {
@@ -213,6 +249,32 @@ border-bottom: 2px solid #000; /* clean black bottom border */
 
 .notif-item:hover {
   background: #f1f5f9;
+}
+
+.notif-body {
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 0;
+  cursor: pointer;
+}
+
+.notif-checkbox input {
+  cursor: pointer;
+}
+
+.notif-delete-one {
+  border: none;
+  background: transparent;
+  color: #888;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+}
+
+.notif-delete-one:hover {
+  color: #c00;
 }
 
 .notif-item__title {
