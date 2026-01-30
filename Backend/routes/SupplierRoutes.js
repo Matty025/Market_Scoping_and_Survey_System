@@ -84,27 +84,25 @@ const supplierFileJoins = `
         ORDER BY sr."DateUploaded" DESC
         LIMIT 1
       ) lastResponse ON TRUE
-      LEFT JOIN LATERAL (
-        SELECT
-          attempt_count.attempt_count,
-          last_row."NewStatus" AS latest_status,
-          last_row."Notes" AS latest_note,
-          last_row."ChangedAt" AS latest_changed_at
-        FROM LATERAL (
-          SELECT COALESCE(1 + COUNT(*) FILTER (
-                         WHERE h."OldStatus" IN ('FAILED_POSTING', 'COMPLETED') AND h."NewStatus" = 'ACTIVE'
-                       ), 1) AS attempt_count
-          FROM "ProcurementStatusHistory" h
-          WHERE h."FileID" = pf."FileID"
-        ) AS attempt_count
         LEFT JOIN LATERAL (
-          SELECT h2."NewStatus", h2."Notes", h2."ChangedAt"
-          FROM "ProcurementStatusHistory" h2
-          WHERE h2."FileID" = pf."FileID"
-          ORDER BY h2."ChangedAt" DESC
-          LIMIT 1
-        ) AS last_row ON TRUE
-      ) statusInfo ON TRUE`;
+          SELECT
+            attempt_count.attempt_count,
+            last_row."NewStatus" AS latest_status,
+            last_row."Notes" AS latest_note,
+            last_row."ChangedAt" AS latest_changed_at
+          FROM LATERAL (
+            SELECT COALESCE(NULLIF(COUNT(*) FILTER (WHERE h."NewStatus" = 'ACTIVE'), 0), 1) AS attempt_count
+            FROM "ProcurementStatusHistory" h
+            WHERE h."FileID" = pf."FileID"
+          ) AS attempt_count
+          LEFT JOIN LATERAL (
+            SELECT h2."NewStatus", h2."Notes", h2."ChangedAt"
+            FROM "ProcurementStatusHistory" h2
+            WHERE h2."FileID" = pf."FileID"
+            ORDER BY h2."ChangedAt" DESC
+            LIMIT 1
+          ) AS last_row ON TRUE
+        ) statusInfo ON TRUE`;
 
 const supplierFileGroupBy = `
       GROUP BY
