@@ -619,6 +619,7 @@ router.post("/announcements", protect, upload.single("file"), async (req, res) =
     }
 
     supplierIdsToNotify = uniqueIntegers(supplierIdsToNotify);
+    const nextAttemptNumber = activeAttempts + 1;
 
     if (supplierIdsToNotify.length > 0) {
       const supplierFileInsertQuery = `
@@ -818,21 +819,17 @@ router.put("/announcements/:id", protect, upload.single("file"), async (req, res
     } else {
       await client.query('DELETE FROM "SupplierFiles" WHERE "FileID" = $1 AND NOT ("SupplierID" = ANY($2::int[]))', [fileId, supplierIdsToNotify]);
       await client.query(
-        `INSERT INTO "SupplierFiles" ("SupplierID", "FileID", "Status", "OptInStatus", "OptedInAt", "DeclinedAt")
-         SELECT DISTINCT t.supplier_id, $2::int, 'PENDING', 'OPTED_IN', NOW()::timestamp, NULL::timestamp
+        `INSERT INTO "SupplierFiles" ("SupplierID", "FileID", "Status", "OptInStatus", "OptedInAt", "DeclinedAt", "CurrentAttemptNumber")
+         SELECT DISTINCT t.supplier_id, $2::int, 'PENDING', 'OPTED_IN', NOW()::timestamp, NULL::timestamp, $3::int
          FROM UNNEST($1::int[]) AS t(supplier_id)
          ON CONFLICT ("SupplierID", "FileID") DO UPDATE SET
            "Status" = EXCLUDED."Status",
            "DateResponded" = NULL,
-           "CurrentAttemptNumber" = CASE
-             WHEN UPPER("SupplierFiles"."Status") = 'ANSWERED'
-               THEN COALESCE("SupplierFiles"."CurrentAttemptNumber", 1) + 1
-             ELSE GREATEST(COALESCE("SupplierFiles"."CurrentAttemptNumber", 1), 1)
-           END,
+           "CurrentAttemptNumber" = $3::int,
            "OptInStatus" = 'OPTED_IN',
            "OptedInAt" = NOW()::timestamp,
            "DeclinedAt" = NULL::timestamp`,
-        [supplierIdsToNotify, fileId]
+        [supplierIdsToNotify, fileId, nextAttemptNumber]
       );
     }
 
