@@ -619,7 +619,6 @@ router.post("/announcements", protect, upload.single("file"), async (req, res) =
     }
 
     supplierIdsToNotify = uniqueIntegers(supplierIdsToNotify);
-    const nextAttemptNumber = activeAttempts + 1;
 
     if (supplierIdsToNotify.length > 0) {
       const supplierFileInsertQuery = `
@@ -813,6 +812,7 @@ router.put("/announcements/:id", protect, upload.single("file"), async (req, res
     }
 
     supplierIdsToNotify = uniqueIntegers(supplierIdsToNotify);
+    const nextAttemptNumber = activeAttempts + 1;
 
     if (supplierIdsToNotify.length === 0) {
       await client.query('DELETE FROM "SupplierFiles" WHERE "FileID" = $1', [fileId]);
