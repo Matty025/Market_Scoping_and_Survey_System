@@ -122,6 +122,47 @@ const getActiveAttemptCount = async (client, fileId) => {
   }
 };
 
+const assignSupplierToActiveAnnouncements = async (supplierId) => {
+  const supplierIdInt = coerceToInt(supplierId);
+  if (!supplierIdInt) {
+    return [];
+  }
+
+  const { rows: categoryRows } = await pool.query(
+    'SELECT "CategoryID" FROM "SupplierCategories" WHERE "SupplierID" = $1',
+    [supplierIdInt]
+  );
+  const categoryIds = uniqueIntegers(categoryRows.map((row) => row.CategoryID));
+  if (categoryIds.length === 0) {
+    return [];
+  }
+
+  const { rows: fileRows } = await pool.query(
+    `SELECT DISTINCT pfc."FileID"
+       FROM "ProcurementFileCategories" pfc
+       JOIN "ProcurementFiles" pf ON pf."FileID" = pfc."FileID"
+      WHERE pf."Status" = 'ACTIVE'
+        AND (pf."EndDate" IS NULL OR pf."EndDate"::date >= ((NOW() AT TIME ZONE 'Asia/Singapore')::date))
+        AND pfc."CategoryID" = ANY($1::int[])`,
+    [categoryIds]
+  );
+
+  const fileIds = uniqueIntegers(fileRows.map((row) => row.FileID));
+  if (fileIds.length === 0) {
+    return [];
+  }
+
+  await pool.query(
+    `INSERT INTO "SupplierFiles" ("SupplierID", "FileID", "Status")
+     SELECT $1::int, t.file_id, 'PENDING'
+       FROM UNNEST($2::int[]) AS t(file_id)
+     ON CONFLICT ("SupplierID", "FileID") DO NOTHING`,
+    [supplierIdInt, fileIds]
+  );
+
+  return fileIds;
+};
+
 // Cache once to avoid repeated information_schema lookups.
 let buyerUploadsNotesColumnExists;
 const hasBuyerUploadsNotesColumn = async () => {
@@ -1603,7 +1644,7 @@ router.patch('/users/:id', protect, async (req, res) => {
   if (!allowed.includes(normalized)) return res.status(400).json({ message: 'Invalid status' });
 
   try {
-    const updateQ = `UPDATE "Users" SET "AccountStatus" = $1 WHERE "UserID" = $2 RETURNING "UserID","FullName","Email","AccountStatus"`;
+    const updateQ = `UPDATE "Users" SET "AccountStatus" = $1 WHERE "UserID" = $2 RETURNING "UserID","FullName","Email","AccountStatus","SupplierID"`;
     const { rows } = await pool.query(updateQ, [normalized, userId]);
     if (rows.length === 0) return res.status(404).json({ message: 'User not found' });
     const updatedUser = rows[0];
@@ -1617,6 +1658,17 @@ router.patch('/users/:id', protect, async (req, res) => {
     }).catch((err) => {
       console.warn('[adminRoutes] Failed to send account status email:', err && err.message ? err.message : err);
     });
+
+    if (normalized === 'APPROVED' && updatedUser.SupplierID) {
+      try {
+        const assignedFileIds = await assignSupplierToActiveAnnouncements(updatedUser.SupplierID);
+        if (assignedFileIds.length > 0) {
+          console.log(`[adminRoutes] Added supplier ${updatedUser.SupplierID} to ${assignedFileIds.length} active announcement(s).`);
+        }
+      } catch (assignErr) {
+        console.warn('[adminRoutes] Failed to backfill supplier announcements on approval:', assignErr && assignErr.message ? assignErr.message : assignErr);
+      }
+    }
 
     res.json({ message: 'User status updated', user: updatedUser });
   } catch (err) {
