@@ -452,7 +452,9 @@ const SupplierDashboard = () => {
       const procurementStatusClass = toBadgeClass(procurementStatus, statusClass);
       statusClass = toBadgeClass(statusKeyForBadge, statusClass);
 
-      const canSubmit = !isFinalized && !isFailedPosting && status !== "answered" && !requiresDecision && !isDeclined;
+      // Allow submission on repost/attempts even if an explicit opt-in decision was not recorded;
+      // only block for finalized, failed, answered, or declined states.
+      const canSubmit = !isFinalized && !isFailedPosting && status !== "answered" && !isDeclined;
 
       let submissionLockReason = "";
       if (!canSubmit) {
