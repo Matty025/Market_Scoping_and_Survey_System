@@ -188,8 +188,8 @@ const assignSupplierToActiveAnnouncements = async (supplierId) => {
   }
 
   await pool.query(
-    `INSERT INTO "SupplierFiles" ("SupplierID", "FileID", "Status")
-     SELECT $1::int, t.file_id, 'PENDING'
+    `INSERT INTO "SupplierFiles" ("SupplierID", "FileID", "Status", "OptInStatus", "OptedInAt", "DeclinedAt")
+     SELECT $1::int, t.file_id, 'PENDING', 'OPTED_IN', NOW(), NULL
        FROM UNNEST($2::int[]) AS t(file_id)
      ON CONFLICT ("SupplierID", "FileID") DO NOTHING`,
     [supplierIdInt, fileIds]
@@ -622,8 +622,8 @@ router.post("/announcements", protect, upload.single("file"), async (req, res) =
 
     if (supplierIdsToNotify.length > 0) {
       const supplierFileInsertQuery = `
-        INSERT INTO "SupplierFiles" ("SupplierID", "FileID", "Status")
-        SELECT DISTINCT t.supplier_id, $2::int, 'PENDING'
+        INSERT INTO "SupplierFiles" ("SupplierID", "FileID", "Status", "OptInStatus", "OptedInAt", "DeclinedAt")
+        SELECT DISTINCT t.supplier_id, $2::int, 'PENDING', 'OPTED_IN', NOW(), NULL
         FROM UNNEST($1::int[]) AS t(supplier_id)
         ON CONFLICT ("SupplierID", "FileID") DO UPDATE SET
           "Status" = EXCLUDED."Status",
@@ -818,8 +818,8 @@ router.put("/announcements/:id", protect, upload.single("file"), async (req, res
     } else {
       await client.query('DELETE FROM "SupplierFiles" WHERE "FileID" = $1 AND NOT ("SupplierID" = ANY($2::int[]))', [fileId, supplierIdsToNotify]);
       await client.query(
-        `INSERT INTO "SupplierFiles" ("SupplierID", "FileID", "Status")
-         SELECT DISTINCT t.supplier_id, $2::int, 'PENDING'
+        `INSERT INTO "SupplierFiles" ("SupplierID", "FileID", "Status", "OptInStatus", "OptedInAt", "DeclinedAt")
+         SELECT DISTINCT t.supplier_id, $2::int, 'PENDING', 'OPTED_IN', NOW(), NULL
          FROM UNNEST($1::int[]) AS t(supplier_id)
          ON CONFLICT ("SupplierID", "FileID") DO UPDATE SET
            "Status" = EXCLUDED."Status",
