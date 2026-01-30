@@ -137,3 +137,39 @@ async function sendAccountStatusEmail({ email, fullName, status, notes }) {
 }
 
 module.exports.sendAccountStatusEmail = sendAccountStatusEmail;
+
+async function sendSupplierResponseEmail({ supplierName, companyName, fileTitle, fileId, toOverride }) {
+  if (!sendMail) {
+    console.warn("[adminNotification] sendMail is not available; cannot send supplier response email.");
+    return;
+  }
+
+  const recipients = Array.isArray(toOverride)
+    ? toOverride.filter(Boolean)
+    : toOverride
+      ? [toOverride]
+      : await getAdminEmails();
+
+  if (!recipients.length) {
+    console.warn("[adminNotification] No admin recipients found; skipping supplier response email.");
+    return;
+  }
+
+  const name = companyName || supplierName || "Supplier";
+  const title = fileTitle || (fileId ? `Announcement ${fileId}` : "Announcement");
+
+  await sendMail({
+    to: recipients,
+    subject: `[MSSS] Supplier responded: ${title}`,
+    html: `
+      <h3>Supplier submitted a response</h3>
+      <p><strong>Supplier:</strong> ${name}</p>
+      <p><strong>Announcement:</strong> ${title}</p>
+      <p>This supplier just submitted a response. Please sign in to review their submission.</p>
+    `,
+  });
+
+  console.log(`[adminNotification] Supplier response email sent for ${title} (${name}).`);
+}
+
+module.exports.sendSupplierResponseEmail = sendSupplierResponseEmail;

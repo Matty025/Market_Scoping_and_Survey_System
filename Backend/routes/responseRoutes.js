@@ -6,6 +6,7 @@ const { uploadBuffer } = require("../utils/supabaseStorage");
 const { protect } = require("./authMiddleware");
 const pool = require("../db.js");
 const notificationService = require("../services/notificationService");
+const { sendSupplierResponseEmail } = require("../services/adminNotificationService");
 
 // Configure multer: use memory storage when Supabase is configured, otherwise disk storage
 const useSupabase = Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
@@ -130,6 +131,15 @@ router.post("/", protect, upload.single("responseFile"), async (req, res) => {
       },
     }).catch((err) => {
       console.warn('[responseRoutes] Failed to notify admins of supplier response:', err && err.message ? err.message : err);
+    });
+
+    sendSupplierResponseEmail({
+      supplierName: fileInfo.companyName || `Supplier ${supplierId}`,
+      companyName: fileInfo.companyName || null,
+      fileTitle: fileInfo.title || null,
+      fileId: fileInfo.fileId || null,
+    }).catch((err) => {
+      console.warn('[responseRoutes] Failed to email admins of supplier response:', err && err.message ? err.message : err);
     });
 
     res.status(201).json({ message: "Response submitted successfully." });

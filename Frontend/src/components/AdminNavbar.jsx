@@ -28,6 +28,36 @@ const AdminNavbar = ({ title = "Admin", onToggle, isCollapsed, className = "" })
     }
   };
 
+  const resolveNotificationPath = (notif = {}) => {
+    if (!notif) return null;
+    const meta = notif.metadata || {};
+    const type = (notif.type || "").toLowerCase();
+    // Prefer explicit path if backend sets it
+    if (meta.path) return meta.path;
+
+    if (type.includes("announcement")) {
+      const fileId = meta.fileId || meta.sourceId || meta.id;
+      return fileId ? `/admin/announcements?highlight=${fileId}` : `/admin/announcements`;
+    }
+
+    if (type.includes("response")) {
+      const fileId = meta.fileId || meta.sourceId || meta.id;
+      return fileId ? `/admin/announcements?highlight=${fileId}#responses` : `/admin/announcements`;
+    }
+
+    if (type.includes("purchase_request")) {
+      const uploadId = meta.uploadId || meta.sourceId || meta.id;
+      return uploadId ? `/admin/buyer-requests?focus=${uploadId}` : `/admin/buyer-requests`;
+    }
+
+    if (type.includes("account_pending")) {
+      const email = meta.email || meta.sourceId;
+      return email ? `/admin/manage-accounts?email=${encodeURIComponent(email)}` : `/admin/manage-accounts`;
+    }
+
+    return null;
+  };
+
   const fetchNotifications = async () => {
     setNotifLoading(true);
     setNotifError("");
@@ -75,7 +105,7 @@ const AdminNavbar = ({ title = "Admin", onToggle, isCollapsed, className = "" })
 
   const handleNotificationClick = (notif) => {
     handleMarkRead(notif.id);
-    const path = notif?.metadata?.path;
+    const path = resolveNotificationPath(notif);
     if (path) navigate(path);
   };
   
