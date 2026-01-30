@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import api from "../api";
 import { useAuth } from "./AuthContext";
 import "./ResponseModal.css";
@@ -6,6 +6,18 @@ import "./ResponseModal.css";
 const ResponseModal = ({ announcement, responses, onClose, isLoading }) => {
   const { token } = useAuth(); // token must be here
   const [historyViewer, setHistoryViewer] = useState({ visible: false, supplierName: "", supplierFileId: null, files: [] });
+  const [linkLoadingKey, setLinkLoadingKey] = useState(null);
+  const [toast, setToast] = useState({ visible: false, type: "info", message: "" });
+
+  useEffect(() => {
+    if (!toast.visible) return undefined;
+    const t = setTimeout(() => setToast((prev) => ({ ...prev, visible: false })), 2500);
+    return () => clearTimeout(t);
+  }, [toast.visible]);
+
+  const showToast = (message, type = "info") => {
+    setToast({ visible: true, type, message });
+  };
 
   const formatDateTime = (value, options = {}) => {
     if (!value) return "—";
@@ -135,7 +147,7 @@ const ResponseModal = ({ announcement, responses, onClose, isLoading }) => {
         const resp = await api.get('/api/files/sas', { params: { blobUrl: url } });
         const sas = resp.data?.url || url;
         window.open(sas, '_blank');
-        return;
+        return true;
       }
 
       const backendBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -148,18 +160,32 @@ const ResponseModal = ({ announcement, responses, onClose, isLoading }) => {
           const blobUrl = window.URL.createObjectURL(blob);
           window.open(blobUrl, '_blank');
           setTimeout(() => window.URL.revokeObjectURL(blobUrl), 60 * 1000);
-          return;
+          return true;
         } catch (fetchErr) {
           console.error('Authenticated fetch failed; not opening unauthenticated URL', fetchErr);
-          alert('Unable to fetch the protected file. Please ensure you are logged in and try again.');
-          return;
+          throw new Error('Unable to fetch the protected file. Please ensure you are logged in and try again.');
         }
       }
 
       window.open(url, '_blank');
+      return true;
     } catch (err) {
       console.error('Failed to open protected URL', err);
-      window.open(url, '_blank');
+      throw err;
+    }
+  };
+
+  const handleOpenFile = async (url, key = "") => {
+    if (!url) return;
+    if (linkLoadingKey === key) return;
+    setLinkLoadingKey(key);
+    try {
+      await openProtectedUrl(url);
+      showToast('File opened in a new tab', 'success');
+    } catch (err) {
+      showToast(err?.message || 'Failed to open file', 'error');
+    } finally {
+      setLinkLoadingKey(null);
     }
   };
 
@@ -249,10 +275,11 @@ const ResponseModal = ({ announcement, responses, onClose, isLoading }) => {
                               <div className="response-file-actions">
                                 <a
                                   href="#"
-                                  onClick={(e) => { e.preventDefault(); openProtectedUrl(latestFileUrl); }}
-                                  className="download-btn"
+                                  onClick={(e) => { e.preventDefault(); handleOpenFile(latestFileUrl, `latest-${res.supplierFileId}`); }}
+                                  className={`download-btn${linkLoadingKey === `latest-${res.supplierFileId}` ? ' loading' : ''}`}
+                                  aria-disabled={linkLoadingKey === `latest-${res.supplierFileId}`}
                                 >
-                                  View Latest Quotation
+                                  {linkLoadingKey === `latest-${res.supplierFileId}` ? 'Opening…' : 'View Latest Quotation'}
                                 </a>
                                 {historyList.length > 0 && (
                                   <button
@@ -308,6 +335,8 @@ const ResponseModal = ({ announcement, responses, onClose, isLoading }) => {
                       supplierFileId: historyViewer.supplierFileId,
                       responseId: file?.responseId,
                     });
+                    const linkKey = `history-${historyViewer.supplierFileId}-${file?.responseId || idx}`;
+                    const isLoading = linkLoadingKey === linkKey;
                     return (
                       <li key={file?.responseId || idx} className="response-history-item">
                         <div className="response-history-meta">
@@ -318,10 +347,11 @@ const ResponseModal = ({ announcement, responses, onClose, isLoading }) => {
                           {fileUrl ? (
                           <a
                             href="#"
-                            onClick={(e) => { e.preventDefault(); openProtectedUrl(fileUrl); }}
-                            className="download-btn"
+                            onClick={(e) => { e.preventDefault(); handleOpenFile(fileUrl, linkKey); }}
+                            className={`download-btn${isLoading ? ' loading' : ''}`}
+                            aria-disabled={isLoading}
                           >
-                            View File
+                            {isLoading ? 'Opening…' : 'View File'}
                           </a>
                         ) : (
                           <span className="download-placeholder">No file</span>
@@ -335,6 +365,12 @@ const ResponseModal = ({ announcement, responses, onClose, isLoading }) => {
           </div>
         )}
       </div>
+      {toast.visible && toast.message ? (
+        <div className={`inline-toast inline-toast-${toast.type}`} role="status" aria-live="polite">
+          {toast.message}
+          <button type="button" onClick={() => setToast({ ...toast, visible: false })} className="inline-toast-close">×</button>
+        </div>
+      ) : null}
     </div>
   );
 };

@@ -31,11 +31,19 @@
   font-size: 0.8rem;
   transition: background-color 0.2s, box-shadow 0.2s;
   display: inline-block;
+  position: relative;
 }
 
 .response-list .download-btn:hover {
   background-color: var(--philgeps-bright-blue, #1c3f7c);
   box-shadow: 0 10px 20px rgba(15, 45, 98, 0.2);
+}
+
+.response-list .download-btn.loading,
+.response-history-item .download-btn.loading {
+  opacity: 0.7;
+  pointer-events: none;
+  cursor: wait;
 }
 
 .abstract-btn {
@@ -220,4 +228,34 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+.inline-toast {
+  position: fixed;
+  bottom: 18px;
+  right: 18px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+  background: #0f2d62;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 2200;
+  font-size: 0.9rem;
+}
+
+.inline-toast-success { background: #0f8358; }
+.inline-toast-error { background: #b91c1c; }
+.inline-toast-info { background: #0f2d62; }
+.inline-toast-warning { background: #f6b400; color: #0f2d62; }
+
+.inline-toast-close {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-size: 1.1rem;
+  cursor: pointer;
+  line-height: 1;
 }
