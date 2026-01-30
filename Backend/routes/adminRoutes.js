@@ -633,8 +633,8 @@ router.post("/announcements", protect, upload.single("file"), async (req, res) =
               THEN COALESCE("SupplierFiles"."CurrentAttemptNumber", 1) + 1
             ELSE GREATEST(COALESCE("SupplierFiles"."CurrentAttemptNumber", 1), 1)
           END,
-          "OptInStatus" = 'PENDING',
-          "OptedInAt" = NULL,
+          "OptInStatus" = 'OPTED_IN',
+          "OptedInAt" = NOW(),
           "DeclinedAt" = NULL;
       `;
       await client.query(supplierFileInsertQuery, [supplierIdsToNotify, newFileId]);
@@ -829,9 +829,9 @@ router.put("/announcements/:id", protect, upload.single("file"), async (req, res
                THEN COALESCE("SupplierFiles"."CurrentAttemptNumber", 1) + 1
              ELSE GREATEST(COALESCE("SupplierFiles"."CurrentAttemptNumber", 1), 1)
            END,
-            "OptInStatus" = 'PENDING',
-            "OptedInAt" = NULL,
-            "DeclinedAt" = NULL`,
+           "OptInStatus" = 'OPTED_IN',
+           "OptedInAt" = NOW(),
+           "DeclinedAt" = NULL`;
           [supplierIdsToNotify, fileId]
       );
     }
