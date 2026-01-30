@@ -1852,6 +1852,10 @@ router.get("/supplier-files/:supplierFileId/response-file", protect, async (req,
     const filePath = rows[0].ResponseFilePath;
     const title = rows[0].Title || `response-${supplierFileId}`;
 
+    if (!filePath) {
+      return res.status(404).json({ message: "Response file path is missing." });
+    }
+
     let stream = null;
     let contentLength = null;
 
@@ -1862,8 +1866,15 @@ router.get("/supplier-files/:supplierFileId/response-file", protect, async (req,
 
     // Decide storage backend: Supabase vs local/disk path
     if (supabase && filePath && !filePath.startsWith('http') && !isLocalPath) {
-      stream = await downloadFile(filePath);
-    } else {
+      try {
+        stream = await downloadFile(filePath);
+      } catch (dlErr) {
+        console.error('[response-file] Supabase download failed:', dlErr && dlErr.message ? dlErr.message : dlErr);
+        // Fall through to disk attempt below
+      }
+    }
+
+    if (!stream) {
       const absolutePath = path.isAbsolute(filePath)
         ? filePath
         : path.join(__dirname, "..", filePath);
@@ -1885,7 +1896,10 @@ router.get("/supplier-files/:supplierFileId/response-file", protect, async (req,
 
     stream.pipe(res);
   } catch (err) {
-    console.error("Error downloading response file (admin):", err && err.message ? err.message : err);
+    console.error("Error downloading response file (admin):", err && err.message ? err.message : err, {
+      supplierFileId,
+      responseId,
+    });
 
     if (err.message && err.message.includes('not found')) {
       return res.status(404).json({ message: "File not found in storage" });
