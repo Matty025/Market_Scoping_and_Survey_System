@@ -1,4 +1,5 @@
 const { createClient } = require('@supabase/supabase-js');
+const { Readable } = require('stream');
 
 // Node 16 compatibility: polyfill fetch if not available
 let fetchFn = null;
@@ -105,7 +106,14 @@ async function downloadFile(blobPath) {
   if (!response.ok) {
     throw new Error(`Failed to download file: ${response.status} ${response.statusText}`);
   }
-  return response.body; // Readable stream
+  // Node 18+ global fetch returns a web ReadableStream; normalize to a Node stream for piping
+  if (response.body && typeof response.body.pipe === 'function') {
+    return response.body;
+  }
+  if (response.body && typeof Readable.fromWeb === 'function') {
+    return Readable.fromWeb(response.body);
+  }
+  throw new Error('Download stream unavailable');
 }
 
 module.exports = {
