@@ -12,6 +12,8 @@ const FileCardModal = ({
   onOptIn,
   onDecline,
   onViewHistory,
+  onReuse,
+  isReusing = false,
   isDecisionPending = false,
   decisionAction = null,
 }) => {
@@ -50,6 +52,7 @@ const FileCardModal = ({
   // Fallback to server-provided SAS or stored filePath if streaming endpoint isn't available.
   const responseStreamUrl = file && file.SupplierFileID ? makeUrl(`/api/supplier-files/${file.SupplierFileID}/response-file`) : null;
   const lastResponseUrl = responseStreamUrl || (lastResponse?.lastResponseFileUrl ? lastResponse.lastResponseFileUrl : (lastResponse?.filePath ? makeUrl(lastResponse.filePath) : null));
+  const lastResponseId = lastResponse?.id || lastResponse?.responseId || null;
 
   const openProtectedUrl = async (url) => {
     if (!url) return;
@@ -102,6 +105,7 @@ const FileCardModal = ({
   const effectiveCanSubmit = Boolean(canSubmit);
   const fileInputDisabled = !effectiveCanSubmit || decisionBusy;
   const showHistoryButton = typeof onViewHistory === "function";
+  const showReuseButton = Boolean(effectiveCanSubmit && lastResponseId && typeof onReuse === 'function');
 
   const handleJoinAttempt = () => {
     if (typeof onOptIn === "function") {
@@ -245,6 +249,21 @@ const FileCardModal = ({
 
         {!effectiveCanSubmit && !requiresDecision && optInStatus !== "DECLINED" && optInStatus !== "SUBMITTED" && (
           <p className="submission-locked">Submission period has ended. You can still view the announcement PDF.</p>
+        )}
+
+        {showReuseButton && (
+          <div className="modal-reuse-block">
+            <h4>Reuse your last submission?</h4>
+            <p className="modal-decision-subtext">We will resend your most recent PDF for this announcement.</p>
+            <button
+              type="button"
+              className="reuse-btn"
+              onClick={() => onReuse(file, lastResponseId)}
+              disabled={isReusing || isSubmitting || decisionBusy}
+            >
+              {isReusing ? 'Reusing…' : 'Reuse last submission'}
+            </button>
+          </div>
         )}
 
         <input

@@ -65,6 +65,7 @@ const SupplierDashboard = () => {
   const [expandedFileId, setExpandedFileId] = useState(null);
   const [viewedFileIds, setViewedFileIds] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [reuseState, setReuseState] = useState({ loading: false, supplierFileId: null });
 
   const fetchAssignedFiles = useCallback(async ({ silent = false } = {}) => {
     if (!token) {
@@ -219,6 +220,32 @@ const SupplierDashboard = () => {
       return false;
     } finally {
       setIsSubmittingResponse(false);
+    }
+  };
+
+  const handleReuseResponse = async (file, sourceResponseId) => {
+    if (!token || !file?.SupplierFileID) return false;
+    if (reuseState.loading) return false;
+
+    setReuseState({ loading: true, supplierFileId: file.SupplierFileID });
+    try {
+      await api.post(
+        "/api/supplier-responses/reuse",
+        { supplierFileId: file.SupplierFileID, sourceResponseId },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      setToast({ visible: true, type: "success", message: `Reused your last submission for "${file.Title}".` });
+      await fetchAssignedFiles({ silent: true });
+      handleCloseModal();
+      return true;
+    } catch (error) {
+      console.error("Failed to reuse quotation:", error);
+      const message = error.response?.data?.message || "Unable to reuse your previous submission.";
+      setToast({ visible: true, type: "error", message });
+      return false;
+    } finally {
+      setReuseState({ loading: false, supplierFileId: null });
     }
   };
 
@@ -1019,6 +1046,8 @@ const SupplierDashboard = () => {
           onViewHistory={handleViewTimeline}
           isDecisionPending={decisionState.loading}
           decisionAction={decisionState.action}
+          onReuse={handleReuseResponse}
+          isReusing={reuseState.loading && reuseState.supplierFileId === selectedFile.SupplierFileID}
         />
       )}
 

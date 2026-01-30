@@ -34,6 +34,92 @@ const getSupplierIdForUser = async (client, userId) => {
   return result.rows[0]?.SupplierID || null;
 };
 
+// @desc    Reuse the most recent response for a supplier assignment (no new upload)
+// @route   POST /api/supplier-responses/reuse
+// @access  Private (Supplier)
+router.post('/reuse', protect, async (req, res) => {
+  const { supplierFileId, sourceResponseId } = req.body || {};
+
+  const supplierFileIdInt = parseInt(supplierFileId, 10);
+  if (!Number.isInteger(supplierFileIdInt)) {
+    return res.status(400).json({ message: 'Invalid supplier file id.' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const supplierId = await getSupplierIdForUser(client, req.user.userID);
+    if (!supplierId) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'Supplier profile not found for this user.' });
+    }
+
+    const sfRes = await client.query(
+      'SELECT "SupplierID", "Status" FROM "SupplierFiles" WHERE "SupplierFileID" = $1 FOR UPDATE',
+      [supplierFileIdInt]
+    );
+    if (sfRes.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'Supplier assignment not found.' });
+    }
+    if (sfRes.rows[0].SupplierID !== supplierId) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ message: 'You are not authorised to reuse for this assignment.' });
+    }
+
+    const responseLookup = sourceResponseId
+      ? await client.query(
+          'SELECT "ResponseID", "ResponseFilePath" FROM "SupplierResponses" WHERE "SupplierFileID" = $1 AND "ResponseID" = $2',
+          [supplierFileIdInt, sourceResponseId]
+        )
+      : await client.query(
+          'SELECT "ResponseID", "ResponseFilePath" FROM "SupplierResponses" WHERE "SupplierFileID" = $1 ORDER BY "DateUploaded" DESC NULLS LAST, "ResponseID" DESC LIMIT 1',
+          [supplierFileIdInt]
+        );
+
+    if (responseLookup.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'No previous response found to reuse.' });
+    }
+
+    const source = responseLookup.rows[0];
+
+    const insertReuse = await client.query(
+      `INSERT INTO "SupplierResponses" ("SupplierFileID", "ResponseFilePath", "IsReused", "SourceResponseID")
+       VALUES ($1, $2, TRUE, $3)
+       RETURNING "ResponseID", "DateUploaded"`,
+      [supplierFileIdInt, source.ResponseFilePath, source.ResponseID]
+    );
+
+    await client.query(
+      `UPDATE "SupplierFiles"
+         SET "Status" = 'ANSWERED',
+             "DateResponded" = NOW(),
+             "OptInStatus" = 'SUBMITTED',
+             "OptedInAt" = COALESCE("OptedInAt", NOW()),
+             "DeclinedAt" = NULL,
+             "ReuseResponseID" = $2,
+             "LastReusedAt" = NOW()
+       WHERE "SupplierFileID" = $1`,
+      [supplierFileIdInt, source.ResponseID]
+    );
+
+    await client.query('COMMIT');
+
+    return res.status(201).json({
+      message: 'Previous response reused successfully.',
+      responseId: insertReuse.rows[0]?.ResponseID || null,
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('[responseRoutes] Reuse response failed:', err && err.message ? err.message : err);
+    return res.status(500).json({ message: 'Server error while reusing response.' });
+  } finally {
+    client.release();
+  }
+});
+
 // @desc    Submit a supplier's quotation response
 // @route   POST /api/supplier-responses
 // @access  Private (Supplier)

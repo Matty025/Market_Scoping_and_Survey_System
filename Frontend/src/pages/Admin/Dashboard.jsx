@@ -941,6 +941,7 @@
     const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
     const [responses, setResponses] = useState([]);
     const [isResponseLoading, setIsResponseLoading] = useState(false);
+    const [responseAttempt, setResponseAttempt] = useState(null);
     const [expandedAnnouncementId, setExpandedAnnouncementId] = useState(null);
     const [toast, setToast] = useState({ visible: false, type: "info", message: "" });
     const [categoryMap, setCategoryMap] = useState({});
@@ -1603,16 +1604,17 @@
       }
     };
 
-    const handleOpenResponseModal = async (announcement) => {
-      setSelectedAnnouncement(announcement);
-      setHistoryModal(HISTORY_MODAL_INITIAL);
+    const fetchAnnouncementResponses = async (announcement, attemptNumber = null) => {
+      if (!announcement || !announcement.id) return;
       setIsResponseLoading(true);
       try {
         const params = {};
         if (announcement.attemptId) {
           params.attemptId = announcement.attemptId;
         }
-        if (announcement.attemptNumber) {
+        if (attemptNumber) {
+          params.attemptNumber = attemptNumber;
+        } else if (announcement.attemptNumber) {
           params.attemptNumber = announcement.attemptNumber;
         }
         const response = await api.get(`/api/admin/announcements/${announcement.id}/responses`, {
@@ -1620,12 +1622,27 @@
           params,
         });
         setResponses(response.data);
+        setResponseAttempt(attemptNumber || announcement.attemptNumber || 1);
       } catch (error) {
         console.error("❌ Failed to fetch responses:", error);
         setToast({ visible: true, type: "warning", message: "Could not load supplier responses" });
       } finally {
         setIsResponseLoading(false);
       }
+    };
+
+    const handleOpenResponseModal = async (announcement) => {
+      setSelectedAnnouncement(announcement);
+      setHistoryModal(HISTORY_MODAL_INITIAL);
+      const initialAttempt = announcement?.attemptNumber || 1;
+      setResponseAttempt(initialAttempt);
+      await fetchAnnouncementResponses(announcement, initialAttempt);
+    };
+
+    const handleSelectResponseAttempt = async (attemptNumber) => {
+      if (!selectedAnnouncement || isResponseLoading) return;
+      setResponseAttempt(attemptNumber);
+      await fetchAnnouncementResponses(selectedAnnouncement, attemptNumber);
     };
 
     const handleToggleAnnouncementExpand = (announcement) => {
@@ -2096,9 +2113,13 @@
             announcement={selectedAnnouncement}
             responses={responses}
             isLoading={isResponseLoading}
+            attemptNumber={responseAttempt}
+            maxAttempts={selectedAnnouncement?.attemptNumber || 1}
+            onSelectAttempt={handleSelectResponseAttempt}
             onClose={() => {
               setSelectedAnnouncement(null);
               setHistoryModal(HISTORY_MODAL_INITIAL);
+              setResponseAttempt(null);
             }}
           />
         )}

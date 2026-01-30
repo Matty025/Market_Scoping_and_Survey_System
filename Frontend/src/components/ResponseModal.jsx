@@ -3,11 +3,36 @@ import api from "../api";
 import { useAuth } from "./AuthContext";
 import "./ResponseModal.css";
 
-const ResponseModal = ({ announcement, responses, onClose, isLoading }) => {
+const ResponseModal = ({
+  announcement,
+  responses,
+  onClose,
+  isLoading,
+  attemptNumber = 1,
+  maxAttempts = 1,
+  onSelectAttempt,
+}) => {
   const { token } = useAuth(); // token must be here
   const [historyViewer, setHistoryViewer] = useState({ visible: false, supplierName: "", supplierFileId: null, files: [] });
   const [linkLoadingKey, setLinkLoadingKey] = useState(null);
   const [toast, setToast] = useState({ visible: false, type: "info", message: "" });
+
+  const totalAttempts = Math.max(1, Number(maxAttempts) || 1);
+  const selectedAttempt = Number(attemptNumber) || 1;
+  const attemptOptions = Array.from({ length: totalAttempts }, (_, i) => i + 1);
+
+  const ordinal = (n) => {
+    const num = Number(n);
+    if (!Number.isFinite(num)) return String(n || "");
+    const mod100 = num % 100;
+    if (mod100 >= 11 && mod100 <= 13) return `${num}th`;
+    switch (num % 10) {
+      case 1: return `${num}st`;
+      case 2: return `${num}nd`;
+      case 3: return `${num}rd`;
+      default: return `${num}th`;
+    }
+  };
 
   useEffect(() => {
     if (!toast.visible) return undefined;
@@ -89,8 +114,9 @@ const ResponseModal = ({ announcement, responses, onClose, isLoading }) => {
 
     try {
       const params = {};
-      if (announcement?.attemptNumber) {
-        params.attemptNumber = announcement.attemptNumber;
+      const targetAttempt = selectedAttempt || announcement?.attemptNumber;
+      if (targetAttempt) {
+        params.attemptNumber = targetAttempt;
       }
       const res = await api.get(`/api/admin/announcements/${announcement.id}/download-all`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -104,8 +130,8 @@ const ResponseModal = ({ announcement, responses, onClose, isLoading }) => {
       } else {
         fileNameParts.push(`File${announcement.id}`);
       }
-      if (announcement?.attemptNumber) {
-        fileNameParts.push(`Attempt${announcement.attemptNumber}`);
+      if (targetAttempt) {
+        fileNameParts.push(`Attempt${targetAttempt}`);
       } else if (announcement?.attemptId) {
         fileNameParts.push(`Attempt${announcement.attemptId}`);
       }
@@ -198,7 +224,7 @@ const ResponseModal = ({ announcement, responses, onClose, isLoading }) => {
     setHistoryViewer({ visible: false, supplierName: "", files: [] });
   };
 
-  const attemptLabel = announcement?.attemptNumber ? `#${announcement.attemptNumber}` : "—";
+  const attemptLabel = selectedAttempt ? `#${selectedAttempt}` : announcement?.attemptNumber ? `#${announcement.attemptNumber}` : "—";
   const attemptStatusLabel = formatStatusLabel(announcement?.attemptStatus || "");
   const procurementStatusLabel = formatStatusLabel(announcement?.procurementStatus || "");
   const attemptSentLabel = formatDateTime(announcement?.attemptSentAt);
@@ -212,6 +238,22 @@ const ResponseModal = ({ announcement, responses, onClose, isLoading }) => {
         </button>
 
         <h3>Responses for: {announcement.title}</h3>
+        <div className="attempt-switcher">
+          <span className="attempt-switcher-label">Attempts:</span>
+          <div className="attempt-switcher-pills">
+            {attemptOptions.map((n) => (
+              <button
+                key={n}
+                type="button"
+                className={`attempt-pill${n === selectedAttempt ? " active" : ""}`}
+                onClick={() => onSelectAttempt && onSelectAttempt(n)}
+                disabled={isLoading || n === selectedAttempt}
+              >
+                {n === 1 ? "Posted" : `${ordinal(n)} Attempt`}
+              </button>
+            ))}
+          </div>
+        </div>
         <p>{announcement.description}</p>
         <div style={{ background: "#f3f4f6", borderRadius: "8px", padding: "12px", marginBottom: "12px" }}>
           <p><strong>Attempt:</strong> {attemptLabel} • {attemptStatusLabel}</p>
