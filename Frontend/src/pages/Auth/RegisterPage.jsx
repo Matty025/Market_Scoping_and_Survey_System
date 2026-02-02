@@ -50,6 +50,7 @@ const useRegistrationForm = () => {
   const [hasAgreedLegal, setHasAgreedLegal] = useState(false);
   const [hasScrolledLegal, setHasScrolledLegal] = useState(false);
   const legalBodyRef = useRef(null);
+  const [showVerifyModal, setShowVerifyModal] = useState(false);
 
   // Hydrate form (except passwords) from sessionStorage on mount
   useEffect(() => {
@@ -349,14 +350,27 @@ const useRegistrationForm = () => {
     const error = validate();
     if (error) return showToast("error", error);
 
+    // Buyer flow: move verification after clicking Register
+    if (role === "buyer") {
+      if (verifyStatus === "verified") {
+        handleFinalSubmit(e);
+        return;
+      }
+      setShowVerifyModal(true);
+      if (verifyStatus === "idle") {
+        handleSendPreVerify();
+      }
+      return;
+    }
+
+    // Supplier flow: keep current gate before categories
     if (verifyStatus !== "verified") {
       setVerifyInlineError("Please verify this email before selecting categories or registering.");
       showToast("error", "Verify your email before continuing.");
       return;
     }
 
-    if (role === "supplier") setIsCategoryModalOpen(true);
-    else handleFinalSubmit(e);
+    setIsCategoryModalOpen(true);
   };
 
   return {
@@ -390,6 +404,10 @@ const useRegistrationForm = () => {
     hasScrolledLegal,
     setHasScrolledLegal,
     legalBodyRef,
+    showVerifyModal,
+    setShowVerifyModal,
+    sendDisableUntil,
+    checkDisableUntil,
   };
 };
 
@@ -545,6 +563,10 @@ export default function RegisterPage() {
     hasScrolledLegal,
     setHasScrolledLegal,
     legalBodyRef,
+    showVerifyModal,
+    setShowVerifyModal,
+    sendDisableUntil,
+    checkDisableUntil,
   } = useRegistrationForm();
 
   useAutoPollVerification(verifyStatus, preToken, checkVerificationStatus, autoPollCount, setAutoPollCount);
@@ -596,6 +618,47 @@ export default function RegisterPage() {
           <button type="button" className="cancel-btn" onClick={() => navigate("/")}>Cancel Registration</button>
         </div>
       </form>
+
+      {/* Buyer verify modal after clicking Register */}
+      {showVerifyModal && role === "buyer" && (
+        <div className="verify-modal-overlay" onClick={() => setShowVerifyModal(false)}>
+          <div className="verify-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Verify your email to continue</h3>
+            <p className="verify-guide">We sent a verification link to your email. Click it, then return here and confirm.</p>
+            <div className="verify-actions-row">
+              <button
+                type="button"
+                className="verify-btn"
+                disabled={verifyStatus === "sending" || Date.now() < sendDisableUntil}
+                onClick={handleSendPreVerify}
+              >
+                {verifyStatus === "sending" ? "Sending..." : "Resend email"}
+              </button>
+              <button
+                type="button"
+                className="verify-btn secondary"
+                disabled={verifyStatus === "sending" || Date.now() < checkDisableUntil}
+                onClick={handleCheckVerified}
+              >
+                I've verified
+              </button>
+            </div>
+            {verifyStatus === "verified" && (
+              <button
+                type="button"
+                className="register-btn"
+                onClick={(e) => {
+                  setShowVerifyModal(false);
+                  handleFinalSubmit(e);
+                }}
+              >
+                Continue to Register
+              </button>
+            )}
+            <button type="button" className="cancel-btn" onClick={() => setShowVerifyModal(false)}>Close</button>
+          </div>
+        </div>
+      )}
 
       <CategoryModal
         isOpen={isCategoryModalOpen}
