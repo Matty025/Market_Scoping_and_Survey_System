@@ -368,10 +368,13 @@ const useRegistrationForm = () => {
   };
 
   // Supplier: after categories, require email verification before final submit
-  const handleCategorySubmit = async (values) => {
+  const handleCategorySubmit = async values => {
     if (values && Array.isArray(values)) {
-      setFormData((prev) => ({ ...prev, selectedCategories: values }));
+      setFormData(prev => ({ ...prev, selectedCategories: values }));
     }
+
+    // Close the category picker once they confirm; next step is verification
+    setIsCategoryModalOpen(false);
 
     // If already verified, proceed to final submit
     if (verifyStatus === "verified") {
