@@ -99,7 +99,7 @@ const Market = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const PAGE_SIZE = 12;
+  const PAGE_SIZE = 50;
 
   // Category filters
   const [mainCategories, setMainCategories] = useState([]);
@@ -331,7 +331,7 @@ const Market = () => {
   const pageSummary = totalItems === 0
     ? "No items to display"
     : `Showing ${startIndex + 1}-${endIndex} of ${totalItems} ${showBookmarks ? "bookmarks" : "items"}`;
-  const showPagination = totalItems > 0;
+  const showPagination = totalPages > 1;
 
   useEffect(() => {
     setCurrentPage(1);

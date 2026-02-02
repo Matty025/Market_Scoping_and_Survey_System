@@ -1902,7 +1902,7 @@
     const pageSummary = totalAnnouncements === 0
       ? "No announcements to display"
       : `Showing ${startItemIndex}-${endItemIndex} of ${totalAnnouncements}`;
-    const showPagination = announcements.length > 0;
+    const showPagination = totalPages > 1;
 
     const statusDialogRequiresNotes = false;
     const statusDialogRequiresStatusChoice = Array.isArray(statusDialog.statusOptions) && statusDialog.statusOptions.length > 0;
