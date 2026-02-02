@@ -214,6 +214,7 @@ router.post("/", protect, upload.single("responseFile"), async (req, res) => {
         supplierId,
         fileId: fileInfo.fileId || null,
         title: fileInfo.title || null,
+        path: fileInfo.fileId ? `/admin/announcements/${fileInfo.fileId}#responses` : '/admin/dashboard',
       },
     }).catch((err) => {
       console.warn('[responseRoutes] Failed to notify admins of supplier response:', err && err.message ? err.message : err);

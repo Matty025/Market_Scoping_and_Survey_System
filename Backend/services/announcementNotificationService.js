@@ -107,7 +107,11 @@ async function notifySuppliersPosted({ fileId, title, supplierIds, status = "POS
     body: isRepost
       ? "An announcement you follow has been updated/reposted."
       : "A new announcement has been posted to your categories.",
-    metadata: { sourceId: fileId, status: statusLabel },
+    metadata: {
+      sourceId: fileId,
+      status: statusLabel,
+      path: fileId ? `/supplier/dashboard?fileId=${fileId}` : '/supplier/dashboard',
+    },
   });
 }
 
@@ -147,7 +151,13 @@ async function notifySuppliersStatusChange({ fileId, title, status, previousStat
     type: "announcement_status",
     title: `${title || `Announcement ${fileId}`} update`,
     body: `Status changed to ${statusLabel}.`,
-    metadata: { sourceId: fileId, status: status || null, previousStatus: previousStatus || null, notes: notes || null },
+    metadata: {
+      sourceId: fileId,
+      status: status || null,
+      previousStatus: previousStatus || null,
+      notes: notes || null,
+      path: fileId ? `/supplier/dashboard?fileId=${fileId}` : '/supplier/dashboard',
+    },
   });
 }
 
@@ -230,7 +240,13 @@ async function notifyAdminsStatusChange({ fileId, title, status, previousStatus,
     body: previousStatusLabel
       ? `Changed from ${previousStatusLabel} to ${statusLabel}.`
       : `Changed to ${statusLabel}.`,
-    metadata: { sourceId: fileId, status, previousStatus: previousStatus || null, notes: notes || null },
+    metadata: {
+      sourceId: fileId,
+      status,
+      previousStatus: previousStatus || null,
+      notes: notes || null,
+      path: fileId ? `/admin/announcements/${fileId}` : '/admin/dashboard',
+    },
   }).catch((err) => {
     console.warn('[announcementNotification] Failed to create admin in-app notification:', err && err.message ? err.message : err);
   });

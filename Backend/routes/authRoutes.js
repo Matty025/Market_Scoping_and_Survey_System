@@ -101,7 +101,14 @@ router.post("/register", async (req, res) => {
             type: "account_pending",
             title: "New registration pending approval",
             body: `${fullName || email} registered as buyer and awaits review`,
-            metadata: { role: "buyer", email, fullName: fullName || null, companyName: null, sourceId: email },
+            metadata: {
+              role: "buyer",
+              email,
+              fullName: fullName || null,
+              companyName: null,
+              sourceId: email,
+              path: `/admin/manage-accounts?email=${encodeURIComponent(email)}`,
+            },
           });
         } catch (notifyErr) {
           console.warn('[register/buyer] Failed to create admin notification:', notifyErr && notifyErr.message ? notifyErr.message : notifyErr);
@@ -167,7 +174,14 @@ router.post("/register", async (req, res) => {
           type: "account_pending",
           title: "New registration pending approval",
           body: `${fullName || email} from ${companyName || 'supplier'} registered and awaits review`,
-          metadata: { role: "supplier", email, fullName: fullName || null, companyName: companyName || null, sourceId: email },
+          metadata: {
+            role: "supplier",
+            email,
+            fullName: fullName || null,
+            companyName: companyName || null,
+            sourceId: email,
+            path: `/admin/manage-accounts?email=${encodeURIComponent(email)}`,
+          },
         });
       } catch (notifyErr) {
         console.warn('[register/supplier] Failed to create admin notification:', notifyErr && notifyErr.message ? notifyErr.message : notifyErr);

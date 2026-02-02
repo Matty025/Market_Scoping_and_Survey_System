@@ -310,7 +310,12 @@ router.post('/upload', protect, upload.single('file'), async (req, res) => {
         type: 'purchase_request_new',
         title: 'New purchase request submitted',
         body: `${(req.user && (req.user.FullName || req.user.fullName || req.user.name || req.user.email)) || 'Buyer'} submitted "${title}"`,
-        metadata: { uploadId, title, endDate },
+        metadata: {
+          uploadId,
+          title,
+          endDate,
+          path: `/admin/dashboard?tab=purchase-requests&uploadId=${uploadId}`,
+        },
       }).catch((err) => {
         console.warn('[BuyerRoutes.js] Failed to create admin in-app notification for new PR:', err && err.message ? err.message : err);
       });

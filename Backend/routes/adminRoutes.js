@@ -2740,7 +2740,12 @@ router.patch("/buyer-requests/:id/status", protect, async (req, res) => {
         type: "buyer_request_status",
         title: "Purchase request update",
         body: `${rows[0].title || 'Your request'} is now ${status.toUpperCase()}.`,
-        metadata: { uploadId, status: status.toUpperCase(), feedback: feedback || null },
+        metadata: {
+          uploadId,
+          status: status.toUpperCase(),
+          feedback: feedback || null,
+          path: `/buyer/dashboard?request=${uploadId}`,
+        },
       }).catch((err) => {
         console.warn('[adminRoutes] Failed to create buyer notification:', err && err.message ? err.message : err);
       });

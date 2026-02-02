@@ -35,25 +35,38 @@ const AdminNavbar = ({ title = "Admin", onToggle, isCollapsed, className = "" })
     const type = (notif.type || "").toLowerCase();
     // Prefer explicit path if backend sets it
     if (meta.path) return meta.path;
+    const fileId = meta.fileId || meta.sourceId || meta.id;
+    const uploadId = meta.uploadId || meta.sourceId || meta.id;
+    const email = meta.email || meta.sourceId;
 
-    if (type.includes("announcement")) {
-      const fileId = meta.fileId || meta.sourceId || meta.id;
-      return fileId ? `/admin/announcements?highlight=${fileId}` : `/admin/announcements`;
+    if (roleLower === "admin") {
+      if (type.includes("account_pending")) {
+        return email ? `/admin/manage-accounts?email=${encodeURIComponent(email)}` : `/admin/manage-accounts`;
+      }
+      if (type.includes("purchase_request")) {
+        return `/admin/dashboard?tab=purchase-requests${uploadId ? `&uploadId=${uploadId}` : ""}`;
+      }
+      if (type.includes("supplier_response")) {
+        return fileId ? `/admin/announcements/${fileId}#responses` : `/admin/dashboard`;
+      }
+      if (type.includes("announcement")) {
+        return fileId ? `/admin/announcements/${fileId}` : `/admin/dashboard`;
+      }
+      return `/admin/dashboard`;
     }
 
-    if (type.includes("response")) {
-      const fileId = meta.fileId || meta.sourceId || meta.id;
-      return fileId ? `/admin/announcements?highlight=${fileId}#responses` : `/admin/announcements`;
+    if (roleLower === "supplier") {
+      if (type.includes("announcement")) {
+        return fileId ? `/supplier/dashboard?fileId=${fileId}` : `/supplier/dashboard`;
+      }
+      return `/supplier/dashboard`;
     }
 
-    if (type.includes("purchase_request")) {
-      const uploadId = meta.uploadId || meta.sourceId || meta.id;
-      return uploadId ? `/admin/buyer-requests?focus=${uploadId}` : `/admin/buyer-requests`;
-    }
-
-    if (type.includes("account_pending")) {
-      const email = meta.email || meta.sourceId;
-      return email ? `/admin/manage-accounts?email=${encodeURIComponent(email)}` : `/admin/manage-accounts`;
+    if (roleLower === "buyer") {
+      if (type.includes("buyer_request_status") || type.includes("purchase_request")) {
+        return uploadId ? `/buyer/dashboard?request=${uploadId}` : `/buyer/dashboard`;
+      }
+      return `/buyer/dashboard`;
     }
 
     return null;
