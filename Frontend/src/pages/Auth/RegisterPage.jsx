@@ -448,33 +448,37 @@ const UserInputs = ({ formData, handleChange, role, verifyStatus, onSendVerify, 
     <>
       <input type="text" name="fullName" placeholder={role === "supplier" ? "Contact Person Full Name" : "Full Name"} value={formData.fullName} onChange={handleChange} required />
       <input type="email" name="email" placeholder="Email Address" value={formData.email} onChange={handleChange} required />
-      <div className="verify-actions">
-        <button
-          type="button"
-          className={`verify-btn ${verifyStatus === "verified" ? "verified" : ""}`}
-          onClick={onSendVerify}
-          disabled={verifyStatus === "sending" || verifyStatus === "verified"}
-        >
-          {verifyStatus === "sending" && "Sending..."}
-          {verifyStatus === "verified" && (
-            <>
-              <FaCheckCircle /> Email Verified
-            </>
+      {role !== "buyer" && (
+        <>
+          <div className="verify-actions">
+            <button
+              type="button"
+              className={`verify-btn ${verifyStatus === "verified" ? "verified" : ""}`}
+              onClick={onSendVerify}
+              disabled={verifyStatus === "sending" || verifyStatus === "verified"}
+            >
+              {verifyStatus === "sending" && "Sending..."}
+              {verifyStatus === "verified" && (
+                <>
+                  <FaCheckCircle /> Email Verified
+                </>
+              )}
+              {verifyStatus !== "sending" && verifyStatus !== "verified" && "Verify Email"}
+            </button>
+            {showRefresh && verifyStatus !== "verified" && (
+              <button type="button" className="verify-btn secondary" onClick={onCheckVerify} disabled={!preToken || verifyStatus === "verified"}>
+                <FaSyncAlt />
+              </button>
+            )}
+          </div>
+          {verifyStatus !== "idle" && (
+            <p className="verify-guide">
+              Check your Gmail inbox and spam for the verification link. Make sure you entered a valid Gmail address; the link expires in 24 hours.
+            </p>
           )}
-          {verifyStatus !== "sending" && verifyStatus !== "verified" && "Verify Email"}
-        </button>
-        {showRefresh && verifyStatus !== "verified" && (
-          <button type="button" className="verify-btn secondary" onClick={onCheckVerify} disabled={!preToken || verifyStatus === "verified"}>
-            <FaSyncAlt />
-          </button>
-        )}
-      </div>
-      {verifyStatus !== "idle" && (
-        <p className="verify-guide">
-          Check your Gmail inbox and spam for the verification link. Make sure you entered a valid Gmail address; the link expires in 24 hours.
-        </p>
+          {verifyInlineError && <p className="verify-error">{verifyInlineError}</p>}
+        </>
       )}
-      {verifyInlineError && <p className="verify-error">{verifyInlineError}</p>}
       <div className="password-field">
         <input
           type={showPassword ? "text" : "password"}
