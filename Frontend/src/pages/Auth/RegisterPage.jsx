@@ -363,14 +363,27 @@ const useRegistrationForm = () => {
       return;
     }
 
-    // Supplier flow: keep current gate before categories
-    if (verifyStatus !== "verified") {
-      setVerifyInlineError("Please verify this email before selecting categories or registering.");
-      showToast("error", "Verify your email before continuing.");
+    // Supplier flow: open categories first, verification happens after category confirmation
+    setIsCategoryModalOpen(true);
+  };
+
+  // Supplier: after categories, require email verification before final submit
+  const handleCategorySubmit = async (values) => {
+    if (values && Array.isArray(values)) {
+      setFormData((prev) => ({ ...prev, selectedCategories: values }));
+    }
+
+    // If already verified, proceed to final submit
+    if (verifyStatus === "verified") {
+      await handleFinalSubmit({ categories: values });
       return;
     }
 
-    setIsCategoryModalOpen(true);
+    // Otherwise show verify modal and send if idle
+    setShowVerifyModal(true);
+    if (verifyStatus === "idle") {
+      handleSendPreVerify();
+    }
   };
 
   return {
@@ -386,6 +399,7 @@ const useRegistrationForm = () => {
     isCategoryModalOpen,
     setIsCategoryModalOpen,
     handleFinalSubmit,
+    handleCategorySubmit,
     categoryGroups,
     navigate,
     verifyStatus,
@@ -441,44 +455,13 @@ const RoleToggle = ({ role, setRole }) => (
   </div>
 );
 
-const UserInputs = ({ formData, handleChange, role, verifyStatus, onSendVerify, onCheckVerify, preToken, showRefresh, verifyInlineError }) => {
+const UserInputs = ({ formData, handleChange, role }) => {
   const [showPassword, setShowPassword] = useState(false);
 
   return (
     <>
       <input type="text" name="fullName" placeholder={role === "supplier" ? "Contact Person Full Name" : "Full Name"} value={formData.fullName} onChange={handleChange} required />
       <input type="email" name="email" placeholder="Email Address" value={formData.email} onChange={handleChange} required />
-      {role !== "buyer" && (
-        <>
-          <div className="verify-actions">
-            <button
-              type="button"
-              className={`verify-btn ${verifyStatus === "verified" ? "verified" : ""}`}
-              onClick={onSendVerify}
-              disabled={verifyStatus === "sending" || verifyStatus === "verified"}
-            >
-              {verifyStatus === "sending" && "Sending..."}
-              {verifyStatus === "verified" && (
-                <>
-                  <FaCheckCircle /> Email Verified
-                </>
-              )}
-              {verifyStatus !== "sending" && verifyStatus !== "verified" && "Verify Email"}
-            </button>
-            {showRefresh && verifyStatus !== "verified" && (
-              <button type="button" className="verify-btn secondary" onClick={onCheckVerify} disabled={!preToken || verifyStatus === "verified"}>
-                <FaSyncAlt />
-              </button>
-            )}
-          </div>
-          {verifyStatus !== "idle" && (
-            <p className="verify-guide">
-              Check your Gmail inbox and spam for the verification link. Make sure you entered a valid Gmail address; the link expires in 24 hours.
-            </p>
-          )}
-          {verifyInlineError && <p className="verify-error">{verifyInlineError}</p>}
-        </>
-      )}
       <div className="password-field">
         <input
           type={showPassword ? "text" : "password"}
@@ -549,6 +532,7 @@ export default function RegisterPage() {
     isCategoryModalOpen,
     setIsCategoryModalOpen,
     handleFinalSubmit,
+    handleCategorySubmit,
     categoryGroups,
     navigate,
     verifyStatus,
@@ -589,12 +573,6 @@ export default function RegisterPage() {
             formData={formData}
             handleChange={handleChange}
             role={role}
-            verifyStatus={verifyStatus}
-            onSendVerify={handleSendPreVerify}
-            onCheckVerify={handleCheckVerified}
-            preToken={preToken}
-            showRefresh={showRefresh}
-            verifyInlineError={verifyInlineError}
           />
           {role === "supplier" && <SupplierInputs formData={formData} handleChange={handleChange} />}
         </div>
@@ -623,8 +601,8 @@ export default function RegisterPage() {
         </div>
       </form>
 
-      {/* Buyer verify modal after clicking Register */}
-      {showVerifyModal && role === "buyer" && (
+      {/* Verify modal after form/category step (buyer and supplier) */}
+      {showVerifyModal && (
         <div className="verify-modal-overlay" onClick={() => setShowVerifyModal(false)}>
           <div className="verify-modal" onClick={(e) => e.stopPropagation()}>
             <h3>Verify your email to continue</h3>
@@ -667,7 +645,7 @@ export default function RegisterPage() {
       <CategoryModal
         isOpen={isCategoryModalOpen}
         onClose={() => setIsCategoryModalOpen(false)}
-        onSubmit={handleFinalSubmit}
+        onSubmit={handleCategorySubmit}
         categoryGroups={categoryGroups}
         selectedCategories={formData.selectedCategories}
         handleChange={handleCategoryChange}
