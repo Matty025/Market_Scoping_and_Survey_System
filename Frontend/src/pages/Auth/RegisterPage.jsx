@@ -25,6 +25,7 @@ const useRegistrationForm = () => {
     companyName: "",
     address: "",
     contactNumber: "",
+    driveFolderUrl: "",
     hasPhilgeps: false,
     hasSecRegistration: false,
     hasBusinessPermit: false,
@@ -318,6 +319,7 @@ const useRegistrationForm = () => {
           companyName: formData.companyName.trim(),
           address: formData.address.trim(),
           contactNumber: formData.contactNumber.trim(),
+          driveFolderUrl: formData.driveFolderUrl.trim(),
           hasPhilgeps: formData.hasPhilgeps,
           hasSecRegistration: formData.hasSecRegistration,
           hasBusinessPermit: formData.hasBusinessPermit,
@@ -515,7 +517,16 @@ const DocumentChecks = ({ formData, handleChange }) => {
           </label>
         ))}
       </div>
-      <p className="document-contact">Submit documents or inquiries to <strong>procurement@msss.gov</strong>.</p>
+      <input
+        type="url"
+        name="driveFolderUrl"
+        placeholder="Google Drive folder link (optional)"
+        value={formData.driveFolderUrl}
+        onChange={handleChange}
+      />
+      <p className="document-contact">
+        Share your SEC, BIR, and permit files via this Drive folder or send to <strong>procurement@msss.gov</strong> for faster approval.
+      </p>
     </div>
   );
 };

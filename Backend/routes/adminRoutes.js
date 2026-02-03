@@ -1691,7 +1691,10 @@ router.get('/users', protect, async (req, res) => {
 
   try {
     const { status } = req.query;
-    let query = `SELECT u."UserID", u."FullName", u."Email", r."RoleName", u."AccountStatus", u."SupplierID" FROM "Users" u LEFT JOIN "Roles" r ON r."RoleID" = u."RoleID"`;
+    let query = `SELECT u."UserID", u."FullName", u."Email", r."RoleName", u."AccountStatus", u."SupplierID", s."DriveFolderUrl"
+      FROM "Users" u
+      LEFT JOIN "Roles" r ON r."RoleID" = u."RoleID"
+      LEFT JOIN "Suppliers" s ON s."SupplierID" = u."SupplierID"`;
     const params = [];
     if (status) {
       query += ` WHERE u."AccountStatus" = $1`;

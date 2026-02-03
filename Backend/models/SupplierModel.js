@@ -9,12 +9,15 @@ const SupplierModel = {
     HasPhilgeps = false,
     HasSECRegistration = false,
     HasBusinessPermit = false,
-    HasTaxClearance = false
+    HasTaxClearance = false,
+    DriveFolderUrl = null,
+    dbClient = null
   ) => {
-    const result = await pool.query(
+    const runner = dbClient || pool;
+    const result = await runner.query(
       `INSERT INTO "Suppliers"
-        ("CompanyName","Address","ContactNumber","HasPhilgeps","HasSECRegistration","HasBusinessPermit","HasTaxClearance")
-       VALUES ($1,$2,$3,$4,$5,$6,$7)
+        ("CompanyName","Address","ContactNumber","HasPhilgeps","HasSECRegistration","HasBusinessPermit","HasTaxClearance","DriveFolderUrl")
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
        RETURNING *`,
       [
         CompanyName,
@@ -24,6 +27,7 @@ const SupplierModel = {
         HasSECRegistration,
         HasBusinessPermit,
         HasTaxClearance,
+        DriveFolderUrl,
       ]
     );
 
@@ -40,7 +44,8 @@ const SupplierModel = {
   },
 
   // UPDATE SUPPLIER
-  updateSupplier: async (SupplierID, data) => {
+  updateSupplier: async (SupplierID, data, dbClient = null) => {
+    const runner = dbClient || pool;
     const fields = [];
     const values = [];
     let index = 1;
@@ -54,7 +59,7 @@ const SupplierModel = {
 
     values.push(SupplierID);
 
-    const result = await pool.query(
+    const result = await runner.query(
       `UPDATE "Suppliers"
        SET ${fields.join(", ")}, "DateUpdated" = NOW()
        WHERE "SupplierID" = $${index}

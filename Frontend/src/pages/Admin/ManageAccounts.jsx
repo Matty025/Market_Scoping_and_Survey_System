@@ -48,8 +48,6 @@ const ManageAccounts = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [activeTab, setActiveTab] = useState("suppliers");
   const [toast, setToast] = useState({ visible: false, message: "", type: "info" });
-  const [testEmail, setTestEmail] = useState("");
-  const [sendingTest, setSendingTest] = useState(false);
   const [customEmail, setCustomEmail] = useState("");
   const [customSubject, setCustomSubject] = useState("");
   const [customBody, setCustomBody] = useState("");
@@ -89,7 +87,7 @@ const ManageAccounts = () => {
         role: (u.RoleName || "").toLowerCase(),
         backendStatus: u.AccountStatus || "PENDING",
         status: mapBackendToUI(u.AccountStatus),
-        lastUpdated: u.DateUpdated || "-",
+        driveFolderUrl: u.DriveFolderUrl || "",
         raw: u,
       }));
       setUsers(mapped);
@@ -115,27 +113,6 @@ const ManageAccounts = () => {
     } catch (err) {
       console.error("Failed to update user status:", err);
       setToast({ visible: true, message: `Update failed: ${err.response?.data?.message || err.message}`, type: "error" });
-    }
-  };
-
-  const sendTestPendingEmail = async () => {
-    if (!token) return setToast({ visible: true, message: "Not authenticated", type: "error" });
-    const trimmed = testEmail.trim();
-    if (!trimmed) return setToast({ visible: true, message: "Enter a target email", type: "warning" });
-
-    setSendingTest(true);
-    try {
-      await api.post(
-        `/api/admin/notifications/test-pending`,
-        { to: trimmed },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setToast({ visible: true, message: `Sent test pending email to ${trimmed}`, type: "success" });
-    } catch (err) {
-      console.error("Test pending email failed:", err);
-      setToast({ visible: true, message: `Test email failed: ${err.response?.data?.message || err.message}`, type: "error" });
-    } finally {
-      setSendingTest(false);
     }
   };
 
@@ -214,32 +191,10 @@ const ManageAccounts = () => {
         <p>Review supplier and buyer credentials, approve pending requests, and maintain an up-to-date directory.</p>
       </div>
 
-      <div className="notification-tester">
-        <div className="notification-tester__copy">
-          <h4>Pending account email tester</h4>
-          <p>Send a sample pending-account notification to confirm Gmail connectivity. Uses the same template admins receive when users register.</p>
-        </div>
-        <div className="notification-tester__controls">
-          <input
-            type="email"
-            placeholder="email@example.com"
-            value={testEmail}
-            onChange={(e) => setTestEmail(e.target.value)}
-          />
-          <button
-            onClick={sendTestPendingEmail}
-            disabled={!testEmail.trim() || sendingTest}
-            className="tester-send-btn"
-          >
-            {sendingTest ? "Sending..." : "Send test email"}
-          </button>
-        </div>
-      </div>
-
       <div className="notification-composer">
         <div className="notification-tester__copy">
-          <h4>Quick custom email</h4>
-          <p>Send a one-off message to any address. Body supports plain text; line breaks are preserved.</p>
+          <h4>Send email to users</h4>
+          <p>Deliver a one-off message to any address. Body supports plain text; line breaks are preserved.</p>
         </div>
         <div className="notification-composer__controls">
           <input
@@ -265,7 +220,7 @@ const ManageAccounts = () => {
             disabled={!customEmail.trim() || !customBody.trim() || sendingCustom}
             className="tester-send-btn"
           >
-            {sendingCustom ? "Sending..." : "Send custom email"}
+            {sendingCustom ? "Sending..." : "Send email"}
           </button>
         </div>
       </div>
@@ -309,7 +264,7 @@ const ManageAccounts = () => {
             <th>Name</th>
             <th>Role</th>
             <th>Status</th>
-            <th>Last Updated</th>
+            <th>Docs Folder</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -335,7 +290,20 @@ const ManageAccounts = () => {
                 <td data-label="Status">
                   <span className={`status ${acc.status}`}>{acc.status.toUpperCase()}</span>
                 </td>
-                <td data-label="Last Updated">{acc.lastUpdated}</td>
+                <td data-label="Docs Folder" className="docs-cell">
+                  {acc.driveFolderUrl ? (
+                    <a
+                      href={acc.driveFolderUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="docs-link"
+                    >
+                      Open folder
+                    </a>
+                  ) : (
+                    <span className="muted">No link</span>
+                  )}
+                </td>
                 <td className="actions-cell" data-label="Actions">
                   {acc.role === 'admin' ? (
                     <span className="admin-label">Admin</span>

@@ -42,6 +42,7 @@ router.post("/register", async (req, res) => {
       hasSecRegistration,
       hasBusinessPermit,
       hasTaxClearance,
+      driveFolderUrl,
       categories, // <-- This will be an array of CategoryIDs
       preverifyToken,
     } = req.body;
@@ -136,9 +137,15 @@ router.post("/register", async (req, res) => {
       await client.query("BEGIN");
       // 1. Create supplier
       const supplier = await SupplierModel.createSupplier(
-        companyName, address, contactNumber,
-        !!hasPhilgeps, !!hasSecRegistration, !!hasBusinessPermit, !!hasTaxClearance,
-        client // Pass the client for transaction
+        companyName,
+        address,
+        contactNumber,
+        !!hasPhilgeps,
+        !!hasSecRegistration,
+        !!hasBusinessPermit,
+        !!hasTaxClearance,
+        driveFolderUrl ? driveFolderUrl.toString().trim() : null,
+        client // use same transaction client
       );
       const newSupplierId = supplier.SupplierID;
 
