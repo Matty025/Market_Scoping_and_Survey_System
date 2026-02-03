@@ -152,10 +152,11 @@ border-bottom: 2px solid #000; /* clean black bottom border */
   box-shadow: 0 0 0 2px rgba(0,0,0,0.05);
 }
 
+
 .notif-panel {
   position: absolute;
-  right: 0;
-  top: calc(100% + 10px);
+  right:-50px;
+  top: calc(100% + 8px);
   width: min(360px, 86vw);
   background: #fff;
   border: 1px solid #e2e8f0;
@@ -163,6 +164,12 @@ border-bottom: 2px solid #000; /* clean black bottom border */
   box-shadow: 0 18px 42px rgba(15, 23, 42, 0.18);
   padding: 10px;
   z-index: 1200;
+}
+
+@media (max-width: 480px) {
+  .notif-panel {
+    width: min(420px, 94vw);
+  }
 }
 
 .notif-panel__header {
