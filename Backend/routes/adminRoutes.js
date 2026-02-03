@@ -6,7 +6,7 @@ const { protect } = require("./authMiddleware");
 const pool = require("../db.js");
 const archiver = require("archiver");
 const fs = require("fs");
-const { sendPendingAccountEmail, sendAccountStatusEmail } = require("../services/adminNotificationService");
+const { sendPendingAccountEmail, sendAccountStatusEmail, sendCustomEmail } = require("../services/adminNotificationService");
 const { notifyBuyerPurchaseStatus } = require("../services/prNotificationService");
 const { notifySuppliersPosted, notifyAdminsStatusChange, notifySuppliersStatusChange } = require("../services/announcementNotificationService");
 const notificationService = require("../services/notificationService");
@@ -353,6 +353,46 @@ router.post("/notifications/test-pending", protect, async (req, res) => {
   } catch (err) {
     console.error("[admin/test-pending-email] Failed:", err && err.message ? err.message : err);
     return res.status(500).json({ message: "Failed to send test email" });
+  }
+});
+
+// Custom one-off email sender for admins
+router.post("/notifications/custom", protect, async (req, res) => {
+  if (!req.user || (req.user.role || "").toLowerCase() !== "admin") {
+    return res.status(403).json({ message: "Access denied. Admins only." });
+  }
+
+  try {
+    const { to, email, subject, message, html } = req.body || {};
+    const recipientsRaw = to || email;
+    const recipients = Array.isArray(recipientsRaw)
+      ? recipientsRaw
+      : typeof recipientsRaw === "string"
+        ? recipientsRaw.split(/[,;]/).map((r) => r.trim()).filter(Boolean)
+        : [];
+
+    const textBody = message && message.toString().trim();
+    const htmlBody = html && html.toString().trim();
+
+    if (!recipients.length) {
+      return res.status(400).json({ message: "Recipient email required" });
+    }
+
+    if (!textBody && !htmlBody) {
+      return res.status(400).json({ message: "Message body required" });
+    }
+
+    await sendCustomEmail({
+      to: recipients,
+      subject,
+      htmlBody,
+      textBody,
+    });
+
+    return res.json({ message: "Email sent", recipients });
+  } catch (err) {
+    console.error("[admin/custom-email] Failed:", err && err.message ? err.message : err);
+    return res.status(500).json({ message: "Failed to send email" });
   }
 });
 

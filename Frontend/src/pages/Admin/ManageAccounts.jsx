@@ -50,6 +50,10 @@ const ManageAccounts = () => {
   const [toast, setToast] = useState({ visible: false, message: "", type: "info" });
   const [testEmail, setTestEmail] = useState("");
   const [sendingTest, setSendingTest] = useState(false);
+  const [customEmail, setCustomEmail] = useState("");
+  const [customSubject, setCustomSubject] = useState("");
+  const [customBody, setCustomBody] = useState("");
+  const [sendingCustom, setSendingCustom] = useState(false);
   const [approveTarget, setApproveTarget] = useState(null);
   const [approveNotes, setApproveNotes] = useState("");
   const [approveDocs, setApproveDocs] = useState({
@@ -135,6 +139,33 @@ const ManageAccounts = () => {
     }
   };
 
+  const sendCustomAdminEmail = async () => {
+    if (!token) return setToast({ visible: true, message: "Not authenticated", type: "error" });
+    const target = customEmail.trim();
+    const body = customBody.trim();
+    const subject = customSubject.trim();
+
+    if (!target) return setToast({ visible: true, message: "Enter a recipient email", type: "warning" });
+    if (!body) return setToast({ visible: true, message: "Enter a message body", type: "warning" });
+
+    setSendingCustom(true);
+    try {
+      await api.post(
+        `/api/admin/notifications/custom`,
+        { to: target, subject, message: body },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setToast({ visible: true, message: `Email sent to ${target}`, type: "success" });
+      setCustomBody("");
+      setCustomSubject("");
+    } catch (err) {
+      console.error("Custom email failed:", err);
+      setToast({ visible: true, message: `Send failed: ${err.response?.data?.message || err.message}`, type: "error" });
+    } finally {
+      setSendingCustom(false);
+    }
+  };
+
   const handleApprove = (user) => {
     setApproveTarget(user);
     setApproveNotes("");
@@ -201,6 +232,40 @@ const ManageAccounts = () => {
             className="tester-send-btn"
           >
             {sendingTest ? "Sending..." : "Send test email"}
+          </button>
+        </div>
+      </div>
+
+      <div className="notification-composer">
+        <div className="notification-tester__copy">
+          <h4>Quick custom email</h4>
+          <p>Send a one-off message to any address. Body supports plain text; line breaks are preserved.</p>
+        </div>
+        <div className="notification-composer__controls">
+          <input
+            type="email"
+            placeholder="recipient@example.com"
+            value={customEmail}
+            onChange={(e) => setCustomEmail(e.target.value)}
+          />
+          <input
+            type="text"
+            placeholder="Subject (optional)"
+            value={customSubject}
+            onChange={(e) => setCustomSubject(e.target.value)}
+          />
+          <textarea
+            rows={4}
+            placeholder="Message body"
+            value={customBody}
+            onChange={(e) => setCustomBody(e.target.value)}
+          />
+          <button
+            onClick={sendCustomAdminEmail}
+            disabled={!customEmail.trim() || !customBody.trim() || sendingCustom}
+            className="tester-send-btn"
+          >
+            {sendingCustom ? "Sending..." : "Send custom email"}
           </button>
         </div>
       </div>

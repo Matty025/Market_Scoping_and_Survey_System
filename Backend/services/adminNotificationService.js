@@ -46,6 +46,49 @@ async function getAdminEmails() {
   return rows.map(r => r.Email).filter(Boolean);
 }
 
+const normalizeRecipients = (to) => {
+  if (!to) return [];
+  if (Array.isArray(to)) {
+    return to.map((r) => (r || "").trim()).filter(Boolean);
+  }
+  if (typeof to === "string") {
+    return to
+      .split(/[,;]/)
+      .map((r) => r.trim())
+      .filter(Boolean);
+  }
+  return [];
+};
+
+async function sendCustomEmail({ to, subject, htmlBody, textBody }) {
+  if (!sendMail) {
+    throw new Error("Mailer not configured");
+  }
+
+  const recipients = normalizeRecipients(to);
+  if (!recipients.length) {
+    throw new Error("No recipients provided");
+  }
+
+  const hasHtml = htmlBody && htmlBody.toString().trim().length > 0;
+  const hasText = textBody && textBody.toString().trim().length > 0;
+
+  if (!hasHtml && !hasText) {
+    throw new Error("Message body required");
+  }
+
+  const safeSubject = (subject && subject.toString().trim()) || "[MSSS] Admin message";
+
+  await sendMail({
+    to: recipients,
+    subject: safeSubject,
+    html: hasHtml ? htmlBody.toString().trim() : undefined,
+    text: hasText ? textBody.toString().trim() : undefined,
+  });
+
+  console.log(`[adminNotification] Custom email sent -> ${recipients.join(", ")}`);
+}
+
 async function sendPendingAccountEmail({ fullName, email, role, companyName, toOverride }) {
   try {
     if (!sendMail) {
@@ -98,7 +141,7 @@ async function sendPendingAccountEmail({ fullName, email, role, companyName, toO
   }
 }
 
-module.exports = { sendPendingAccountEmail };
+module.exports = { sendPendingAccountEmail, sendCustomEmail };
 
 const formatStatusLabel = (status) => {
   if (!status) return "Unknown";
