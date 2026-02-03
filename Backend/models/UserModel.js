@@ -2,8 +2,9 @@ const pool = require("../db");
 
 module.exports = {
   // CREATE ADMIN / BUYER USER
-  createUser: async (FullName, Email, PasswordHash, RoleID) => {
-    const result = await pool.query(
+  createUser: async (FullName, Email, PasswordHash, RoleID, dbClient = null) => {
+    const runner = dbClient || pool;
+    const result = await runner.query(
       `INSERT INTO "Users" ("FullName", "Email", "PasswordHash", "RoleID")
        VALUES ($1, $2, $3, $4)
        RETURNING *`,
@@ -14,8 +15,9 @@ module.exports = {
   },
 
   // CREATE SUPPLIER USER
-  createSupplierUser: async (FullName, Email, PasswordHash, RoleID, SupplierID) => {
-    const result = await pool.query(
+  createSupplierUser: async (FullName, Email, PasswordHash, RoleID, SupplierID, dbClient = null) => {
+    const runner = dbClient || pool;
+    const result = await runner.query(
       `INSERT INTO "Users" ("FullName", "Email", "PasswordHash", "RoleID", "SupplierID")
        VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,

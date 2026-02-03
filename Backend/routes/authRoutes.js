@@ -92,7 +92,7 @@ router.post("/register", async (req, res) => {
 
     if (normalizedRole === "buyer") {
       try {
-        const user = await UserModel.createUser(fullName, email, passwordHash, roleId);
+        const user = await UserModel.createUser(fullName, email, passwordHash, roleId, client);
         // Fire-and-forget verification email (do not block signup on failure)
         try {
           await sendVerificationEmail(user.UserID, email);
@@ -157,7 +157,7 @@ router.post("/register", async (req, res) => {
       // 2. Create user linked to the supplier
       const user = await UserModel.createSupplierUser(
         fullName, email, passwordHash, roleId, newSupplierId,
-        client // Pass the client for transaction
+        client // use same transaction client
       );
 
       // 3. Link supplier to categories
