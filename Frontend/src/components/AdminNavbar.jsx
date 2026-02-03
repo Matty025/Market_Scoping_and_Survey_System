@@ -1,19 +1,22 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { FaBell, FaUserCircle, FaBars } from "react-icons/fa";
 import { useAuth } from "./AuthContext";
 import api from "../api";
+import Toast from "./Toast";
 import "./AdminNavbar.css";
 
 const AdminNavbar = ({ title = "Admin", onToggle, isCollapsed, className = "" }) => {
   const { fullName, userRole } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
   const [notifLoading, setNotifLoading] = useState(false);
   const [notifError, setNotifError] = useState("");
   const [unreadCount, setUnreadCount] = useState(0);
+  const [toast, setToast] = useState({ visible: false, message: "", type: "info" });
   const panelRef = useRef(null);
   
   // Display full name if available, otherwise fall back to role
@@ -121,7 +124,14 @@ const AdminNavbar = ({ title = "Admin", onToggle, isCollapsed, className = "" })
   const handleNotificationClick = (notif) => {
     handleMarkRead(notif.id);
     const path = resolveNotificationPath(notif);
-    if (path) navigate(path);
+    if (!path) return;
+
+    const currentPath = `${location.pathname}${location.search || ""}`;
+    if (path === currentPath) {
+      setToast({ visible: true, message: "You're already on this page.", type: "info" });
+      return;
+    }
+    navigate(path);
   };
 
   const handleSelect = (id) => {
@@ -154,6 +164,12 @@ const AdminNavbar = ({ title = "Admin", onToggle, isCollapsed, className = "" })
   
   return (
     <header className={`admin-navbar ${className}`}>
+      <Toast
+        visible={toast.visible}
+        type={toast.type}
+        message={toast.message}
+        onClose={() => setToast({ ...toast, visible: false })}
+      />
       <div className="navbar-left">
         {onToggle && (
           <button
