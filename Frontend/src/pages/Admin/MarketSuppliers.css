@@ -416,6 +416,11 @@
   color: #92400e;
 }
 
+.status-badge.approved {
+  background-color: #16a34a;
+  color: #ffffff;
+}
+
 .status-badge.blacklisted,
 .status-badge.inactive {
   background-color: rgba(220, 38, 38, 0.2);
