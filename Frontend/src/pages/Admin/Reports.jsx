@@ -11,7 +11,7 @@ const Reports = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const PAGE_SIZE = 6;
+  const PAGE_SIZE = 9;
 
   useEffect(() => {
     const fetchReports = async () => {
@@ -134,7 +134,7 @@ const Reports = () => {
         </div>
       )}
 
-      <div className="supplier-cards-wrapper scrollable">
+      <div className="supplier-cards-wrapper">
         {paginatedSuppliers.map((supplier) => {
           const chartData = prepareChartData(supplier.priceAnalytics);
 
