@@ -115,20 +115,17 @@
 }
 
 .supplier-cards-wrapper {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 1.25rem;
-  overflow-x: auto;
-  padding-bottom: 1rem;
-  scroll-behavior: smooth;
+  padding-bottom: 0.5rem;
 }
 
 .supplier-card {
-  min-width: 360px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(238, 244, 255, 0.94) 100%);
   border-radius: 18px;
   box-shadow: 0 16px 30px rgba(15, 45, 98, 0.12);
   padding: 1.1rem 1.4rem;
-  flex-shrink: 0;
   transition: transform 0.25s, box-shadow 0.25s, border-color 0.25s;
   border: 1px solid rgba(28, 63, 124, 0.1);
 }
@@ -213,8 +210,11 @@
     font-size: 0.78rem;
   }
 
+  .supplier-cards-wrapper {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  }
+
   .supplier-card {
-    min-width: 300px;
     padding: 1rem 1.1rem;
   }
 }
