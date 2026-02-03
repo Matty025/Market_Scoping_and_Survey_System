@@ -528,6 +528,9 @@ const DocumentChecks = ({ formData, handleChange }) => {
         value={formData.driveFolderUrl}
         onChange={handleChange}
       />
+      <div className="drive-share-hint">
+        Set your Google Drive folder to "Anyone with the link" (Viewer) and confirm the folder already contains all required documents before sharing.
+      </div>
       <p className="document-contact">
         Upload or share your folder containing: PhilGEPS Registration, SEC Registration, Business Permit, Tax Clearance.
         You can also email documents to <strong>sdomarketscoping@gmail.com</strong> for faster approval.
