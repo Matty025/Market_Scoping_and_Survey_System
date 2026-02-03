@@ -113,7 +113,7 @@ app.post("/auth/pre-verify/send", async (req, res) => {
       return res.status(429).json({ error: `Please wait ${retryIn}s before resending.`, retryInSeconds: retryIn });
     }
 
-    const { token, expiresAt } = preverifyStore.createEntry(emailNorm);
+    const { token, expiresAt } = await preverifyStore.createEntry(emailNorm);
     preverifyCooldown.set(key, now);
 
     if (typeof sendPreRegistrationEmail === "function") {
@@ -129,11 +129,11 @@ app.post("/auth/pre-verify/send", async (req, res) => {
   }
 });
 
-app.get("/auth/pre-verify/status", (req, res) => {
+app.get("/auth/pre-verify/status", async (req, res) => {
   try {
     const { token } = req.query || {};
     if (!token) return res.status(400).json({ error: "Missing token" });
-    const status = preverifyStore.getStatus(token);
+    const status = await preverifyStore.getStatus(token);
     if (!status) return res.status(400).json({ error: "Invalid or expired token" });
     return res.json({ email: status.email, verified: status.verified, expiresAt: status.expiresAt });
   } catch (err) {
@@ -142,11 +142,11 @@ app.get("/auth/pre-verify/status", (req, res) => {
   }
 });
 
-app.get("/auth/pre-verify/consume", (req, res) => {
+app.get("/auth/pre-verify/consume", async (req, res) => {
   try {
     const { token } = req.query || {};
     if (!token) return res.status(400).json({ error: "Missing token" });
-    const result = preverifyStore.markVerified(token);
+    const result = await preverifyStore.markVerified(token);
     if (!result) return res.status(400).json({ error: "Invalid or expired token" });
     return res.json({ message: "Email verified", email: result.email });
   } catch (err) {

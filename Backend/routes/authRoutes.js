@@ -65,7 +65,7 @@ router.post("/register", async (req, res) => {
       return res.status(409).json({ message: "Email already registered" });
 
     // Require pre-verification token (email ownership) before creating account
-    const precheck = preverifyStore.requireVerified(email, preverifyToken);
+    const precheck = await preverifyStore.requireVerified(email, preverifyToken);
     if (!precheck.ok) {
       const reason = precheck.reason === "unverified" ? "Please verify your email before registering." : "Email verification is invalid or expired.";
       return res.status(400).json({ message: reason });

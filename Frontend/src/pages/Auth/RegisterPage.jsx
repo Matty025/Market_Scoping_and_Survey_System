@@ -63,6 +63,8 @@ const useRegistrationForm = () => {
         if (parsed.formData) {
           setFormData(prev => ({ ...prev, ...parsed.formData, password: "", confirmPassword: "" }));
         }
+        if (parsed.preToken) setPreToken(parsed.preToken);
+        if (parsed.verifyStatus) setVerifyStatus(parsed.verifyStatus);
       }
     } catch (e) {
       console.warn("[register] failed to hydrate form", e);
@@ -74,13 +76,15 @@ const useRegistrationForm = () => {
     const payload = {
       role,
       formData: { ...formData, password: "", confirmPassword: "" },
+      preToken,
+      verifyStatus,
     };
     try {
       sessionStorage.setItem("registerForm", JSON.stringify(payload));
     } catch (e) {
       console.warn("[register] failed to persist form", e);
     }
-  }, [role, formData]);
+  }, [role, formData, preToken, verifyStatus]);
 
   // ===== TOAST =====
   const showToast = (type, message, duration = 3000) => {
