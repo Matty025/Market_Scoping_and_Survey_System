@@ -88,12 +88,6 @@ const ManageAccounts = () => {
         backendStatus: u.AccountStatus || "PENDING",
         status: mapBackendToUI(u.AccountStatus),
         driveFolderUrl: u.DriveFolderUrl || "",
-        docs: {
-          hasPhilgeps: !!u.HasPhilgeps,
-          hasSecRegistration: !!u.HasSECRegistration,
-          hasBusinessPermit: !!u.HasBusinessPermit,
-          hasTaxClearance: !!u.HasTaxClearance,
-        },
         raw: u,
       }));
       setUsers(mapped);
@@ -270,7 +264,6 @@ const ManageAccounts = () => {
             <th>Name</th>
             <th>Role</th>
             <th>Status</th>
-            <th>Docs Declared</th>
             <th>Docs Folder</th>
             <th>Actions</th>
           </tr>
@@ -278,7 +271,7 @@ const ManageAccounts = () => {
         <tbody>
           {loadingUsers ? (
             <tr>
-              <td colSpan="6" className="no-results">
+              <td colSpan="5" className="no-results">
                 <div className="table-loading">
                   <div className="loading-spinner" aria-hidden />
                   <span>Loading accounts...</span>
@@ -287,7 +280,7 @@ const ManageAccounts = () => {
             </tr>
           ) : displayedAccounts.length === 0 ? (
             <tr>
-              <td colSpan="6" className="no-results">No accounts found.</td>
+              <td colSpan="5" className="no-results">No accounts found.</td>
             </tr>
           ) : (
             paginatedAccounts.map((acc) => (
@@ -296,21 +289,6 @@ const ManageAccounts = () => {
                 <td data-label="Role">{acc.role}</td>
                 <td data-label="Status">
                   <span className={`status ${acc.status}`}>{acc.status.toUpperCase()}</span>
-                </td>
-                <td data-label="Docs Declared" className="docs-list">
-                  {acc.role === "supplier" ? (
-                    <>
-                      {acc.docs?.hasPhilgeps && <span className="doc-tag">PhilGEPS</span>}
-                      {acc.docs?.hasSecRegistration && <span className="doc-tag">SEC</span>}
-                      {acc.docs?.hasBusinessPermit && <span className="doc-tag">Business Permit</span>}
-                      {acc.docs?.hasTaxClearance && <span className="doc-tag">Tax Clearance</span>}
-                      {!acc.docs || (!acc.docs.hasPhilgeps && !acc.docs.hasSecRegistration && !acc.docs.hasBusinessPermit && !acc.docs.hasTaxClearance) ? (
-                        <span className="muted">None</span>
-                      ) : null}
-                    </>
-                  ) : (
-                    <span className="muted">-</span>
-                  )}
                 </td>
                 <td data-label="Docs Folder" className="docs-cell">
                   {acc.driveFolderUrl ? (
