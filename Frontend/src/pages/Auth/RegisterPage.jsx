@@ -525,7 +525,8 @@ const DocumentChecks = ({ formData, handleChange }) => {
         onChange={handleChange}
       />
       <p className="document-contact">
-        Share your SEC, BIR, and permit files via this Drive folder or send to <strong>procurement@msss.gov</strong> for faster approval.
+        Upload or share your folder containing: PhilGEPS Registration, SEC Registration, Business Permit, Tax Clearance.
+        You can also email documents to <strong>sdomarketscoping@gmail.com</strong> for faster approval.
       </p>
     </div>
   );
