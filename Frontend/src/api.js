@@ -23,4 +23,24 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    try {
+      const status = error?.response?.status;
+      const message = (error?.response?.data?.message || "").toString().toLowerCase();
+      if ((status === 401 || status === 403) && message.includes("blacklisted")) {
+        localStorage.removeItem("token");
+        sessionStorage.removeItem("token");
+        if (typeof window !== "undefined") {
+          window.location.href = "/";
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default api;
