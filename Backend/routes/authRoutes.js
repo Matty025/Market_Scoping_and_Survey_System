@@ -19,6 +19,11 @@ const forgotLimit = new Map();
 const FORGOT_WINDOW_MS = 60 * 1000; // 1 minute window
 const FORGOT_MAX_ATTEMPTS = 3; // max attempts per window per (ip+email)
 
+// In-memory login throttle (per process). For production, move to Redis/DB.
+const loginLimit = new Map(); // key: emailLower -> { count, lockedUntil }
+const LOGIN_WINDOW_MS = 30 * 60 * 1000; // 30 minutes
+const LOGIN_MAX_ATTEMPTS = 5;
+
 // In-memory change-password throttle (per process). Keeps quick successive submits down.
 const passwordChangeLimit = new Map();
 const PASSWORD_WINDOW_MS = 30 * 1000; // 30s window
@@ -223,11 +228,22 @@ router.post("/login", async (req, res) => {
   console.log("Login attempt:", { email, password }); // DEBUG: incoming request
 
   try {
+    const emailKey = (email || "").toLowerCase().trim();
+    const now = Date.now();
+    const entry = loginLimit.get(emailKey);
+    if (entry && entry.lockedUntil && now < entry.lockedUntil) {
+      const retryIn = Math.ceil((entry.lockedUntil - now) / 1000);
+      return res.status(429).json({ message: `Too many attempts. Try again in ${retryIn}s.` });
+    }
+
     const user = await UserModel.findByEmail(email);
     console.log("User found:", user); // DEBUG: user from DB
 
     if (!user) {
       console.log("No user found"); // DEBUG
+      const attempts = entry && entry.count ? entry.count + 1 : 1;
+      const lockedUntil = attempts >= LOGIN_MAX_ATTEMPTS ? now + LOGIN_WINDOW_MS : 0;
+      loginLimit.set(emailKey, { count: attempts, lockedUntil });
       return res.status(400).json({ message: "Invalid email or password" });
     }
 
@@ -236,8 +252,14 @@ router.post("/login", async (req, res) => {
 
     if (!valid) {
       console.log("Password incorrect"); // DEBUG
+      const attempts = entry && entry.count ? entry.count + 1 : 1;
+      const lockedUntil = attempts >= LOGIN_MAX_ATTEMPTS ? now + LOGIN_WINDOW_MS : 0;
+      loginLimit.set(emailKey, { count: attempts, lockedUntil });
       return res.status(400).json({ message: "Invalid email or password" });
     }
+
+    // Success: clear throttle state for this email
+    loginLimit.delete(emailKey);
 
     // Enforce account status stored in "AccountStatus" column
     const accountStatus = (user.AccountStatus || '').toString().toUpperCase();

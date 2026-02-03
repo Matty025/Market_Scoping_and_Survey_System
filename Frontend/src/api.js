@@ -29,7 +29,12 @@ api.interceptors.response.use(
     try {
       const status = error?.response?.status;
       const message = (error?.response?.data?.message || "").toString().toLowerCase();
-      if ((status === 401 || status === 403) && message.includes("blacklisted")) {
+      const requestUrl = error?.config?.url || "";
+      const isAuthLogin = requestUrl.includes("/auth/login");
+      const hasStoredToken = Boolean(localStorage.getItem("token") || sessionStorage.getItem("token"));
+
+      // For login attempts, let the caller surface the error message instead of redirecting.
+      if (!isAuthLogin && hasStoredToken && (status === 401 || status === 403) && message.includes("blacklisted")) {
         localStorage.removeItem("token");
         sessionStorage.removeItem("token");
         if (typeof window !== "undefined") {
