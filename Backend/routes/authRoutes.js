@@ -52,6 +52,24 @@ const notifyLoginLock = async (email, lockedUntil) => {
   }
 };
 
+const sendLockAlerts = async ({ email, userId, lockedUntil }) => {
+  // Fire both email and in-app notification; tolerate failures.
+  notifyLoginLock(email, lockedUntil).catch(() => {});
+  if (userId) {
+    const fingerprint = `lockout:${userId}:${lockedUntil}`;
+    notificationService
+      .createNotification({
+        userId,
+        type: "security",
+        title: "Account temporarily locked",
+        body: "Multiple failed sign-in attempts were detected. If this wasn't you, please reset your password.",
+        metadata: { lockedUntil },
+        fingerprint,
+      })
+      .catch((err) => console.warn('[authRoutes] Failed to create lockout notification', err && err.message ? err.message : err));
+  }
+};
+
 // REGISTER (Buyer or Supplier)
 router.post("/register", async (req, res) => {
   try {
@@ -269,7 +287,7 @@ router.post("/login", async (req, res) => {
       const notified = Boolean(entry && entry.notified);
       const next = { count: attempts, lockedUntil, notified };
       if (lockedUntil && !notified) {
-        notifyLoginLock(email, lockedUntil).catch(() => {});
+        sendLockAlerts({ email, userId: null, lockedUntil }).catch(() => {});
         next.notified = true;
       }
       loginLimit.set(emailKey, next);
@@ -286,7 +304,7 @@ router.post("/login", async (req, res) => {
       const notified = Boolean(entry && entry.notified);
       const next = { count: attempts, lockedUntil, notified };
       if (lockedUntil && !notified) {
-        notifyLoginLock(email, lockedUntil).catch(() => {});
+        sendLockAlerts({ email, userId: user.UserID, lockedUntil }).catch(() => {});
         next.notified = true;
       }
       loginLimit.set(emailKey, next);
