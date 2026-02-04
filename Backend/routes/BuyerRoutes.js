@@ -354,17 +354,26 @@ router.get('/requests', protect, async (req, res) => {
     
     const result = await db.query(query, [userId]);
 
-    const requests = result.rows.map(row => {
-      // 1. ROBUST PATH CHECK: Check both 'filepath' (postgres default) and 'filePath'
-      // The 'FilePath' column now stores the full public URL.
-      const fileUrl = row.filepath || row.filePath || null;
-      let originalFilename = null;
+    const requests = await Promise.all((result.rows || []).map(async (row) => {
+      const rawPath = row.filepath || row.filePath || null;
+      let resolvedUrl = rawPath;
 
-      if (fileUrl) {
-        // Extract the original filename from the end of the URL
-        const urlParts = fileUrl.split('/');
-        const uniqueFilename = urlParts[urlParts.length - 1];
-        originalFilename = uniqueFilename.substring(uniqueFilename.indexOf('-') + 1);
+      // If not an absolute URL, attempt to generate a signed URL (Supabase/private storage)
+      if (rawPath && !/^https?:\/\//i.test(rawPath)) {
+        try {
+          resolvedUrl = await generateSignedUrl(rawPath, 300);
+        } catch (sigErr) {
+          console.warn('[BuyerRoutes.js] Failed to sign file path for request', row.id, sigErr && sigErr.message);
+          resolvedUrl = null;
+        }
+      }
+
+      let originalFilename = null;
+      if (resolvedUrl) {
+        const parts = resolvedUrl.split('/');
+        const uniqueFilename = parts[parts.length - 1] || '';
+        const idx = uniqueFilename.indexOf('-');
+        originalFilename = idx >= 0 ? uniqueFilename.substring(idx + 1) : uniqueFilename;
       }
 
       return {
@@ -374,13 +383,13 @@ router.get('/requests', protect, async (req, res) => {
         notes: row.notes,
         adminFeedback: row.adminfeedback || row.AdminFeedback || row.adminFeedback || row.admin_feedback || null,
         status: row.status,
-        filePath: fileUrl, // This field now contains the full URL
+        filePath: rawPath,
         endDate: row.enddate || row.endDate,
         createdAt: row.createdat || row.createdAt,
-        fileUrl: fileUrl,
-        originalFilename: originalFilename
+        fileUrl: resolvedUrl,
+        originalFilename,
       };
-    });
+    }));
 
     res.json({ requests });
   } catch (err) {
