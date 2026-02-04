@@ -10,6 +10,7 @@ const { sendPendingAccountEmail } = require("../services/adminNotificationServic
 const notificationService = require("../services/notificationService");
 const preverifyStore = require("../services/preverifyStore");
 const passwordResetService = require("../services/passwordResetService");
+const mailer = require("../utils/mailer");
 
 // In-memory edit throttle (per process). For production, move to Redis/DB.
 const editLimit = new Map();
@@ -21,8 +22,8 @@ const FORGOT_MAX_ATTEMPTS = 3; // max attempts per window per (ip+email)
 
 // In-memory login throttle (per process). For production, move to Redis/DB.
 const loginLimit = new Map(); // key: emailLower -> { count, lockedUntil }
-const LOGIN_WINDOW_MS = 30 * 60 * 1000; // 30 minutes
-const LOGIN_MAX_ATTEMPTS = 5;
+const LOGIN_WINDOW_MS = 5 * 60 * 1000; // 5 minutes lock window
+const LOGIN_MAX_ATTEMPTS = 4;
 
 // In-memory change-password throttle (per process). Keeps quick successive submits down.
 const passwordChangeLimit = new Map();
@@ -30,6 +31,21 @@ const PASSWORD_WINDOW_MS = 30 * 1000; // 30s window
 const PASSWORD_MAX_ATTEMPTS = 3;
 
 const router = express.Router();
+
+// Notify user of account lock due to failed logins (fire-and-forget)
+const notifyLoginLock = async (email, lockedUntil) => {
+  if (!email) return;
+  const unlockAt = new Date(lockedUntil);
+  try {
+    await mailer.sendMail({
+      to: email,
+      subject: "MSSS: Login temporarily locked",
+      text: `We detected multiple failed sign-in attempts to your account. Your login is locked until ${unlockAt.toLocaleString()}. If this wasn't you, consider changing your password.`,
+    });
+  } catch (e) {
+    console.warn("[authRoutes] Failed to send lockout email:", e && e.message ? e.message : e);
+  }
+};
 
 // REGISTER (Buyer or Supplier)
 router.post("/register", async (req, res) => {
@@ -244,6 +260,9 @@ router.post("/login", async (req, res) => {
       const attempts = entry && entry.count ? entry.count + 1 : 1;
       const lockedUntil = attempts >= LOGIN_MAX_ATTEMPTS ? now + LOGIN_WINDOW_MS : 0;
       loginLimit.set(emailKey, { count: attempts, lockedUntil });
+      if (lockedUntil) {
+        notifyLoginLock(email, lockedUntil).catch(() => {});
+      }
       return res.status(400).json({ message: "Invalid email or password" });
     }
 
@@ -255,6 +274,9 @@ router.post("/login", async (req, res) => {
       const attempts = entry && entry.count ? entry.count + 1 : 1;
       const lockedUntil = attempts >= LOGIN_MAX_ATTEMPTS ? now + LOGIN_WINDOW_MS : 0;
       loginLimit.set(emailKey, { count: attempts, lockedUntil });
+      if (lockedUntil) {
+        notifyLoginLock(email, lockedUntil).catch(() => {});
+      }
       return res.status(400).json({ message: "Invalid email or password" });
     }
 
