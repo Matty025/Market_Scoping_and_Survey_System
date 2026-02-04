@@ -10,7 +10,6 @@ const { sendPendingAccountEmail } = require("../services/adminNotificationServic
 const notificationService = require("../services/notificationService");
 const preverifyStore = require("../services/preverifyStore");
 const passwordResetService = require("../services/passwordResetService");
-const mailer = require("../utils/mailer");
 
 // In-memory edit throttle (per process). For production, move to Redis/DB.
 const editLimit = new Map();
@@ -21,7 +20,7 @@ const FORGOT_WINDOW_MS = 60 * 1000; // 1 minute window
 const FORGOT_MAX_ATTEMPTS = 3; // max attempts per window per (ip+email)
 
 // In-memory login throttle (per process). For production, move to Redis/DB.
-const loginLimit = new Map(); // key: emailLower -> { count, lockedUntil, notified }
+const loginLimit = new Map(); // key: emailLower -> { count, lockedUntil }
 const LOGIN_WINDOW_MS = 5 * 60 * 1000; // 5 minutes lock window
 const LOGIN_MAX_ATTEMPTS = 4;
 
@@ -32,43 +31,7 @@ const PASSWORD_MAX_ATTEMPTS = 3;
 
 const router = express.Router();
 
-// Notify user of account lock due to failed logins (fire-and-forget)
-const notifyLoginLock = async (email, lockedUntil) => {
-  if (!email) return;
-  const unlockAt = new Date(lockedUntil);
-  try {
-    if (!process.env.SYSTEM_EMAIL || !process.env.SYSTEM_EMAIL_APP_PASSWORD) {
-      console.warn('[authRoutes] Lockout email skipped: SYSTEM_EMAIL or SYSTEM_EMAIL_APP_PASSWORD not set');
-      return;
-    }
-    await mailer.sendMail({
-      to: email,
-      subject: "MSSS: Login temporarily locked",
-      text: `We detected multiple failed sign-in attempts to your account. Your login is locked until ${unlockAt.toLocaleString()}. If this wasn't you, consider changing your password and reviewing your account security.`,
-    });
-    console.log('[authRoutes] Lockout email sent to', email);
-  } catch (e) {
-    console.warn("[authRoutes] Failed to send lockout email:", e && e.message ? e.message : e);
-  }
-};
-
-const sendLockAlerts = async ({ email, userId, lockedUntil }) => {
-  // Fire both email and in-app notification; tolerate failures.
-  notifyLoginLock(email, lockedUntil).catch(() => {});
-  if (userId) {
-    const fingerprint = `lockout:${userId}:${lockedUntil}`;
-    notificationService
-      .createNotification({
-        userId,
-        type: "security",
-        title: "Account temporarily locked",
-        body: "Multiple failed sign-in attempts were detected. If this wasn't you, please reset your password.",
-        metadata: { lockedUntil },
-        fingerprint,
-      })
-      .catch((err) => console.warn('[authRoutes] Failed to create lockout notification', err && err.message ? err.message : err));
-  }
-};
+// Lockout alerts intentionally disabled per request; throttle still applies.
 
 // REGISTER (Buyer or Supplier)
 router.post("/register", async (req, res) => {
@@ -272,8 +235,6 @@ router.post("/login", async (req, res) => {
     const entry = loginLimit.get(emailKey);
     if (entry && entry.lockedUntil && now < entry.lockedUntil) {
       const retryIn = Math.ceil((entry.lockedUntil - now) / 1000);
-      // Fire a reminder email while locked
-      notifyLoginLock(email, entry.lockedUntil).catch(() => {});
       return res.status(429).json({ message: `Too many attempts. Try again in ${retryIn}s.` });
     }
 
@@ -284,13 +245,7 @@ router.post("/login", async (req, res) => {
       console.log("No user found"); // DEBUG
       const attempts = entry && entry.count ? entry.count + 1 : 1;
       const lockedUntil = attempts >= LOGIN_MAX_ATTEMPTS ? now + LOGIN_WINDOW_MS : 0;
-      const notified = Boolean(entry && entry.notified);
-      const next = { count: attempts, lockedUntil, notified };
-      if (lockedUntil && !notified) {
-        sendLockAlerts({ email, userId: null, lockedUntil }).catch(() => {});
-        next.notified = true;
-      }
-      loginLimit.set(emailKey, next);
+      loginLimit.set(emailKey, { count: attempts, lockedUntil });
       return res.status(400).json({ message: "Invalid email or password" });
     }
 
@@ -301,13 +256,7 @@ router.post("/login", async (req, res) => {
       console.log("Password incorrect"); // DEBUG
       const attempts = entry && entry.count ? entry.count + 1 : 1;
       const lockedUntil = attempts >= LOGIN_MAX_ATTEMPTS ? now + LOGIN_WINDOW_MS : 0;
-      const notified = Boolean(entry && entry.notified);
-      const next = { count: attempts, lockedUntil, notified };
-      if (lockedUntil && !notified) {
-        sendLockAlerts({ email, userId: user.UserID, lockedUntil }).catch(() => {});
-        next.notified = true;
-      }
-      loginLimit.set(emailKey, next);
+      loginLimit.set(emailKey, { count: attempts, lockedUntil });
       return res.status(400).json({ message: "Invalid email or password" });
     }
 
