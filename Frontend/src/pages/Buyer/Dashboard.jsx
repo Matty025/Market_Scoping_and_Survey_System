@@ -417,11 +417,12 @@ const Dashboard = () => {
     if (!raw) return null;
     if (/^https?:\/\//i.test(raw)) return raw;
 
-    const base = import.meta.env.VITE_API_URL || 'http://localhost:3001';
     if (req.id) {
-      // Use protected buyer download endpoint to stream private PDFs
-      return `${base}/api/buyer/requests/${req.id}/file`;
+      // Use protected buyer download endpoint (relative so it works on same origin and with axios baseURL)
+      return `/api/buyer/requests/${req.id}/file`;
     }
+
+    const base = import.meta.env.VITE_API_URL || 'http://localhost:3001';
     return `${base}${raw.startsWith('/') ? '' : '/'}${raw}`;
   };
 
@@ -439,8 +440,10 @@ const Dashboard = () => {
       const isApiUrl = url.startsWith(backendBase) || url.startsWith('/api/') || url.includes('/api/');
       if (isApiUrl) {
         try {
-          const absoluteUrl = url.startsWith('http') ? url : `${backendBase}${url.startsWith('/') ? '' : '/'}${url}`;
-          const resp = await api.get(absoluteUrl.replace(backendBase, ''), { responseType: 'blob' });
+          const pathForApi = url.startsWith(backendBase)
+            ? url.replace(backendBase, '')
+            : (url.startsWith('http') ? url : url);
+          const resp = await api.get(pathForApi, { responseType: 'blob' });
           const blob = new Blob([resp.data], { type: resp.headers['content-type'] || 'application/pdf' });
           const blobUrl = window.URL.createObjectURL(blob);
           window.open(blobUrl, '_blank');

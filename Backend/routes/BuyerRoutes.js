@@ -10,6 +10,7 @@ const notificationService = require('../services/notificationService');
 
 // Prefer Supabase Storage; fall back to DigitalOcean S3 (aws-sdk) or local disk.
 const { uploadBuffer, generateSignedUrl, deleteFile, downloadFile } = require('../utils/supabaseStorage');
+const axios = require('axios');
 let aws;
 let multerS3;
 const useSupabase = Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
@@ -554,7 +555,8 @@ router.get('/requests/:id/history', protect, async (req, res) => {
       return res.status(400).json({ error: 'Invalid request ID' });
     }
 
-    const q = `SELECT "HistoryID" as historyID, "UploadID" as uploadID, COALESCE("Action", action) as action, "Details" as details, "ChangedAt" as changedAt FROM "PurchaseRequestHistory" WHERE "UploadID" = $1 ORDER BY "ChangedAt" DESC`;
+    // Fetch raw rows; some databases may store the column as "Action" (quoted) or action (lowercase).
+    const q = `SELECT * FROM "PurchaseRequestHistory" WHERE "UploadID" = $1 ORDER BY "ChangedAt" DESC`;
     const result = await db.query(q, [uploadId]);
     const rows = result.rows || [];
 
@@ -589,7 +591,14 @@ router.get('/requests/:id/history', protect, async (req, res) => {
         }
       }
 
-      processed.push({ ...r, details });
+      const actionVal = r.Action || r.action || null;
+      processed.push({
+        historyID: r.HistoryID || r.historyid || r.historyID,
+        uploadID: r.UploadID || r.uploadid || r.uploadID,
+        action: actionVal,
+        details,
+        changedAt: r.ChangedAt || r.changedat || r.changedAt,
+      });
     }
 
     res.json({ history: processed });
@@ -630,10 +639,37 @@ router.get('/requests/:id/file', protect, async (req, res) => {
     }
 
     try {
-      const stream = await downloadFile(filePath);
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `inline; filename="${(row.Title || 'attachment').replace(/"/g, '')}.pdf"`);
-      stream.pipe(res);
+      const safeTitle = (row.Title || 'attachment').replace(/"/g, '');
+
+      // Case 1: filePath is a full URL (e.g., Supabase public URL) — proxy it so auth/headers are preserved
+      if (/^https?:\/\//i.test(filePath)) {
+        const proxied = await axios.get(filePath, { responseType: 'stream' });
+        res.setHeader('Content-Type', proxied.headers['content-type'] || 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename="${safeTitle}.pdf"`);
+        return proxied.data.pipe(res);
+      }
+
+      // Case 2: path is a storage key (preferred)
+      try {
+        const stream = await downloadFile(filePath);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename="${safeTitle}.pdf"`);
+        return stream.pipe(res);
+      } catch (primaryErr) {
+        console.warn('[BuyerRoutes.js] Primary downloadFile failed, trying signed URL fallback:', primaryErr && primaryErr.message);
+        try {
+          const signed = await generateSignedUrl(filePath, 300);
+          if (signed) {
+            const proxied = await axios.get(signed, { responseType: 'stream' });
+            res.setHeader('Content-Type', proxied.headers['content-type'] || 'application/pdf');
+            res.setHeader('Content-Disposition', `inline; filename="${safeTitle}.pdf"`);
+            return proxied.data.pipe(res);
+          }
+        } catch (sigErr) {
+          console.warn('[BuyerRoutes.js] Signed URL fallback failed:', sigErr && sigErr.message);
+        }
+        throw primaryErr;
+      }
     } catch (err) {
       console.error('[BuyerRoutes.js] Error downloading buyer file:', err && err.message ? err.message : err);
       if (err && err.message && err.message.toLowerCase().includes('not found')) {

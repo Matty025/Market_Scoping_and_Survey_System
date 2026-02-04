@@ -15,6 +15,7 @@ const buyerRoutes = require('./BuyerRoutes');
 
 const FALLBACK_CATEGORY_NAME = "Uncategorized";
 const { generateSignedUrl, downloadFile, uploadBuffer, supabase } = require('../utils/supabaseStorage');
+const axios = require('axios');
 
 // Fetch fallback for streaming remote URLs (e.g., public Supabase or other HTTP paths)
 const fetchRemote = global.fetch ? global.fetch : (...args) => import('node-fetch').then(({ default: f }) => f(...args));
@@ -2687,13 +2688,36 @@ router.get("/buyer-requests/:id/file", protect, async (req, res) => {
     const filePath = rows[0].FilePath; // e.g., "buyer-pr/announcements/filename.pdf"
     const title = rows[0].Title;
 
-    // Download from Supabase
-    const stream = await downloadFile(filePath);
-    
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename="${title}.pdf"`);
-    
-    stream.pipe(res);
+    const safeTitle = (title || 'attachment').replace(/"/g, '');
+
+    // If filePath is already a full URL (e.g., Supabase public URL), proxy it so headers/cookies stay intact
+    if (/^https?:\/\//i.test(filePath)) {
+      const proxied = await axios.get(filePath, { responseType: 'stream' });
+      res.setHeader('Content-Type', proxied.headers['content-type'] || 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="${safeTitle}.pdf"`);
+      return proxied.data.pipe(res);
+    }
+
+    try {
+      const stream = await downloadFile(filePath);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="${safeTitle}.pdf"`);
+      return stream.pipe(res);
+    } catch (primaryErr) {
+      console.warn('[adminRoutes] downloadFile failed, trying signed URL fallback:', primaryErr && primaryErr.message);
+      try {
+        const signed = await generateSignedUrl(filePath, 300);
+        if (signed) {
+          const proxied = await axios.get(signed, { responseType: 'stream' });
+          res.setHeader('Content-Type', proxied.headers['content-type'] || 'application/pdf');
+          res.setHeader('Content-Disposition', `inline; filename="${safeTitle}.pdf"`);
+          return proxied.data.pipe(res);
+        }
+      } catch (sigErr) {
+        console.warn('[adminRoutes] Signed URL fallback failed:', sigErr && sigErr.message);
+      }
+      throw primaryErr;
+    }
   } catch (err) {
     console.error("Error downloading file:", err);
     
