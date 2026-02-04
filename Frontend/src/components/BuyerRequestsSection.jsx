@@ -95,11 +95,28 @@ const BuyerRequestsSection = ({ token, toast, setToast, noWrapper = false }) => 
     }
   };
 
-  const getFileUrl = (filePath) => {
-    if (!filePath) return '#';
-    if (filePath.startsWith('http')) return filePath;
+  // Prefer backend-signed URL; fall back to an authenticated download endpoint, then raw path.
+  const resolveRequestFileUrl = (request) => {
+    if (!request) return null;
+    const signed = request.fileUrl || request.file_url;
+    if (typeof signed === 'string' && signed.trim().length > 0) {
+      return signed.trim();
+    }
+
+    const rawPath = request.filePath || request.filepath || '';
+    if (!rawPath) return null;
+
+    if (/^https?:\/\//i.test(rawPath)) {
+      return rawPath;
+    }
+
     const base = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-    return `${base}${filePath}`;
+    if (request.id) {
+      // Use protected download route so storage-private files stream correctly in prod.
+      return `${base}/api/admin/buyer-requests/${request.id}/file`;
+    }
+
+    return `${base}${rawPath.startsWith('/') ? '' : '/'}${rawPath}`;
   };
 
   const openProtectedUrl = async (url) => {
@@ -194,6 +211,7 @@ const BuyerRequestsSection = ({ token, toast, setToast, noWrapper = false }) => 
         ) : (
           <div className="announcements-container">
             {requests.map((request) => {
+              const fileUrl = resolveRequestFileUrl(request);
               const statusConfig = STATUS_CONFIG[request.status] || STATUS_CONFIG.PENDING;
               return (
                 <div key={request.id} className="announcement-card" style={{ cursor: 'pointer' }} onClick={() => handleViewDetails(request)}>
@@ -209,8 +227,8 @@ const BuyerRequestsSection = ({ token, toast, setToast, noWrapper = false }) => 
                   <div className="announcement-metadata">
                     <span className="badge" style={{ backgroundColor: '#6b7280' }}><FaUser /> {request.buyerName}</span>
                     <span className="badge badge-date"><FaCalendar /> Due: {request.endDate ? new Date(request.endDate).toLocaleDateString() : 'N/A'}</span>
-                    {request.filePath && (
-                      <a href="#" onClick={(e) => { e.stopPropagation(); e.preventDefault(); openProtectedUrl(getFileUrl(request.filePath)); }} className="badge badge-file">
+                    {fileUrl && (
+                      <a href="#" onClick={(e) => { e.stopPropagation(); e.preventDefault(); openProtectedUrl(fileUrl); }} className="badge badge-file">
                         <FaFilePdf /> View File
                       </a>
                     )}
@@ -269,8 +287,8 @@ const BuyerRequestsSection = ({ token, toast, setToast, noWrapper = false }) => 
               </div>
               <div className="detail-row">
                 <span className="detail-label">Attachment</span>
-                {selectedRequest.filePath ? (
-                  <a href="#" onClick={(e) => { e.preventDefault(); e.stopPropagation(); openProtectedUrl(getFileUrl(selectedRequest.filePath)); }} className="status-action-btn status-action-btn--primary">
+                {resolveRequestFileUrl(selectedRequest) ? (
+                  <a href="#" onClick={(e) => { e.preventDefault(); e.stopPropagation(); openProtectedUrl(resolveRequestFileUrl(selectedRequest)); }} className="status-action-btn status-action-btn--primary">
                     <FaFilePdf /> View PDF
                   </a>
                 ) : (
