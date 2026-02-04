@@ -37,11 +37,16 @@ const notifyLoginLock = async (email, lockedUntil) => {
   if (!email) return;
   const unlockAt = new Date(lockedUntil);
   try {
+    if (!process.env.SYSTEM_EMAIL || !process.env.SYSTEM_EMAIL_APP_PASSWORD) {
+      console.warn('[authRoutes] Lockout email skipped: SYSTEM_EMAIL or SYSTEM_EMAIL_APP_PASSWORD not set');
+      return;
+    }
     await mailer.sendMail({
       to: email,
       subject: "MSSS: Login temporarily locked",
       text: `We detected multiple failed sign-in attempts to your account. Your login is locked until ${unlockAt.toLocaleString()}. If this wasn't you, consider changing your password and reviewing your account security.`,
     });
+    console.log('[authRoutes] Lockout email sent to', email);
   } catch (e) {
     console.warn("[authRoutes] Failed to send lockout email:", e && e.message ? e.message : e);
   }
