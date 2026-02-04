@@ -9,7 +9,7 @@ const { notifyAdminNewPurchaseRequest } = require('../services/prNotificationSer
 const notificationService = require('../services/notificationService');
 
 // Prefer Supabase Storage; fall back to DigitalOcean S3 (aws-sdk) or local disk.
-const { uploadBuffer, generateSignedUrl, deleteFile } = require('../utils/supabaseStorage');
+const { uploadBuffer, generateSignedUrl, deleteFile, downloadFile } = require('../utils/supabaseStorage');
 let aws;
 let multerS3;
 const useSupabase = Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
@@ -554,7 +554,7 @@ router.get('/requests/:id/history', protect, async (req, res) => {
       return res.status(400).json({ error: 'Invalid request ID' });
     }
 
-    const q = `SELECT "HistoryID" as historyID, "UploadID" as uploadID, "Action" as action, "Details" as details, "ChangedAt" as changedAt FROM "PurchaseRequestHistory" WHERE "UploadID" = $1 ORDER BY "ChangedAt" DESC`;
+    const q = `SELECT "HistoryID" as historyID, "UploadID" as uploadID, COALESCE("Action", action) as action, "Details" as details, "ChangedAt" as changedAt FROM "PurchaseRequestHistory" WHERE "UploadID" = $1 ORDER BY "ChangedAt" DESC`;
     const result = await db.query(q, [uploadId]);
     const rows = result.rows || [];
 
@@ -596,6 +596,54 @@ router.get('/requests/:id/history', protect, async (req, res) => {
   } catch (err) {
     console.error('[BuyerRoutes.js] Error fetching history:', err);
     res.status(500).json({ error: 'Server error while fetching history.' });
+  }
+});
+
+// GET /api/buyer/requests/:id/file - stream the buyer's own uploaded PDF
+router.get('/requests/:id/file', protect, async (req, res) => {
+  try {
+    const uploadId = parseInt(req.params.id, 10);
+    if (!uploadId || isNaN(uploadId)) {
+      return res.status(400).json({ error: 'Invalid request ID' });
+    }
+
+    const userId = req.user.UserID || req.user.userID || req.user.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const q = 'SELECT "FilePath", "Title", "UserID" FROM "BuyerUploads" WHERE "UploadID" = $1 LIMIT 1';
+    const { rows } = await db.query(q, [uploadId]);
+    if (!rows || rows.length === 0) {
+      return res.status(404).json({ error: 'Request not found' });
+    }
+
+    const row = rows[0];
+    const ownerId = row.UserID;
+    if (ownerId && Number(ownerId) !== Number(userId)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const filePath = row.FilePath;
+    if (!filePath) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    try {
+      const stream = await downloadFile(filePath);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="${(row.Title || 'attachment').replace(/"/g, '')}.pdf"`);
+      stream.pipe(res);
+    } catch (err) {
+      console.error('[BuyerRoutes.js] Error downloading buyer file:', err && err.message ? err.message : err);
+      if (err && err.message && err.message.toLowerCase().includes('not found')) {
+        return res.status(404).json({ error: 'File not found in storage' });
+      }
+      return res.status(500).json({ error: 'Error downloading file' });
+    }
+  } catch (err) {
+    console.error('[BuyerRoutes.js] Error in GET /requests/:id/file:', err && err.message ? err.message : err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 

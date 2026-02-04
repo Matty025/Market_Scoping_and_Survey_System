@@ -418,6 +418,10 @@ const Dashboard = () => {
     if (/^https?:\/\//i.test(raw)) return raw;
 
     const base = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    if (req.id) {
+      // Use protected buyer download endpoint to stream private PDFs
+      return `${base}/api/buyer/requests/${req.id}/file`;
+    }
     return `${base}${raw.startsWith('/') ? '' : '/'}${raw}`;
   };
 
