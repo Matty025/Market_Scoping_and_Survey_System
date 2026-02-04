@@ -554,7 +554,7 @@ router.get('/requests/:id/history', protect, async (req, res) => {
       return res.status(400).json({ error: 'Invalid request ID' });
     }
 
-    const q = `SELECT "HistoryID" as historyID, "UploadID" as uploadID, action as action, "Details" as details, "ChangedAt" as changedAt FROM "PurchaseRequestHistory" WHERE "UploadID" = $1 ORDER BY "ChangedAt" DESC`;
+    const q = `SELECT "HistoryID" as historyID, "UploadID" as uploadID, "Action" as action, "Details" as details, "ChangedAt" as changedAt FROM "PurchaseRequestHistory" WHERE "UploadID" = $1 ORDER BY "ChangedAt" DESC`;
     const result = await db.query(q, [uploadId]);
     const rows = result.rows || [];
 

@@ -406,6 +406,21 @@ const Dashboard = () => {
     return `${days}d ago`;
   };
 
+  const resolveAttachmentUrl = (req) => {
+    if (!req) return null;
+    const signed = req.fileUrl || req.file_url;
+    if (typeof signed === 'string' && signed.trim().length > 0) {
+      return signed.trim();
+    }
+
+    const raw = req.filePath || req.filepath || '';
+    if (!raw) return null;
+    if (/^https?:\/\//i.test(raw)) return raw;
+
+    const base = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    return `${base}${raw.startsWith('/') ? '' : '/'}${raw}`;
+  };
+
   const openProtectedUrl = async (url) => {
     if (!url) return;
     try {
@@ -415,6 +430,25 @@ const Dashboard = () => {
         window.open(sas, '_blank');
         return;
       }
+
+      const backendBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const isApiUrl = url.startsWith(backendBase) || url.startsWith('/api/') || url.includes('/api/');
+      if (isApiUrl) {
+        try {
+          const absoluteUrl = url.startsWith('http') ? url : `${backendBase}${url.startsWith('/') ? '' : '/'}${url}`;
+          const resp = await api.get(absoluteUrl.replace(backendBase, ''), { responseType: 'blob' });
+          const blob = new Blob([resp.data], { type: resp.headers['content-type'] || 'application/pdf' });
+          const blobUrl = window.URL.createObjectURL(blob);
+          window.open(blobUrl, '_blank');
+          setTimeout(() => window.URL.revokeObjectURL(blobUrl), 60 * 1000);
+          return;
+        } catch (fetchErr) {
+          console.error('Authenticated fetch failed; not opening unauthenticated URL', fetchErr);
+          alert('Unable to fetch the protected file. Please ensure you are logged in and try again.');
+          return;
+        }
+      }
+
       window.open(url, '_blank');
     } catch (err) {
       console.error('Failed to open protected URL', err);
@@ -493,8 +527,7 @@ const Dashboard = () => {
 
                 {paginatedRequests.map((req) => {
                 const statusConfig = getStatusConfig(req.status);
-                // The backend now returns full file URLs (e.g., Azure blob URL) in `filePath`/`fileUrl`.
-                const fullFileUrl = req.filePath || req.fileUrl || '#';
+                const fullFileUrl = resolveAttachmentUrl(req);
                 return (
                   <div 
                     key={req.id} 
@@ -527,7 +560,7 @@ const Dashboard = () => {
                             : '-'
                         }
                       </span>
-                      {req.filePath && (
+                      {fullFileUrl && (
                         <a
                           href="#"
                           className="badge badge-file"
@@ -830,11 +863,11 @@ const Dashboard = () => {
                
               <div className="detail-row">
                 <span className="detail-label">File Attachment</span>
-                {selectedRequest.filePath ? (
+                {resolveAttachmentUrl(selectedRequest) ? (
                   <a
                     href="#"
                     className="status-action-btn status-action-btn--primary"
-                    onClick={(e) => { e.preventDefault(); openProtectedUrl(selectedRequest.filePath || selectedRequest.fileUrl); }}
+                    onClick={(e) => { e.preventDefault(); openProtectedUrl(resolveAttachmentUrl(selectedRequest)); }}
                   >
                     <FaFilePdf /> View Attachment
                   </a>
