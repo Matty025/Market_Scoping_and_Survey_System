@@ -151,8 +151,8 @@ const normalizeEndDateToEndOfDaySgt = (value) => {
   const buildEndOfDaySgt = (year, month, day) => {
     const mm = String(month).padStart(2, '0');
     const dd = String(day).padStart(2, '0');
-    // Explicitly set to 23:59:00 Asia/Manila (+08:00) to avoid UTC offsets from the server timezone
-    return new Date(`${year}-${mm}-${dd}T23:59:00+08:00`);
+    // Explicitly set to 23:59:59.999 Asia/Manila (+08:00) so the full day is included regardless of server timezone
+    return new Date(`${year}-${mm}-${dd}T23:59:59.999+08:00`);
   };
 
   if (typeof value === 'string') {
