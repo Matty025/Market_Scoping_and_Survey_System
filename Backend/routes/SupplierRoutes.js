@@ -753,14 +753,14 @@ router.post('/uploads', protect, upload.single('file'), async (req, res) => { //
           // First try an exact match (handles names containing commas, e.g., "Uniforms, Apparel & Fabrics")
           const directMatch = allCategories.find(c => c.name === trimmed.toLowerCase());
           const aliasTarget = categoryAliases[aliasKey(trimmed)];
-          if (!directMatch && aliasTarget) {
+          if (directMatch) {
+            foundCategoryIds.add(directMatch.id);
+          } else if (aliasTarget) {
             const aliasMatch = allCategories.find(c => c.name === aliasTarget.toLowerCase());
             if (aliasMatch) {
               foundCategoryIds.add(aliasMatch.id);
+              console.log(`[UPLOAD] Category alias matched '${trimmed}' -> '${aliasTarget}'`);
             }
-          }
-          if (directMatch) {
-            foundCategoryIds.add(directMatch.id);
           } else {
             // Fallback: split by common delimiters for multiple categories
             const categoryNamesFromCell = trimmed.split(/[;|]/).map(c => normalizeName(c)).filter(Boolean);
