@@ -65,6 +65,10 @@ const Settings = () => {
   const [error, setError] = useState(null);
   const [toast, setToast] = useState({ visible: false, type: "info", message: "" });
 
+  const [templateUrl, setTemplateUrl] = useState("");
+  const [templateUrlLoading, setTemplateUrlLoading] = useState(false);
+  const [templateUrlSaving, setTemplateUrlSaving] = useState(false);
+
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
   const [editName, setEditName] = useState("");
   const [editParent, setEditParent] = useState("");
@@ -100,9 +104,29 @@ const Settings = () => {
     }
   }, [token]);
 
+  const fetchTemplateUrl = useCallback(async () => {
+    if (!token) {
+      return;
+    }
+    setTemplateUrlLoading(true);
+    try {
+      const { data } = await api.get("/api/admin/settings/template-url", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setTemplateUrl(data?.templateUrl || "");
+    } catch (err) {
+      console.error("Failed to load template URL:", err);
+      const message = err.response?.data?.message || "Failed to load template link.";
+      setToast({ visible: true, type: "error", message });
+    } finally {
+      setTemplateUrlLoading(false);
+    }
+  }, [token]);
+
   useEffect(() => {
     fetchCategories();
-  }, [fetchCategories]);
+    fetchTemplateUrl();
+  }, [fetchCategories, fetchTemplateUrl]);
 
   const flattenedCategories = useMemo(() => flattenCategoryTree(categories), [categories]);
 
@@ -317,6 +341,30 @@ const Settings = () => {
     fetchCategories();
   };
 
+  const handleSaveTemplateUrl = async (event) => {
+    event.preventDefault();
+    if (!token) {
+      return;
+    }
+    const trimmed = (templateUrl || "").trim();
+    setTemplateUrlSaving(true);
+    try {
+      await api.put(
+        "/api/admin/settings/template-url",
+        { templateUrl: trimmed },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setToast({ visible: true, type: "success", message: "Template link saved." });
+      await fetchTemplateUrl();
+    } catch (err) {
+      console.error("Failed to save template URL:", err);
+      const message = err.response?.data?.message || "Unable to save template link.";
+      setToast({ visible: true, type: "error", message });
+    } finally {
+      setTemplateUrlSaving(false);
+    }
+  };
+
   const totalCategories = flattenedCategories.length;
   const topLevelCategoryCount = categories.length;
   const subcategoryCount = flattenedCategories.reduce(
@@ -378,8 +426,13 @@ const Settings = () => {
           <span>Manage Categories</span>
           <span className="settings-tab-count">{flattenedCategories.length}</span>
         </button>
-        <button type="button" className="settings-tab disabled" disabled>
-          More tools soon
+        <button
+          type="button"
+          className={`settings-tab ${activeSection === "templates" ? "active" : ""}`.trim()}
+          onClick={() => toggleSection("templates")}
+        >
+          <FaSave />
+          <span>Upload Template Link</span>
         </button>
       </div>
 
@@ -499,6 +552,48 @@ const Settings = () => {
               </div>
             )}
           </section>
+        </div>
+      )}
+
+      {activeSection === "templates" && (
+        <div className="settings-panel">
+          <div className="panel-heading">
+            <div className="panel-heading-text">
+              <h3>Product Upload Template Link</h3>
+              <p>
+                Provide a view-only Google Sheets link for the supplier upload template. Suppliers will be redirected to this link and can make their own copy before editing.
+              </p>
+            </div>
+            <div className="panel-actions">
+              <button type="button" className="settings-refresh" onClick={fetchTemplateUrl} disabled={templateUrlLoading}>
+                <FaSyncAlt /> Refresh
+              </button>
+              <button type="button" className="panel-hide" onClick={() => toggleSection("templates")}>
+                Hide
+              </button>
+            </div>
+          </div>
+
+          <form className="settings-card" onSubmit={handleSaveTemplateUrl}>
+            <div className="form-group">
+              <label htmlFor="template-url-input">Google Sheets link</label>
+              <input
+                id="template-url-input"
+                type="url"
+                placeholder="https://docs.google.com/..."
+                value={templateUrl}
+                onChange={(e) => setTemplateUrl(e.target.value)}
+                disabled={templateUrlLoading || templateUrlSaving}
+              />
+              <small className="form-hint">Leave blank to fall back to the bundled XLSX on the server.</small>
+            </div>
+
+            <div className="panel-actions">
+              <button type="submit" className="panel-primary" disabled={templateUrlSaving || templateUrlLoading}>
+                <FaSave /> {templateUrlSaving ? "Saving..." : "Save Link"}
+              </button>
+            </div>
+          </form>
         </div>
       )}
 

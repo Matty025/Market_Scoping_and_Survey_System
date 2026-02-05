@@ -542,6 +542,36 @@ router.get('/uploads/template', protect, async (req, res) => {
       return res.status(403).json({ message: 'Only suppliers may download the template' });
     }
 
+    // First check DB-configured template link
+    let dbTemplateUrl = null;
+    try {
+      const settingRes = await pool.query('SELECT "Value" FROM "AppSettings" WHERE "Key" = $1 LIMIT 1', ['supplier_template_url']);
+      dbTemplateUrl = settingRes.rows[0]?.Value || null;
+    } catch (settingErr) {
+      console.warn('[SupplierRoutes] Failed to load template URL from AppSettings:', settingErr && settingErr.message ? settingErr.message : settingErr);
+    }
+
+    // If caller wants JSON, return the resolved URL to avoid CORS issues with redirects from XHR
+    if (req.query.format === 'json') {
+      if (dbTemplateUrl) {
+        return res.json({ templateUrl: dbTemplateUrl, source: 'db' });
+      }
+      if (process.env.SUPPLIER_TEMPLATE_URL) {
+        return res.json({ templateUrl: process.env.SUPPLIER_TEMPLATE_URL, source: 'env' });
+      }
+      return res.json({ templateUrl: null, source: 'file' });
+    }
+
+    if (dbTemplateUrl) {
+      return res.redirect(dbTemplateUrl);
+    }
+
+    // If a Google Sheets view-only link is provided via env, redirect there so users can download from Sheets UI.
+    if (process.env.SUPPLIER_TEMPLATE_URL) {
+      return res.redirect(process.env.SUPPLIER_TEMPLATE_URL);
+    }
+
+    // Fallback to serving the bundled XLSX template from disk
     const templatePath = path.join(__dirname, '..', 'templates', 'supplier-product-template.xlsx');
     if (!fs.existsSync(templatePath)) {
       return res.status(404).json({ message: 'Template file not found on server.' });

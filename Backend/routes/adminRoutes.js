@@ -17,6 +17,22 @@ const FALLBACK_CATEGORY_NAME = "Uncategorized";
 const { generateSignedUrl, downloadFile, uploadBuffer, supabase } = require('../utils/supabaseStorage');
 const axios = require('axios');
 
+const APP_SETTING_KEY_SUPPLIER_TEMPLATE_URL = 'supplier_template_url';
+
+const getAppSetting = async (key) => {
+  const { rows } = await pool.query('SELECT "Value" FROM "AppSettings" WHERE "Key" = $1 LIMIT 1', [key]);
+  return rows[0]?.Value || null;
+};
+
+const upsertAppSetting = async (key, value) => {
+  await pool.query(
+    `INSERT INTO "AppSettings" ("Key", "Value", "UpdatedAt")
+     VALUES ($1, $2, NOW())
+     ON CONFLICT ("Key") DO UPDATE SET "Value" = EXCLUDED."Value", "UpdatedAt" = NOW()`,
+    [key, value]
+  );
+};
+
 // Fetch fallback for streaming remote URLs (e.g., public Supabase or other HTTP paths)
 const fetchRemote = global.fetch ? global.fetch : (...args) => import('node-fetch').then(({ default: f }) => f(...args));
 
@@ -1360,6 +1376,39 @@ router.get("/suppliers/:id", protect, async (req, res) => {
 // @desc    Get all procurement categories
 // @route   GET /api/admin/categories
 // @access  Private (Admin)
+router.get('/settings/template-url', protect, async (req, res) => {
+  if (req.user.role.toLowerCase() !== 'admin') {
+    return res.status(403).json({ message: 'Access denied. Admins only.' });
+  }
+
+  try {
+    const value = await getAppSetting(APP_SETTING_KEY_SUPPLIER_TEMPLATE_URL);
+    res.json({ templateUrl: value || '' });
+  } catch (err) {
+    console.error('Error fetching template URL setting:', err && err.message ? err.message : err);
+    res.status(500).json({ message: 'Server error loading template URL.' });
+  }
+});
+
+router.put('/settings/template-url', protect, async (req, res) => {
+  if (req.user.role.toLowerCase() !== 'admin') {
+    return res.status(403).json({ message: 'Access denied. Admins only.' });
+  }
+
+  const rawUrl = typeof req.body?.templateUrl === 'string' ? req.body.templateUrl.trim() : '';
+  if (rawUrl && !/^https?:\/\//i.test(rawUrl)) {
+    return res.status(400).json({ message: 'Template URL must start with http:// or https:// or be left blank.' });
+  }
+
+  try {
+    await upsertAppSetting(APP_SETTING_KEY_SUPPLIER_TEMPLATE_URL, rawUrl);
+    res.json({ message: 'Template URL saved.', templateUrl: rawUrl });
+  } catch (err) {
+    console.error('Error saving template URL setting:', err && err.message ? err.message : err);
+    res.status(500).json({ message: 'Server error saving template URL.' });
+  }
+});
+
 router.get("/categories", protect, async (req, res) => {
   if (req.user.role.toLowerCase() !== "admin") {
     return res.status(403).json({ message: "Access denied. Admins only." });

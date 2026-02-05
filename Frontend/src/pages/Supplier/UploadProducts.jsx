@@ -85,6 +85,19 @@ const UploadProducts = () => {
   const handleDownloadTemplate = async () => {
     if (!token) return setToast({ visible: true, message: 'Not authenticated', type: 'error' });
     try {
+      // First ask backend for the current template link (avoids CORS issues when redirecting to Google Sheets)
+      const meta = await api.get(`/api/supplier-files/uploads/template?format=json`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const url = meta.data?.templateUrl;
+      if (url) {
+        window.open(url, '_blank', 'noopener,noreferrer');
+        setToast({ visible: true, message: 'Opening template link...', type: 'success' });
+        return;
+      }
+
+      // Fallback to downloading the bundled XLSX from the server
       const res = await api.get(`/api/supplier-files/uploads/template`, {
         headers: { Authorization: `Bearer ${token}` },
         responseType: 'blob',
