@@ -653,7 +653,8 @@ router.post('/uploads', protect, upload.single('file'), async (req, res) => { //
       const allCategoriesResult = await client.query('SELECT "CategoryID", "CategoryName" FROM "Categories"');
       const allCategories = allCategoriesResult.rows.map(c => ({
         id: c.CategoryID,
-        name: c.CategoryName.toLowerCase() // Use lowercase for case-insensitive matching
+        name: c.CategoryName.toLowerCase(),
+        canonical: c.CategoryName.toLowerCase().replace(/[.,]/g, '') // precompute punctuation-stripped variant
       }));
 
       // DEBUG: Log the first product row to see its structure
@@ -743,20 +744,28 @@ router.post('/uploads', protect, upload.single('file'), async (req, res) => { //
             .trim();
 
           const aliasKey = (val) => normalizeName(val).toLowerCase();
+          const stripPunctuation = (val) => aliasKey(val).replace(/[.,]/g, '');
           const categoryAliases = {
-            'vehicles tools & machinery': 'vehicles, tools & machinery',
+            'vehicles tools & machinery': 'vehicles & tools & machinery', // new DB naming (no commas)
+            'vehicles, tools & machinery': 'vehicles & tools & machinery', // legacy spreadsheet variant
             'uniforms apparel & fabrics': 'uniforms, apparel & fabrics',
+          };
+
+          const findCategory = (val) => {
+            const normalized = aliasKey(val);
+            const canonical = stripPunctuation(val);
+            return allCategories.find((c) => c.name === normalized || c.canonical === canonical) || null;
           };
 
           const trimmed = normalizeName(categoryName);
 
-          // First try an exact match (handles names containing commas, e.g., "Uniforms, Apparel & Fabrics")
-          const directMatch = allCategories.find(c => c.name === trimmed.toLowerCase());
+          // First try an exact/canonical match (keeps comma-containing names intact)
+          const directMatch = findCategory(trimmed);
           const aliasTarget = categoryAliases[aliasKey(trimmed)];
           if (directMatch) {
             foundCategoryIds.add(directMatch.id);
           } else if (aliasTarget) {
-            const aliasMatch = allCategories.find(c => c.name === aliasTarget.toLowerCase());
+            const aliasMatch = findCategory(aliasTarget);
             if (aliasMatch) {
               foundCategoryIds.add(aliasMatch.id);
               console.log(`[UPLOAD] Category alias matched '${trimmed}' -> '${aliasTarget}'`);
@@ -765,8 +774,7 @@ router.post('/uploads', protect, upload.single('file'), async (req, res) => { //
             // Fallback: split by common delimiters for multiple categories
             const categoryNamesFromCell = trimmed.split(/[;|]/).map(c => normalizeName(c)).filter(Boolean);
             for (const namePart of categoryNamesFromCell) {
-              const lowerCaseNamePart = namePart.toLowerCase();
-              const matchedCat = allCategories.find(c => c.name === lowerCaseNamePart);
+              const matchedCat = findCategory(namePart);
               if (matchedCat) {
                 foundCategoryIds.add(matchedCat.id);
               } else {
