@@ -417,7 +417,7 @@ const ManageAccounts = () => {
         <Modal
           show={!!actionModal}
           onClose={() => setActionModal(null)}
-          title={`$${'{'}
+          title={`${
             actionModal.type === "reject"
               ? "Reject"
               : actionModal.type === "blacklist"
