@@ -148,7 +148,12 @@ const normalizeEndDateToEndOfDaySgt = (value) => {
   const DATE_ONLY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
   const MIDNIGHT_UTC_REGEX = /^\d{4}-\d{2}-\d{2}T00:00(:00(\.000)?)?Z$/i;
 
-  const buildEndOfDaySgt = (year, month, day) => new Date(Date.UTC(year, month - 1, day, 15, 59, 0, 0)); // 23:59:00 SGT
+  const buildEndOfDaySgt = (year, month, day) => {
+    const mm = String(month).padStart(2, '0');
+    const dd = String(day).padStart(2, '0');
+    // Explicitly set to 23:59:00 Asia/Manila (+08:00) to avoid UTC offsets from the server timezone
+    return new Date(`${year}-${mm}-${dd}T23:59:00+08:00`);
+  };
 
   if (typeof value === 'string') {
     const trimmed = value.trim();
