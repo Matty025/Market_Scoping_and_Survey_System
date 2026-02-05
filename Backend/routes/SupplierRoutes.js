@@ -771,8 +771,8 @@ router.post('/uploads', protect, upload.single('file'), async (req, res) => { //
               console.log(`[UPLOAD] Category alias matched '${trimmed}' -> '${aliasTarget}'`);
             }
           } else {
-            // Fallback: split by common delimiters for multiple categories
-            const categoryNamesFromCell = trimmed.split(/[;|]/).map(c => normalizeName(c)).filter(Boolean);
+            // Fallback: split by common delimiters for multiple categories (including comma)
+            const categoryNamesFromCell = trimmed.split(/[;,|]/).map(c => normalizeName(c)).filter(Boolean);
             for (const namePart of categoryNamesFromCell) {
               const matchedCat = findCategory(namePart);
               if (matchedCat) {
