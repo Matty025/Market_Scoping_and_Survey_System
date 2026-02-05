@@ -417,12 +417,33 @@ const ManageAccounts = () => {
         <Modal
           show={!!actionModal}
           onClose={() => setActionModal(null)}
-          title={`${actionModal.type === "reject" ? "Reject" : actionModal.type === "blacklist" ? "Blacklist" : "Reinstate"} ${actionModal.target?.name || "account"}`}
+          title={`$${'{'}
+            actionModal.type === "reject"
+              ? "Reject"
+              : actionModal.type === "blacklist"
+              ? "Blacklist"
+              : actionModal.type === "reinstate"
+              ? "Reinstate"
+              : "Update"
+          } ${actionModal.target?.name || "account"}`}
         >
           <div className="action-modal">
-            <p className="approve-note">Add optional notes for the email to this user.</p>
+            <p className="approve-note">
+              {actionModal.type === "reject" && "Add a rejection reason (shown in the notification email)."}
+              {actionModal.type === "blacklist" && "Explain why this account is being blacklisted."}
+              {actionModal.type === "reinstate" && "Add optional notes for reinstating this account."}
+              {!actionModal.type && "Add optional notes for the email to this user."}
+            </p>
             <textarea
-              placeholder="Example: Blacklisted due to repeated non-compliance."
+              placeholder={
+                actionModal.type === "reject"
+                  ? "Example: Missing compliance documents."
+                  : actionModal.type === "blacklist"
+                  ? "Example: Multiple violations / non-compliance."
+                  : actionModal.type === "reinstate"
+                  ? "Example: Cleared after review."
+                  : "Add notes"
+              }
               value={actionModal.notes}
               onChange={(e) => setActionModal((prev) => ({ ...prev, notes: e.target.value }))}
             />
@@ -431,7 +452,13 @@ const ManageAccounts = () => {
                 Cancel
               </button>
               <button
-                className="approve-btn"
+                className={
+                  actionModal.type === "blacklist"
+                    ? "blacklist-btn"
+                    : actionModal.type === "reject"
+                    ? "reject-btn"
+                    : "approve-btn"
+                }
                 onClick={async () => {
                   const targetId = actionModal.target?.id;
                   if (!targetId) return;
@@ -446,7 +473,13 @@ const ManageAccounts = () => {
                   setActionModal(null);
                 }}
               >
-                Confirm
+                {actionModal.type === "reject"
+                  ? "Confirm reject"
+                  : actionModal.type === "blacklist"
+                  ? "Confirm blacklist"
+                  : actionModal.type === "reinstate"
+                  ? "Confirm reinstate"
+                  : "Confirm"}
               </button>
             </div>
           </div>
