@@ -536,6 +536,26 @@ router.get("/:supplierFileId/status-history", protect, async (req, res) => {
 });
 
 // ---- Add upload endpoint at bottom ----
+router.get('/uploads/template', protect, async (req, res) => {
+  try {
+    if (!req.user || req.user.role.toLowerCase() !== 'supplier') {
+      return res.status(403).json({ message: 'Only suppliers may download the template' });
+    }
+
+    const templatePath = path.join(__dirname, '..', 'templates', 'supplier-product-template.xlsx');
+    if (!fs.existsSync(templatePath)) {
+      return res.status(404).json({ message: 'Template file not found on server.' });
+    }
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="supplier-product-template.xlsx"');
+    return res.sendFile(templatePath);
+  } catch (err) {
+    console.error('Error sending template:', err && err.message ? err.message : err);
+    return res.status(500).json({ message: 'Failed to send template file' });
+  }
+});
+
 router.post('/uploads', protect, upload.single('file'), async (req, res) => { // The 'file' name must match the frontend FormData key
   console.log('[SupplierRoutes] POST /uploads hit');
   const file = req.file;
@@ -717,25 +737,46 @@ router.post('/uploads', protect, upload.single('file'), async (req, res) => { //
         // --- BEST PRACTICE: STRICT COMMA-SEPARATED CATEGORY HANDLING ---
         if (categoryName && typeof categoryName === 'string' && newItemId) {
           const foundCategoryIds = new Set();
+          const normalizeName = (val) => val
+            .normalize('NFKC')
+            .replace(/\s+/g, ' ')
+            .trim();
 
-          // 1. Split the cell content by commas. This is the only supported delimiter.
-          const categoryNamesFromCell = categoryName.split(',').map(c => c.trim()).filter(Boolean);
+          const aliasKey = (val) => normalizeName(val).toLowerCase();
+          const categoryAliases = {
+            'vehicles tools & machinery': 'vehicles, tools & machinery',
+            'uniforms apparel & fabrics': 'uniforms, apparel & fabrics',
+          };
 
-          // 2. For each name found after splitting, find its corresponding ID.
-          for (const namePart of categoryNamesFromCell) {
-            const lowerCaseNamePart = namePart.toLowerCase();
-            const matchedCat = allCategories.find(c => c.name === lowerCaseNamePart);
-            if (matchedCat) {
-              foundCategoryIds.add(matchedCat.id);
-            } else {
-              // Log a warning if a category name from the Excel file is not found in the database.
-              console.warn(`[UPLOAD] Category "${namePart}" for item "${name}" was not found in the database and was skipped.`);
+          const trimmed = normalizeName(categoryName);
+
+          // First try an exact match (handles names containing commas, e.g., "Uniforms, Apparel & Fabrics")
+          const directMatch = allCategories.find(c => c.name === trimmed.toLowerCase());
+          const aliasTarget = categoryAliases[aliasKey(trimmed)];
+          if (!directMatch && aliasTarget) {
+            const aliasMatch = allCategories.find(c => c.name === aliasTarget.toLowerCase());
+            if (aliasMatch) {
+              foundCategoryIds.add(aliasMatch.id);
+            }
+          }
+          if (directMatch) {
+            foundCategoryIds.add(directMatch.id);
+          } else {
+            // Fallback: split by common delimiters for multiple categories
+            const categoryNamesFromCell = trimmed.split(/[;|]/).map(c => normalizeName(c)).filter(Boolean);
+            for (const namePart of categoryNamesFromCell) {
+              const lowerCaseNamePart = namePart.toLowerCase();
+              const matchedCat = allCategories.find(c => c.name === lowerCaseNamePart);
+              if (matchedCat) {
+                foundCategoryIds.add(matchedCat.id);
+              } else {
+                console.warn(`[UPLOAD] Category "${namePart}" for item "${name}" was not found in the database and was skipped.`);
+              }
             }
           }
 
-          // 3. Insert all unique, valid category IDs that were found into the ItemCategories table.
           for (const categoryId of foundCategoryIds) {
-            if (categoryId) { // Final safety check
+            if (categoryId) {
               await client.query('INSERT INTO "ItemCategories" ("ItemID", "CategoryID") VALUES ($1, $2) ON CONFLICT DO NOTHING', [newItemId, categoryId]);
             } else {
               console.warn(`[UPLOAD] An invalid category ID was found for item "${name}".`);

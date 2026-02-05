@@ -188,6 +188,44 @@
   font-weight: 600;
 }
 
+.template-download {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.template-btn {
+  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+  color: white;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.2);
+  white-space: nowrap;
+}
+
+.template-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(2, 132, 199, 0.25);
+}
+
+.template-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.template-note {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
 @media (max-width: 768px) {
   .upload-controls {
     grid-template-columns: 1fr;

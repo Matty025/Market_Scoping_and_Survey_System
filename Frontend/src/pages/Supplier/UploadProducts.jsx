@@ -82,6 +82,28 @@ const UploadProducts = () => {
     }
   };
 
+  const handleDownloadTemplate = async () => {
+    if (!token) return setToast({ visible: true, message: 'Not authenticated', type: 'error' });
+    try {
+      const res = await api.get(`/api/supplier-files/uploads/template`, {
+        headers: { Authorization: `Bearer ${token}` },
+        responseType: 'blob',
+      });
+      const blobUrl = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = 'supplier-product-template.xlsx';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(blobUrl);
+      setToast({ visible: true, message: 'Template downloaded.', type: 'success' });
+    } catch (err) {
+      console.error('Template download failed', err);
+      setToast({ visible: true, message: `Template download failed: ${err.response?.data?.message || err.message}`, type: 'error' });
+    }
+  };
+
   const handleDelete = async (uploadId) => {
     if (!window.confirm('Are you sure you want to delete this upload and all of its associated products? This action cannot be undone.')) {
       return;
@@ -121,6 +143,12 @@ const UploadProducts = () => {
           <code>Effective Until</code> column, enter calendar dates in <strong>YYYY-MM-DD</strong>
           format (example: <code>2025-12-05</code>).
         </p>
+        <div className="template-download">
+          <button className="template-btn" onClick={handleDownloadTemplate} disabled={isUploading}>
+            Download Excel Template
+          </button>
+          <span className="template-note">Includes required columns and a Categories tab.</span>
+        </div>
       </div>
 
       {/* Upload Instructions Section */}

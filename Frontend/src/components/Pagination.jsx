@@ -41,21 +41,22 @@ const Pagination = ({ currentPage, totalPages, onPageChange, previewCount = 0 })
   }, []);
 
   const safeTotal = Math.max(1, totalPages || 1);
-  const isPreview = previewCount > 0 && safeTotal <= 1;
-  const renderTotal = isPreview ? previewCount : safeTotal;
   const pages = useMemo(
-    () => buildPageList(isPreview ? 1 : currentPage, renderTotal, maxButtons),
-    [currentPage, renderTotal, isPreview, maxButtons]
+    () => buildPageList(currentPage, safeTotal, maxButtons),
+    [currentPage, safeTotal, maxButtons]
   );
 
   const goTo = (page) => {
-    if (!onPageChange || isPreview) return;
+    if (!onPageChange) return;
     const next = Math.min(Math.max(page, 1), safeTotal);
     if (next === currentPage) return;
     onPageChange(next);
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   };
 
-  if (!isPreview && renderTotal <= 1) return null;
+  if (safeTotal <= 1) return null;
 
   return (
     <nav className="pagination" aria-label="Pagination">
