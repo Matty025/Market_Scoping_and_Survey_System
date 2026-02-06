@@ -229,39 +229,7 @@ const ManageAccounts = () => {
         <p>Review supplier and buyer credentials, approve pending requests, and maintain an up-to-date directory.</p>
       </div>
 
-      <div className="notification-composer">
-        <div className="notification-tester__copy">
-          <h4>Send email to users</h4>
-          <p>Deliver a one-off message to any address. Body supports plain text; line breaks are preserved.</p>
-        </div>
-        <div className="notification-composer__controls">
-          <input
-            type="email"
-            placeholder="recipient@example.com"
-            value={customEmail}
-            onChange={(e) => setCustomEmail(e.target.value)}
-          />
-          <input
-            type="text"
-            placeholder="Subject (optional)"
-            value={customSubject}
-            onChange={(e) => setCustomSubject(e.target.value)}
-          />
-          <textarea
-            rows={4}
-            placeholder="Message body"
-            value={customBody}
-            onChange={(e) => setCustomBody(e.target.value)}
-          />
-          <button
-            onClick={sendCustomAdminEmail}
-            disabled={!customEmail.trim() || !customBody.trim() || sendingCustom}
-            className="tester-send-btn"
-          >
-            {sendingCustom ? "Sending..." : "Send email"}
-          </button>
-        </div>
-      </div>
+      {/* Removed global notification composer; per-user Message button handles email */}
 
       <div className="tabs">
         <button className={`tab-btn ${activeTab === "suppliers" ? "active" : ""}`} onClick={() => setActiveTab("suppliers")}>
@@ -408,7 +376,11 @@ const ManageAccounts = () => {
           title={`Approve ${approveTarget.name}`}
         >
           <div className="approve-modal">
-            <p className="approve-note">Confirm required documents before approval.</p>
+            <p className="approve-note">
+              {approveTarget.role === "supplier"
+                ? "Confirm required documents before approval."
+                : "Add an optional note for this approval (sent to the user)."}
+            </p>
             <label className="approve-notes-label">Optional notes to include in email</label>
             <textarea
               placeholder="Example: Approved after verifying permits."
@@ -416,24 +388,26 @@ const ManageAccounts = () => {
               onChange={(e) => setApproveNotes(e.target.value)}
               disabled={savingApproval}
             />
-            <div className="checkboxes">
-              {[
-                { key: "hasPhilgeps", label: "PhilGEPS Registration" },
-                { key: "hasSecRegistration", label: "SEC Registration" },
-                { key: "hasBusinessPermit", label: "Business Permit" },
-                { key: "hasTaxClearance", label: "Tax Clearance" },
-              ].map((doc) => (
-                <label key={doc.key}>
-                  <input
-                    type="checkbox"
-                    checked={!!approveDocs[doc.key]}
-                    onChange={(e) => setApproveDocs((prev) => ({ ...prev, [doc.key]: e.target.checked }))}
-                    disabled={savingApproval}
-                  />
-                  {doc.label}
-                </label>
-              ))}
-            </div>
+            {approveTarget.role === "supplier" && (
+              <div className="checkboxes">
+                {[
+                  { key: "hasPhilgeps", label: "PhilGEPS Registration" },
+                  { key: "hasSecRegistration", label: "SEC Registration" },
+                  { key: "hasBusinessPermit", label: "Business Permit" },
+                  { key: "hasTaxClearance", label: "Tax Clearance" },
+                ].map((doc) => (
+                  <label key={doc.key}>
+                    <input
+                      type="checkbox"
+                      checked={!!approveDocs[doc.key]}
+                      onChange={(e) => setApproveDocs((prev) => ({ ...prev, [doc.key]: e.target.checked }))}
+                      disabled={savingApproval}
+                    />
+                    {doc.label}
+                  </label>
+                ))}
+              </div>
+            )}
             <div className="approve-actions">
               <button className="cancel-btn" onClick={() => setApproveTarget(null)} disabled={savingApproval}>Cancel</button>
               <button
@@ -441,7 +415,8 @@ const ManageAccounts = () => {
                 onClick={async () => {
                   setSavingApproval(true);
                   try {
-                    await updateStatus(approveTarget.id, "active", approveDocs, approveNotes);
+                    const docsPayload = approveTarget.role === "supplier" ? approveDocs : {};
+                    await updateStatus(approveTarget.id, "active", docsPayload, approveNotes);
                     setApproveTarget(null);
                   } finally {
                     setSavingApproval(false);

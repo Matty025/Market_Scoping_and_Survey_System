@@ -334,9 +334,6 @@ const SupplierMarket = () => {
 
             {/* ----------- Action Buttons ----------- */}
             <div className="market-actions">
-                <button className="upload-btn" onClick={() => setShowUploadModal(true)}>
-                    Upload Excel File
-                </button>
                 <button
                     className="upload-btn"
                     onClick={() => setShowAddModal(true)}

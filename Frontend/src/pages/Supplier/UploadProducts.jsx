@@ -184,33 +184,34 @@ const UploadProducts = () => {
             <ul>
               <li><strong>Name</strong> - Product name (required)</li>
               <li><strong>Description</strong> - Detailed product description</li>
-              <li><strong>Price</strong> - Unit price in Philippine Peso (₱)</li>
-              <li><strong>Stock</strong> - Available quantity (numeric)</li>
+              <li><strong>Price</strong> - Unit price in Philippine Peso (numbers only)</li>
               <li><strong>Unit</strong> - Unit of measurement (e.g., piece, kg, box)</li>
+              <li><strong>Stock</strong> - Available quantity (numeric)</li>
               <li><strong>Location</strong> - Storage or supplier location</li>
-              <li><strong>Effective Until</strong> - (Optional) Expiration date in YYYY-MM-DD format</li>
+              <li><strong>Categories</strong> - Pick from the provided dropdown list in the template (do not free-type)</li>
+              <li><strong>Effective Until</strong> - Optional expiration date in YYYY-MM-DD format</li>
             </ul>
           </div>
 
           <div className="instruction-section">
-            <h4>File Format Guidelines</h4>
+            <h4>Template & File Guidelines</h4>
             <ul>
-              <li>Supported file types: <strong>.xlsx</strong> (Excel) and <strong>.csv</strong></li>
-              <li>First row must contain column headers (case-sensitive)</li>
-              <li>Each row represents one product</li>
-              <li>Empty rows will be skipped automatically</li>
-              <li>Maximum file size: <strong>5MB</strong></li>
+              <li>Click <strong>Download Excel Template</strong> to open the Google Sheets sample, then <strong>File → Make a copy</strong> to edit your own copy.</li>
+              <li>After editing, download as <strong>Microsoft Excel (.xlsx)</strong> and upload here.</li>
+              <li>Supported file types: <strong>.xlsx</strong> (Excel) and <strong>.csv</strong>; max size <strong>5MB</strong>.</li>
+              <li>First row must contain the headers from the template; each row is one product.</li>
+              <li>Empty rows are skipped automatically.</li>
             </ul>
           </div>
 
           <div className="instruction-warning">
             <h4>Important Notes</h4>
             <ul>
-              <li><strong>Price Format:</strong> Enter numbers only (e.g., 1250.50), no currency symbols</li>
+              <li><strong>Price Format:</strong> Enter numbers only (e.g., 27000), no currency symbols</li>
               <li><strong>Stock:</strong> Must be a whole number (e.g., 100, not 100.5)</li>
               <li><strong>Date Format:</strong> Use YYYY-MM-DD only (e.g., 2025-12-31)</li>
               <li><strong>Duplicates:</strong> Products with the same name will be updated, not duplicated</li>
-              <li><strong>Categories:</strong> Auto-matched based on product name and description</li>
+              <li><strong>Categories:</strong> Use the dropdown list provided in the template; do not type free text</li>
             </ul>
           </div>
 
@@ -223,35 +224,43 @@ const UploadProducts = () => {
                     <th>Name</th>
                     <th>Description</th>
                     <th>Price</th>
-                    <th>Stock</th>
                     <th>Unit</th>
+                    <th>Stock</th>
+                    <th>Location</th>
+                    <th>Categories</th>
                     <th>Effective Until</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td>Steel Bars</td>
-                    <td>High-grade construction steel</td>
-                    <td>1500</td>
-                    <td>100</td>
-                    <td>kg</td>
-                    <td>2025-12-05</td>
+                    <td>Laptop</td>
+                    <td>Intel I5</td>
+                    <td>27000</td>
+                    <td>piece (pc)</td>
+                    <td>10</td>
+                    <td>Angat</td>
+                    <td>IT Equipment & Peripherals; Office Supplies & Devices; Electrical & Electronic Supplies</td>
+                    <td>2026-02-28</td>
                   </tr>
                   <tr>
-                    <td>Office Chair</td>
-                    <td>Ergonomic design with lumbar support</td>
-                    <td>3500</td>
-                    <td>50</td>
-                    <td>pcs</td>
-                    <td>2025-08-31</td>
+                    <td>Laptop</td>
+                    <td>Intel I6</td>
+                    <td>27000</td>
+                    <td>piece (pc)</td>
+                    <td>10</td>
+                    <td>Angat</td>
+                    <td>IT Equipment & Peripherals; Office Supplies & Devices; Electrical & Electronic Supplies</td>
+                    <td>2026-03-01</td>
                   </tr>
                   <tr>
-                    <td>Cement Bags</td>
-                    <td>Portland cement 50kg bags</td>
-                    <td>250</td>
-                    <td>500</td>
-                    <td>bag</td>
-                    <td>2026-03-15</td>
+                    <td>Laptop</td>
+                    <td>Intel I7</td>
+                    <td>27000</td>
+                    <td>piece (pc)</td>
+                    <td>10</td>
+                    <td>Angat</td>
+                    <td>IT Equipment & Peripherals; Office Supplies & Devices; Electrical & Electronic Supplies</td>
+                    <td>2026-03-02</td>
                   </tr>
                 </tbody>
               </table>
@@ -261,7 +270,7 @@ const UploadProducts = () => {
           <div className="instruction-categories-list">
               <h4>How Categories Work</h4>
               <p className="category-match-note">
-                Categories are <strong>predefined in the system</strong> and/or provided in the Excel sheet template. You can simply copy and paste the correct category for each product from the list in your Excel sheet or from the system. No need to invent or guess categories—just use the provided options for consistency.
+                Categories are <strong>predefined</strong> and included as dropdown lists in the template. Select from the provided options (do not type new ones) so your uploads match system categories. If you copy the template, the dropdowns stay intact.
               </p>
           </div>
         </div>

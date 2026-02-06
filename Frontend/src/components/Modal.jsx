@@ -1,7 +1,7 @@
 import React from "react";
 import "./Modal.css";
 
-const Modal = ({ show, onClose, children }) => {
+const Modal = ({ show, onClose, children, title = "Modal" }) => {
   if (!show) {
     return null;
   }
@@ -10,7 +10,7 @@ const Modal = ({ show, onClose, children }) => {
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <header className="modal-header">
-          <h2>Supplier Action History</h2>
+          <h2>{title}</h2>
           <button onClick={onClose} className="modal-close-btn">
             &times;
           </button>
