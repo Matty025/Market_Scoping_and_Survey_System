@@ -8,10 +8,13 @@ export default function VerifyEmailPage() {
   const params = useParams();
   const [status, setStatus] = useState("loading");
   const [message, setMessage] = useState("Verifying your email...");
+  const [isPreVerify, setIsPreVerify] = useState(false);
 
   useEffect(() => {
     const token = params.token || searchParams.get("token");
     const preToken = searchParams.get("preToken");
+
+    setIsPreVerify(Boolean(preToken));
 
     if (!token && !preToken) {
       setStatus("error");
@@ -24,7 +27,7 @@ export default function VerifyEmailPage() {
         if (preToken) {
           await api.get(`/auth/pre-verify/consume`, { params: { token: preToken } });
           setStatus("success");
-          setMessage("Email verified successfully. Return to registration.");
+          setMessage("Email verified successfully. Return to your registration tab and click 'I've verified' to continue.");
         } else {
           await api.get(`/api/email/verify/${token}`);
           setStatus("success");
@@ -45,8 +48,11 @@ export default function VerifyEmailPage() {
       <div className={`verify-card ${status}`}>
         <h2>Email Verification</h2>
         <p>{message}</p>
-        {status === "success" ? (
-          <Link className="verify-btn" to="/">Go to Login</Link>
+        {status === "success" && isPreVerify ? (
+          <p className="verify-hint">Return to the registration tab and press "Continue to Register" to finish signing up.</p>
+        ) : null}
+        {status === "success" && !isPreVerify ? (
+          <p className="verify-hint">Your email is verified. You can now go back to the site and sign in.</p>
         ) : null}
       </div>
     </div>
