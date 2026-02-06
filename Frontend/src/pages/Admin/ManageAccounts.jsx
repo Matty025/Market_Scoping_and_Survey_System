@@ -63,6 +63,10 @@ const ManageAccounts = () => {
   const [savingApproval, setSavingApproval] = useState(false);
   const [actionModal, setActionModal] = useState(null); // { type: 'reject'|'blacklist'|'reinstate', target, notes }
   const [currentPage, setCurrentPage] = useState(1);
+  const [composeTarget, setComposeTarget] = useState(null); // { email, name }
+  const [composeSubject, setComposeSubject] = useState("");
+  const [composeBody, setComposeBody] = useState("");
+  const [sendingCompose, setSendingCompose] = useState(false);
   const PAGE_SIZE = 10;
 
   useEffect(() => {
@@ -84,6 +88,7 @@ const ManageAccounts = () => {
       const mapped = res.data.map((u) => ({
         id: u.UserID,
         name: u.FullName || u.Email,
+        email: u.Email,
         role: (u.RoleName || "").toLowerCase(),
         backendStatus: u.AccountStatus || "PENDING",
         status: mapBackendToUI(u.AccountStatus),
@@ -158,6 +163,39 @@ const ManageAccounts = () => {
   const handleReject = (user) => openActionModal("reject", user);
   const handleBlacklist = (user) => openActionModal("blacklist", user);
   const handleReinstate = (user) => openActionModal("reinstate", user);
+  const handleCompose = (user) => {
+    setComposeTarget(user);
+    setComposeSubject("");
+    setComposeBody("");
+  };
+
+  const sendComposedEmail = async () => {
+    if (!token) return setToast({ visible: true, message: "Not authenticated", type: "error" });
+    const target = composeTarget?.email || "";
+    const subject = composeSubject.trim();
+    const body = composeBody.trim();
+
+    if (!target) return setToast({ visible: true, message: "Missing recipient", type: "warning" });
+    if (!body) return setToast({ visible: true, message: "Enter a message body", type: "warning" });
+
+    setSendingCompose(true);
+    try {
+      await api.post(
+        `/api/admin/notifications/custom`,
+        { to: target, subject, message: body },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setToast({ visible: true, message: `Email sent to ${target}`, type: "success" });
+      setComposeTarget(null);
+      setComposeSubject("");
+      setComposeBody("");
+    } catch (err) {
+      console.error("Custom email failed:", err);
+      setToast({ visible: true, message: `Send failed: ${err.response?.data?.message || err.message}`, type: "error" });
+    } finally {
+      setSendingCompose(false);
+    }
+  };
 
   const displayedAccounts = useMemo(() => {
     // Show only explicit roles to avoid admin appearing in Buyers tab.
@@ -262,6 +300,7 @@ const ManageAccounts = () => {
         <thead>
           <tr>
             <th>Name</th>
+            <th>Email</th>
             <th>Role</th>
             <th>Status</th>
             <th>Docs Folder</th>
@@ -286,6 +325,7 @@ const ManageAccounts = () => {
             paginatedAccounts.map((acc) => (
               <tr key={acc.id}>
                 <td data-label="Name">{acc.name}</td>
+                <td data-label="Email">{acc.email}</td>
                 <td data-label="Role">{acc.role}</td>
                 <td data-label="Status">
                   <span className={`status ${acc.status}`}>{acc.status.toUpperCase()}</span>
@@ -309,6 +349,9 @@ const ManageAccounts = () => {
                     <span className="admin-label">Admin</span>
                   ) : (
                     <>
+                      <button onClick={() => handleCompose(acc)} className="approve-btn">
+                        Message
+                      </button>
                       {acc.status === "pending" && (
                         <>
                           <button onClick={() => handleApprove(acc)} className="approve-btn">
@@ -480,6 +523,41 @@ const ManageAccounts = () => {
                   : actionModal.type === "reinstate"
                   ? "Confirm reinstate"
                   : "Confirm"}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {composeTarget && (
+        <Modal
+          show={!!composeTarget}
+          onClose={() => !sendingCompose && setComposeTarget(null)}
+          title={`Message ${composeTarget.name || composeTarget.email}`}
+        >
+          <div className="approve-modal">
+            <p className="approve-note">Send a one-off email to this user.</p>
+            <label className="approve-notes-label">Recipient</label>
+            <input type="email" value={composeTarget.email || ""} disabled />
+            <label className="approve-notes-label">Subject (optional)</label>
+            <input
+              type="text"
+              value={composeSubject}
+              onChange={(e) => setComposeSubject(e.target.value)}
+              disabled={sendingCompose}
+            />
+            <label className="approve-notes-label">Message</label>
+            <textarea
+              rows={5}
+              placeholder="Write your message..."
+              value={composeBody}
+              onChange={(e) => setComposeBody(e.target.value)}
+              disabled={sendingCompose}
+            />
+            <div className="approve-actions">
+              <button className="cancel-btn" onClick={() => setComposeTarget(null)} disabled={sendingCompose}>Cancel</button>
+              <button className="approve-btn" onClick={sendComposedEmail} disabled={sendingCompose}>
+                {sendingCompose ? "Sending..." : "Send email"}
               </button>
             </div>
           </div>

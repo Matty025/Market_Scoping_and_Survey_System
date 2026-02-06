@@ -20,7 +20,7 @@ const buildPageList = (currentPage, totalPages, maxButtons = 7) => {
   return pages;
 };
 
-const Pagination = ({ currentPage, totalPages, onPageChange, previewCount = 0 }) => {
+const Pagination = ({ currentPage, totalPages, onPageChange, previewCount = 0, isPreview = false }) => {
   const [maxButtons, setMaxButtons] = useState(() => {
     if (typeof window === "undefined") return 7;
     const w = window.innerWidth;
