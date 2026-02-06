@@ -306,6 +306,12 @@ const useRegistrationForm = () => {
       return showToast("error", "Please verify your email before registering.");
     }
 
+    // Double-check with backend that the pre-verify token is still marked verified (guards stale state)
+    const stillVerified = await checkVerificationStatus({ silent: true, enforceCooldown: false });
+    if (!stillVerified) {
+      return showToast("error", "Please verify your email before registering.");
+    }
+
     setIsSubmitting(true);
 
     try {
