@@ -77,28 +77,36 @@
   const STATUSES_REQUIRING_NOTES = new Set([]);
   const STATUS_CHOICES = ["ACTIVE", "COMPLETED", "FAILED_POSTING"];
 
-  const DEFAULT_TIME_ZONE = "Asia/Singapore";
+  const DEFAULT_TIME_ZONE = "Asia/Manila";
+  const ANNOUNCEMENT_TIME_ZONE = DEFAULT_TIME_ZONE;
   const DATE_ONLY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
   const MIDNIGHT_UTC_REGEX = /^\d{4}-\d{2}-\d{2}T00:00(:00(\.000)?)?Z$/i;
+
+  const manilaDateFormatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: ANNOUNCEMENT_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
 
   const parseDatePreservingEndOfDay = (value) => {
     if (!value) return null;
 
-    const setToEndOfDaySgt = (year, month, day) => new Date(Date.UTC(year, month - 1, day, 15, 59, 59, 999));
+    const setToEndOfDayManila = (year, month, day) => new Date(Date.UTC(year, month - 1, day, 15, 59, 59, 999));
 
     if (typeof value === "string") {
       const trimmed = value.trim();
       if (DATE_ONLY_REGEX.test(trimmed)) {
         const [year, month, day] = trimmed.split("-").map(Number);
-        // Treat YYYY-MM-DD as 11:59 PM SGT (15:59 UTC) to match end-of-day expectation.
-        return setToEndOfDaySgt(year, month, day);
+        // Treat YYYY-MM-DD as 11:59 PM Asia/Manila (15:59 UTC) to match end-of-day expectation.
+        return setToEndOfDayManila(year, month, day);
       }
 
       if (MIDNIGHT_UTC_REGEX.test(trimmed)) {
         const [datePart] = trimmed.split("T");
         const [year, month, day] = datePart.split("-").map(Number);
-        // Handle ISO midnight Z as an all-day date; shift to 11:59 PM SGT.
-        return setToEndOfDaySgt(year, month, day);
+        // Handle ISO midnight Z as an all-day date; shift to 11:59 PM Asia/Manila.
+        return setToEndOfDayManila(year, month, day);
       }
     }
 
@@ -110,10 +118,20 @@
       const year = parsed.getUTCFullYear();
       const month = parsed.getUTCMonth() + 1;
       const day = parsed.getUTCDate();
-      return setToEndOfDaySgt(year, month, day);
+      return setToEndOfDayManila(year, month, day);
     }
 
     return parsed;
+  };
+
+  const isPastInManila = (dateObj) => {
+    if (!dateObj || Number.isNaN(dateObj.getTime())) {
+      return false;
+    }
+
+    const todayStr = manilaDateFormatter.format(new Date());
+    const targetStr = manilaDateFormatter.format(dateObj);
+    return targetStr < todayStr;
   };
 
   const STATUS_DIALOG_INITIAL = {
@@ -1134,6 +1152,7 @@
       const rawResponseCount = rawResponseCountParsed === null ? respondingSupplierCount : rawResponseCountParsed;
 
       const backendExpired = ann.isExpired ?? ann.isexpired;
+      const manilaExpired = endDateObj ? isPastInManila(endDateObj) : false;
       let isExpired = false;
       if (typeof backendExpired === "boolean") {
         isExpired = backendExpired;
@@ -1143,7 +1162,12 @@
       } else if (typeof backendExpired === "number") {
         isExpired = backendExpired === 1;
       } else {
-        isExpired = endDateObj ? endDateObj.getTime() < Date.now() : false;
+        isExpired = manilaExpired;
+      }
+
+      // If the server says expired but the Manila date has not passed yet, keep it active until end-of-day Manila.
+      if (isExpired && !manilaExpired) {
+        isExpired = false;
       }
 
       if (!isExpired && normalizedStatus) {

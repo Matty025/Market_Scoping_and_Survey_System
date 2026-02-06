@@ -18,6 +18,7 @@ const { generateSignedUrl, downloadFile, uploadBuffer, supabase } = require('../
 const axios = require('axios');
 
 const APP_SETTING_KEY_SUPPLIER_TEMPLATE_URL = 'supplier_template_url';
+const ANNOUNCEMENT_TIMEZONE = 'Asia/Manila';
 
 const getAppSetting = async (key) => {
   const { rows } = await pool.query('SELECT "Value" FROM "AppSettings" WHERE "Key" = $1 LIMIT 1', [key]);
@@ -199,7 +200,7 @@ const assignSupplierToActiveAnnouncements = async (supplierId) => {
        FROM "ProcurementFileCategories" pfc
        JOIN "ProcurementFiles" pf ON pf."FileID" = pfc."FileID"
       WHERE pf."Status" = 'ACTIVE'
-        AND (pf."EndDate" IS NULL OR pf."EndDate"::date >= ((NOW() AT TIME ZONE 'Asia/Singapore')::date))
+        AND (pf."EndDate" IS NULL OR pf."EndDate"::date >= ((NOW() AT TIME ZONE '${ANNOUNCEMENT_TIMEZONE}')::date))
         AND pfc."CategoryID" = ANY($1::int[])`,
     [categoryIds]
   );
@@ -492,7 +493,7 @@ router.get("/announcements", protect, async (req, res) => {
       WITH filtered AS (
         SELECT
           pf.*,
-          (pf."EndDate" IS NOT NULL AND (pf."EndDate" AT TIME ZONE 'Asia/Singapore') < (NOW() AT TIME ZONE 'Asia/Singapore')) AS "IsExpired",
+          (pf."EndDate" IS NOT NULL AND ((pf."EndDate" AT TIME ZONE '${ANNOUNCEMENT_TIMEZONE}')::date < (NOW() AT TIME ZONE '${ANNOUNCEMENT_TIMEZONE}')::date)) AS "IsExpired",
           COALESCE(attempts.attempts, 1) AS "AttemptNumber",
           COALESCE(attempts.latest_changed_at, pf."DatePosted") AS "LatestChangedAt",
           NULL::timestamptz AS "AttemptSentAt",
@@ -938,7 +939,7 @@ router.put("/announcements/:id", protect, upload.single("file"), async (req, res
       `WITH base AS (
          SELECT pf."FileID", pf."Title", pf."Description", pf."FilePath", pf."DatePosted", pf."EndDate", pf."SendType", pf."Status", pf."CreatedBy",
                 u."FullName" AS "CreatedByName", u."Email" AS "CreatedByEmail",
-                (pf."EndDate" IS NOT NULL AND (pf."EndDate" AT TIME ZONE 'Asia/Singapore') < (NOW() AT TIME ZONE 'Asia/Singapore')) AS "IsExpired",
+                (pf."EndDate" IS NOT NULL AND ((pf."EndDate" AT TIME ZONE '${ANNOUNCEMENT_TIMEZONE}')::date < (NOW() AT TIME ZONE '${ANNOUNCEMENT_TIMEZONE}')::date)) AS "IsExpired",
                 NULL::text AS "FileName"
          FROM "ProcurementFiles" pf
          LEFT JOIN "Users" u ON u."UserID" = pf."CreatedBy"
@@ -2405,7 +2406,7 @@ router.get("/announcements/:id/detail", protect, async (req, res) => {
       WITH base AS (
         SELECT pf."FileID", pf."Title", pf."Description", pf."FilePath", pf."DatePosted", pf."EndDate", pf."SendType", pf."Status", pf."CreatedBy",
                u."FullName" AS "CreatedByName", u."Email" AS "CreatedByEmail",
-               (pf."EndDate" IS NOT NULL AND (pf."EndDate" AT TIME ZONE 'Asia/Singapore') < (NOW() AT TIME ZONE 'Asia/Singapore')) AS "IsExpired",
+               (pf."EndDate" IS NOT NULL AND ((pf."EndDate" AT TIME ZONE '${ANNOUNCEMENT_TIMEZONE}')::date < (NOW() AT TIME ZONE '${ANNOUNCEMENT_TIMEZONE}')::date)) AS "IsExpired",
                NULL::text AS "FileName"
         FROM "ProcurementFiles" pf
         LEFT JOIN "Users" u ON u."UserID" = pf."CreatedBy"
