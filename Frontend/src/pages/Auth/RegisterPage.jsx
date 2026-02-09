@@ -707,7 +707,6 @@ export default function RegisterPage() {
               <p><strong>Communications</strong> — We may send emails or notifications about verification, registration status, procurement updates, password resets, and policy changes. Non-essential notices can be managed via your account settings when available.</p>
               <p><strong>Changes</strong> — Updates to these terms or privacy notices will be posted here with an updated effective date. Continued use after changes means you accept the updated terms.</p>
               <p><strong>Contact</strong> — For questions about these terms or privacy, contact DepEd SDO Baliwag at sdomarketscoping@gmail.com.</p>
-              <p>Scroll to the bottom to enable the Agree button.</p>
             </div>
             <div className="legal-modal-actions">
               <button type="button" className="legal-disagree" onClick={() => { setHasAgreedLegal(false); setIsLegalModalOpen(false); }}>
