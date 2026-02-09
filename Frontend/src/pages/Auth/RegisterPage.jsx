@@ -701,12 +701,12 @@ export default function RegisterPage() {
                 if (atBottom) setHasScrolledLegal(true);
               }}
             >
-              <p><strong>Placeholder Terms</strong> — This is where your formal Terms & Conditions content will go. Include user responsibilities, acceptable use, account security, and liability limits.</p>
-              <p><strong>Data Use</strong> — Explain what data is collected, why it is collected, and how it is used. Clarify retention, sharing, and user rights.</p>
-              <p><strong>Privacy Commitments</strong> — Describe storage, encryption, and access controls. Note how users can request deletion or corrections.</p>
-              <p><strong>Communications</strong> — Indicate when emails/notifications may be sent and how users can manage preferences.</p>
-              <p><strong>Changes</strong> — State how updates to these terms will be communicated and when they take effect.</p>
-              <p><strong>Contact</strong> — Provide a contact email/phone for questions about terms or privacy.</p>
+              <p><strong>Acceptance of Terms of Use</strong> — This site is maintained by DepEd SDO Baliwag for official procurement and supplier management. By using this site, you agree to these Terms of Use and related policies issued under Philippine law, including the Data Privacy Act of 2012. Content and terms may change without prior notice.</p>
+              <p><strong>Data Use</strong> — We collect the details you provide (e.g., name, contact info, company documents, submitted listings) to verify suppliers/buyers, process registrations, manage procurement activities, and comply with DepEd and government audit requirements. Data may be shared with authorized DepEd SDO Baliwag personnel and oversight bodies only as allowed by law.</p>
+              <p><strong>Privacy Commitments</strong> — Data is stored on secured systems with role-based access; sensitive fields are encrypted where applicable. Only authorized DepEd SDO Baliwag staff and service providers with a need-to-know may access it. You may request access, correction, or deletion, subject to statutory retention and audit requirements.</p>
+              <p><strong>Communications</strong> — We may send emails or notifications about verification, registration status, procurement updates, password resets, and policy changes. Non-essential notices can be managed via your account settings when available.</p>
+              <p><strong>Changes</strong> — Updates to these terms or privacy notices will be posted here with an updated effective date. Continued use after changes means you accept the updated terms.</p>
+              <p><strong>Contact</strong> — For questions about these terms or privacy, contact DepEd SDO Baliwag at sdomarketscoping@gmail.com.</p>
               <p>Scroll to the bottom to enable the Agree button.</p>
             </div>
             <div className="legal-modal-actions">
