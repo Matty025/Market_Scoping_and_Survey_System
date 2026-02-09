@@ -233,34 +233,44 @@ const UploadProducts = () => {
                 </thead>
                 <tbody>
                   <tr>
-                    <td>Laptop</td>
-                    <td>Intel I5</td>
-                    <td>27000</td>
-                    <td>piece (pc)</td>
-                    <td>10</td>
-                    <td>Angat</td>
+                    <td>A4 Bond Paper 80gsm</td>
+                    <td>500 sheets per ream</td>
+                    <td>210</td>
+                    <td>ream</td>
+                    <td>250</td>
+                    <td>Bulacan Central Warehouse</td>
+                    <td>Office Supplies & Devices; Printing & Reproduction Services</td>
+                    <td>2026-03-31</td>
+                  </tr>
+                  <tr>
+                    <td>Laser Printer Toner (HP 106A)</td>
+                    <td>Original black cartridge compatible with HP M107/M135</td>
+                    <td>1850</td>
+                    <td>cartridge</td>
+                    <td>40</td>
+                    <td>Malolos</td>
                     <td>IT Equipment & Peripherals; Office Supplies & Devices; Electrical & Electronic Supplies</td>
+                    <td>2026-04-30</td>
+                  </tr>
+                  <tr>
+                    <td>Disposable Nitrile Gloves</td>
+                    <td>Blue, powder-free, 100 pcs/box</td>
+                    <td>450</td>
+                    <td>box (100 pcs)</td>
+                    <td>120</td>
+                    <td>Calumpit</td>
+                    <td>Medical & First Aid Supplies; Cleaning & Janitorial Supplies</td>
                     <td>2026-02-28</td>
                   </tr>
                   <tr>
-                    <td>Laptop</td>
-                    <td>Intel I6</td>
-                    <td>27000</td>
-                    <td>piece (pc)</td>
-                    <td>10</td>
-                    <td>Angat</td>
-                    <td>IT Equipment & Peripherals; Office Supplies & Devices; Electrical & Electronic Supplies</td>
-                    <td>2026-03-01</td>
-                  </tr>
-                  <tr>
-                    <td>Laptop</td>
-                    <td>Intel I7</td>
-                    <td>27000</td>
-                    <td>piece (pc)</td>
-                    <td>10</td>
-                    <td>Angat</td>
-                    <td>IT Equipment & Peripherals; Office Supplies & Devices; Electrical & Electronic Supplies</td>
-                    <td>2026-03-02</td>
+                    <td>Catering Package – 50 pax</td>
+                    <td>Buffet lunch: 3 mains, 2 sides, rice, drinks, utensils, on-site servers</td>
+                    <td>27500</td>
+                    <td>package</td>
+                    <td>4</td>
+                    <td>Guiguinto</td>
+                    <td>Food & Catering Supplies; General Support Services</td>
+                    <td>2026-05-31</td>
                   </tr>
                 </tbody>
               </table>
