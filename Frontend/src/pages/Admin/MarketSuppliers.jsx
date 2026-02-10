@@ -189,6 +189,8 @@ const MarketSuppliers = () => {
                     : supplier.category
                       ? [supplier.category]
                       : [];
+                const isExpanded = !!expandedCategories[supplier.id];
+                const visibleCategories = isExpanded ? categoryList : categoryList.slice(0, 3);
                 return (
                 <tr key={supplier.id}>
                   <td data-label="Supplier Name">
@@ -214,13 +216,13 @@ const MarketSuppliers = () => {
                   <td data-label="Email">{supplier.email}</td>
                   <td data-label="Category">
                     {categoryList.length > 0 ? (
-                      <div className={`category-cell ${expandedCategories[supplier.id] ? "expanded" : ""}`}>
-                        <span className="category-text">
-                          {expandedCategories[supplier.id]
-                            ? categoryList.join(', ')
-                            : categoryList.slice(0, 2).join(', ')}
-                        </span>
-                        {categoryList.length > 2 && (
+                      <div className={`category-cell ${isExpanded ? "expanded" : ""}`}>
+                        <div className="category-pill-list">
+                          {visibleCategories.map((cat, idx) => (
+                            <span key={`${supplier.id}-cat-${idx}`} className="category-pill">{cat}</span>
+                          ))}
+                        </div>
+                        {categoryList.length > visibleCategories.length && (
                           <button
                             className="table-link inline"
                             onClick={() => setExpandedCategories(prev => ({
@@ -228,7 +230,18 @@ const MarketSuppliers = () => {
                               [supplier.id]: !prev[supplier.id],
                             }))}
                           >
-                            {expandedCategories[supplier.id] ? 'View less' : 'View more'}
+                            +{categoryList.length - visibleCategories.length} more
+                          </button>
+                        )}
+                        {isExpanded && categoryList.length > 3 && (
+                          <button
+                            className="table-link inline"
+                            onClick={() => setExpandedCategories(prev => ({
+                              ...prev,
+                              [supplier.id]: false,
+                            }))}
+                          >
+                            View less
                           </button>
                         )}
                       </div>
