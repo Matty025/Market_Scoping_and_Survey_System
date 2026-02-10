@@ -71,16 +71,15 @@ const MarketSuppliers = () => {
     const nameMatch = s.name?.toLowerCase().includes(searchTerm);
     const locationMatch = s.location?.toLowerCase().includes(searchTerm);
 
-    let categoryMatch = false;
-    if (s.category) {
-      if (Array.isArray(s.category)) {
-        // If 'category' is an array, check if any item in the array matches
-        categoryMatch = s.category.some(cat => cat.toLowerCase().includes(searchTerm));
-      } else if (typeof s.category === 'string') {
-        // If 'category' is a string, perform a simple check
-        categoryMatch = s.category.toLowerCase().includes(searchTerm);
-      }
-    }
+    const categoryList = Array.isArray(s.categories)
+      ? s.categories
+      : Array.isArray(s.category)
+        ? s.category
+        : s.category
+          ? [s.category]
+          : [];
+
+    const categoryMatch = categoryList.some((cat) => (cat || '').toLowerCase().includes(searchTerm));
     return nameMatch || locationMatch || categoryMatch;
   }), [suppliers, search]);
 
@@ -183,6 +182,13 @@ const MarketSuppliers = () => {
                paginatedSuppliers.map((supplier) => {
                 const logoSrc = getSupplierLogo(supplier);
                 const logoInitial = (supplier.name || "?").charAt(0).toUpperCase();
+                const categoryList = Array.isArray(supplier.categories)
+                  ? supplier.categories
+                  : Array.isArray(supplier.category)
+                    ? supplier.category
+                    : supplier.category
+                      ? [supplier.category]
+                      : [];
                 return (
                 <tr key={supplier.id}>
                   <td data-label="Supplier Name">
@@ -207,14 +213,14 @@ const MarketSuppliers = () => {
                   </td>
                   <td data-label="Email">{supplier.email}</td>
                   <td data-label="Category">
-                    {Array.isArray(supplier.category) && supplier.category.length ? (
+                    {categoryList.length > 0 ? (
                       <div className={`category-cell ${expandedCategories[supplier.id] ? "expanded" : ""}`}>
                         <span className="category-text">
                           {expandedCategories[supplier.id]
-                            ? supplier.category.join(', ')
-                            : supplier.category.slice(0, 2).join(', ')}
+                            ? categoryList.join(', ')
+                            : categoryList.slice(0, 2).join(', ')}
                         </span>
-                        {supplier.category.length > 2 && (
+                        {categoryList.length > 2 && (
                           <button
                             className="table-link inline"
                             onClick={() => setExpandedCategories(prev => ({
@@ -226,7 +232,7 @@ const MarketSuppliers = () => {
                           </button>
                         )}
                       </div>
-                    ) : supplier.category || 'N/A'}
+                    ) : 'N/A'}
                   </td>
                   <td data-label="Location">{supplier.location || "N/A"}</td>
                   <td data-label="Total Products">{supplier.totalProducts}</td>

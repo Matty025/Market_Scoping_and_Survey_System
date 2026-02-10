@@ -183,7 +183,7 @@ const normalizeEndDateToEndOfDaySgt = (value) => {
 const assignSupplierToActiveAnnouncements = async (supplierId) => {
   const supplierIdInt = coerceToInt(supplierId);
   if (!supplierIdInt) {
-    return [];
+    return { addedFileIds: [], candidateFileIds: [] };
   }
 
   const { rows: categoryRows } = await pool.query(
@@ -192,7 +192,7 @@ const assignSupplierToActiveAnnouncements = async (supplierId) => {
   );
   const categoryIds = uniqueIntegers(categoryRows.map((row) => row.CategoryID));
   if (categoryIds.length === 0) {
-    return [];
+    return { addedFileIds: [], candidateFileIds: [] };
   }
 
   const { rows: fileRows } = await pool.query(
@@ -205,20 +205,23 @@ const assignSupplierToActiveAnnouncements = async (supplierId) => {
     [categoryIds]
   );
 
-  const fileIds = uniqueIntegers(fileRows.map((row) => row.FileID));
-  if (fileIds.length === 0) {
-    return [];
+  const candidateFileIds = uniqueIntegers(fileRows.map((row) => row.FileID));
+  if (candidateFileIds.length === 0) {
+    return { addedFileIds: [], candidateFileIds: [] };
   }
 
-  await pool.query(
+  const insertRes = await pool.query(
     `INSERT INTO "SupplierFiles" ("SupplierID", "FileID", "Status", "OptInStatus", "OptedInAt", "DeclinedAt")
      SELECT $1::int, t.file_id, 'PENDING', 'OPTED_IN', NOW()::timestamp, NULL::timestamp
        FROM UNNEST($2::int[]) AS t(file_id)
-     ON CONFLICT ("SupplierID", "FileID") DO NOTHING`,
-    [supplierIdInt, fileIds]
+     ON CONFLICT ("SupplierID", "FileID") DO NOTHING
+     RETURNING "FileID"`,
+    [supplierIdInt, candidateFileIds]
   );
 
-  return fileIds;
+  const addedFileIds = uniqueIntegers(insertRes.rows.map((row) => row.FileID));
+
+  return { addedFileIds, candidateFileIds };
 };
 
 // Cache once to avoid repeated information_schema lookups.
@@ -1311,17 +1314,22 @@ router.get("/suppliers", protect, async (req, res) => {
         s."DateCreated" as "dateJoined",
         u."AccountStatus" as status,
         u."ProfileImageUrl" as "logoPath",
-        (
-          SELECT "CategoryName" FROM "Categories" c
-          JOIN "SupplierCategories" sc ON c."CategoryID" = sc."CategoryID"
-          WHERE sc."SupplierID" = s."SupplierID"
-          LIMIT 1
-        ) as category,
+        COALESCE(cat.names, ARRAY[]::text[]) as categories,
+        COALESCE(cat.ids, ARRAY[]::int[]) as "categoryIds",
+        cat.names[1] as category,
         (
           SELECT COUNT(*) FROM "Items" i WHERE i."SupplierID" = s."SupplierID"
         ) as "totalProducts"
       FROM "Suppliers" s
       LEFT JOIN "Users" u ON s."SupplierID" = u."SupplierID"
+      LEFT JOIN LATERAL (
+        SELECT
+          ARRAY_AGG(DISTINCT c."CategoryName" ORDER BY c."CategoryName") AS names,
+          ARRAY_AGG(DISTINCT c."CategoryID") AS ids
+        FROM "SupplierCategories" sc
+        JOIN "Categories" c ON c."CategoryID" = sc."CategoryID"
+        WHERE sc."SupplierID" = s."SupplierID"
+      ) cat ON TRUE
       ORDER BY s."DateCreated" DESC;
     `;
     const { rows } = await pool.query(suppliersQuery);
@@ -1797,9 +1805,30 @@ router.patch('/users/:id', protect, async (req, res) => {
 
     if (normalized === 'APPROVED' && updatedUser.SupplierID) {
       try {
-        const assignedFileIds = await assignSupplierToActiveAnnouncements(updatedUser.SupplierID);
-        if (assignedFileIds.length > 0) {
-          console.log(`[adminRoutes] Added supplier ${updatedUser.SupplierID} to ${assignedFileIds.length} active announcement(s).`);
+        const { addedFileIds, candidateFileIds } = await assignSupplierToActiveAnnouncements(updatedUser.SupplierID);
+        if (candidateFileIds.length > 0) {
+          console.log(`[adminRoutes] Added supplier ${updatedUser.SupplierID} to ${candidateFileIds.length} active announcement(s). Newly linked: ${addedFileIds.length}.`);
+        }
+
+        if (addedFileIds.length > 0) {
+          const { rows: activeFiles } = await pool.query(
+            'SELECT "FileID", "Title" FROM "ProcurementFiles" WHERE "FileID" = ANY($1::int[])',
+            [addedFileIds]
+          );
+          const titleById = new Map(activeFiles.map((row) => [Number(row.FileID), row.Title]));
+
+          await Promise.all(
+            addedFileIds.map((fileId) =>
+              notifySuppliersPosted({
+                fileId,
+                title: titleById.get(fileId) || `Announcement ${fileId}`,
+                supplierIds: [updatedUser.SupplierID],
+                status: 'POSTED',
+              }).catch((err) => {
+                console.warn('[adminRoutes] Failed to notify supplier on approval backfill:', err && err.message ? err.message : err);
+              })
+            )
+          );
         }
       } catch (assignErr) {
         console.warn('[adminRoutes] Failed to backfill supplier announcements on approval:', assignErr && assignErr.message ? assignErr.message : assignErr);
