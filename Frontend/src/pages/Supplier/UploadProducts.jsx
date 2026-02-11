@@ -183,7 +183,7 @@ const UploadProducts = () => {
           </div>
           <span className="template-note">Includes required columns and a Categories tab. Legacy file matches the older format.</span>
           <p className="contact-banner">
-            For inquiries, email <a href="mailto:sdomarketscoping@gmail.com">sdomarketscoping@gmail.com</a> or call <a href="tel:09258814880">09258814880</a>.
+            For inquiries, email <span className="contact-chip">sdomarketscoping@gmail.com</span> or call <span className="contact-chip">09258814880</span>.
           </p>
         </div>
       </div>

@@ -244,10 +244,18 @@
   display: inline-block;
 }
 
-.contact-banner a {
-  color: var(--philgeps-primary);
-  font-weight: 700;
-  text-decoration: underline;
+.contact-banner .contact-chip {
+  background: #fef3c7;
+  color: #1d1b53;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(250, 204, 21, 0.6);
+  box-shadow: 0 4px 10px rgba(180, 83, 9, 0.15);
+  margin-left: 4px;
+}
+
+.contact-banner .contact-chip:first-of-type {
+  margin-left: 0;
 }
 
 .template-btn.secondary {
