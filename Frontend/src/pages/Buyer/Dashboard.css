@@ -74,12 +74,6 @@
   flex-wrap: wrap;
 }
 
-.dashboard-header-contact a {
-  color: #1d4ed8;
-  font-weight: 700;
-  text-decoration: underline;
-}
-
 .dashboard-header-contact .contact-chip {
   background: #fef3c7;
   color: #1f2937;

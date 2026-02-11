@@ -479,7 +479,7 @@ const Dashboard = () => {
         <h2>Dashboard Overview</h2>
         <p>Submit procurement requests and send survey items to admin for approval.</p>
         <p className="dashboard-header-contact">
-          For inquiries, email <a className="contact-chip" href="mailto:sdomarketscoping@gmail.com">sdomarketscoping@gmail.com</a> or call <a className="contact-chip" href="tel:09258814880">09258814880</a>.
+          For inquiries, email <span className="contact-chip">sdomarketscoping@gmail.com</span> or call <span className="contact-chip">09258814880</span>.
         </p>
       </div>
 

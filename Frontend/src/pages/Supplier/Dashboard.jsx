@@ -680,7 +680,7 @@ const SupplierDashboard = () => {
           <h2>Assigned Procurement Files</h2>
           <p>Stay on top of your assigned procurement requests and submit quotations before the deadlines.</p>
           <p className="supplier-header-contact">
-            For inquiries, email <a className="contact-chip" href="mailto:sdomarketscoping@gmail.com">sdomarketscoping@gmail.com</a> or call <a className="contact-chip" href="tel:09258814880">09258814880</a>.
+            For inquiries, email <span className="contact-chip">sdomarketscoping@gmail.com</span> or call <span className="contact-chip">09258814880</span>.
           </p>
         </div>
       </section>
