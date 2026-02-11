@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import api from "../../api";
 import { useAuth } from "../../components/AuthContext";
 import Toast from "../../components/Toast";
+import legacyTemplate from "../../assets/supplier-legacy-template.xlsx";
 import "./UploadProducts.css";
 
 const UploadProducts = () => {
@@ -117,19 +118,18 @@ const UploadProducts = () => {
     }
   };
 
-  const handleDownloadLegacyTemplate = async () => {
-    // Serve the legacy file from the frontend public folder, e.g., public/templates/supplier-legacy-template.xlsx
-    const legacyPath = "/templates/supplier-legacy-template.xlsx";
+  const handleDownloadExcelTemplate = () => {
     try {
-      const headResp = await fetch(legacyPath, { method: "HEAD" });
-      if (!headResp.ok) {
-        throw new Error(`Legacy template not found (${headResp.status})`);
-      }
-      window.open(legacyPath, "_blank", "noopener,noreferrer");
-      setToast({ visible: true, message: 'Opening legacy Excel template...', type: 'success' });
+      const link = document.createElement('a');
+      link.href = legacyTemplate;
+      link.download = 'supplier-product-template.xlsx';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setToast({ visible: true, message: 'Excel template download started.', type: 'success' });
     } catch (err) {
-      console.error('Legacy template download failed', err);
-      setToast({ visible: true, message: 'Legacy template is not available yet. Please upload it to public/templates.', type: 'error' });
+      console.error('Excel template download failed', err);
+      setToast({ visible: true, message: 'Unable to download the Excel template. Please try again.', type: 'error' });
     }
   };
 
@@ -177,11 +177,14 @@ const UploadProducts = () => {
             <button className="template-btn" onClick={handleDownloadTemplate} disabled={isUploading}>
               Download Google Sheets Copy
             </button>
-            <button className="template-btn secondary" onClick={handleDownloadLegacyTemplate} disabled={isUploading}>
-              Download Legacy Excel Template
+            <button className="template-btn secondary" onClick={handleDownloadExcelTemplate} disabled={isUploading}>
+              Download Excel Template
             </button>
           </div>
           <span className="template-note">Includes required columns and a Categories tab. Legacy file matches the older format.</span>
+          <p className="contact-banner">
+            For inquiries, email <a href="mailto:sdomarketscoping@gmail.com">sdomarketscoping@gmail.com</a> or call <a href="tel:09258814880">09258814880</a>.
+          </p>
         </div>
       </div>
 
