@@ -196,6 +196,13 @@
   margin-top: 8px;
 }
 
+.template-button-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .template-btn {
   background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
   color: white;
@@ -224,6 +231,17 @@
 .template-note {
   color: var(--text-muted);
   font-size: 0.9rem;
+}
+
+.template-btn.secondary {
+  background: #eef2ff;
+  color: #1e3a8a;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.15);
+}
+
+.template-btn.secondary:hover {
+  box-shadow: 0 6px 18px rgba(79, 70, 229, 0.2);
 }
 
 @media (max-width: 768px) {

@@ -513,7 +513,7 @@ const DocumentChecks = ({ formData, handleChange }) => {
     { key: "hasPhilgeps", label: "PhilGEPS Registration" },
     { key: "hasSecRegistration", label: "SEC Registration" },
     { key: "hasBusinessPermit", label: "Business Permit" },
-    { key: "hasTaxClearance", label: "Tax Clearance" },
+    { key: "hasTaxClearance", label: "Tax Clearance/ BIR 2303" },
   ];
 
   return (

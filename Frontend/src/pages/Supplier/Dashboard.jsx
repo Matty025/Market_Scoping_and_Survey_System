@@ -679,6 +679,9 @@ const SupplierDashboard = () => {
           <span className="supplier-header-tagline">MSSS Supplier Workspace</span>
           <h2>Assigned Procurement Files</h2>
           <p>Stay on top of your assigned procurement requests and submit quotations before the deadlines.</p>
+          <p className="supplier-header-contact">
+            For inquiries, email <a href="mailto:sdomarketscoping@gmail.com">sdomarketscoping@gmail.com</a> or call 09258814880.
+          </p>
         </div>
       </section>
 

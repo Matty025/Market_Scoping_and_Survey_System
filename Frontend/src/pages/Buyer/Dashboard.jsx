@@ -478,6 +478,9 @@ const Dashboard = () => {
         <span className="dashboard-header-tagline">Buyer Console</span>
         <h2>Dashboard Overview</h2>
         <p>Submit procurement requests and send survey items to admin for approval.</p>
+        <p className="dashboard-header-contact">
+          For inquiries, email <a href="mailto:sdomarketscoping@gmail.com">sdomarketscoping@gmail.com</a> or call 09258814880.
+        </p>
       </div>
 
       {/* Main Content Area */}

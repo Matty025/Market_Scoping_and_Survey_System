@@ -117,6 +117,22 @@ const UploadProducts = () => {
     }
   };
 
+  const handleDownloadLegacyTemplate = async () => {
+    // Serve the legacy file from the frontend public folder, e.g., public/templates/supplier-legacy-template.xlsx
+    const legacyPath = "/templates/supplier-legacy-template.xlsx";
+    try {
+      const headResp = await fetch(legacyPath, { method: "HEAD" });
+      if (!headResp.ok) {
+        throw new Error(`Legacy template not found (${headResp.status})`);
+      }
+      window.open(legacyPath, "_blank", "noopener,noreferrer");
+      setToast({ visible: true, message: 'Opening legacy Excel template...', type: 'success' });
+    } catch (err) {
+      console.error('Legacy template download failed', err);
+      setToast({ visible: true, message: 'Legacy template is not available yet. Please upload it to public/templates.', type: 'error' });
+    }
+  };
+
   const handleDelete = async (uploadId) => {
     if (!window.confirm('Are you sure you want to delete this upload and all of its associated products? This action cannot be undone.')) {
       return;
@@ -157,10 +173,15 @@ const UploadProducts = () => {
           format (example: <code>2025-12-05</code>).
         </p>
         <div className="template-download">
-          <button className="template-btn" onClick={handleDownloadTemplate} disabled={isUploading}>
-            Download Excel Template
-          </button>
-          <span className="template-note">Includes required columns and a Categories tab.</span>
+          <div className="template-button-row">
+            <button className="template-btn" onClick={handleDownloadTemplate} disabled={isUploading}>
+              Download Google Sheets Copy
+            </button>
+            <button className="template-btn secondary" onClick={handleDownloadLegacyTemplate} disabled={isUploading}>
+              Download Legacy Excel Template
+            </button>
+          </div>
+          <span className="template-note">Includes required columns and a Categories tab. Legacy file matches the older format.</span>
         </div>
       </div>
 
