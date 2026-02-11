@@ -92,6 +92,22 @@
     text-decoration: underline;
   }
 
+  .supplier-header-contact .contact-chip {
+    background: #fef3c7;
+    color: #1d1b53;
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid rgba(250, 204, 21, 0.6);
+    box-shadow: 0 4px 10px rgba(180, 83, 9, 0.15);
+    text-decoration: none;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .supplier-header-contact .contact-chip:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 14px rgba(180, 83, 9, 0.25);
+  }
+
   /* Minimal Metrics Panel */
   .supplier-metrics-panel {
     margin-bottom: 1.5rem;

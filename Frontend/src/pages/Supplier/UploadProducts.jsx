@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import api from "../../api";
 import { useAuth } from "../../components/AuthContext";
 import Toast from "../../components/Toast";
-import legacyTemplate from "../../assets/supplier-legacy-template.xlsx";
+import legacyTemplateUrl from "../../assets/supplier-legacy-template.xlsx?url";
 import "./UploadProducts.css";
 
 const UploadProducts = () => {
@@ -121,7 +121,7 @@ const UploadProducts = () => {
   const handleDownloadExcelTemplate = () => {
     try {
       const link = document.createElement('a');
-      link.href = legacyTemplate;
+      link.href = legacyTemplateUrl;
       link.download = 'supplier-product-template.xlsx';
       document.body.appendChild(link);
       link.click();

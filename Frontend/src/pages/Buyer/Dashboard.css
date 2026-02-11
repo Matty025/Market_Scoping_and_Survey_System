@@ -80,6 +80,22 @@
   text-decoration: underline;
 }
 
+.dashboard-header-contact .contact-chip {
+  background: #fef3c7;
+  color: #1f2937;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(250, 204, 21, 0.6);
+  box-shadow: 0 4px 10px rgba(180, 83, 9, 0.15);
+  text-decoration: none;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dashboard-header-contact .contact-chip:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(180, 83, 9, 0.25);
+}
+
 /* ===== MODAL ENHANCEMENTS ===== */
 
 /* Modal Overlay with blur effect */
