@@ -18,3 +18,22 @@ build/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Root envs and local editor
+.env
+.env.*
+.env.local
+.vscode/
+.idea/
+
+# Node
+node_modules/
+
+# Frontend build output
+Frontend/dist/
+Frontend/build/
+
+# Misc
+.env.test
+.env.production
+.env.development
